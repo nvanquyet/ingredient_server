@@ -1,4 +1,5 @@
-﻿using IngredientServer.Core.Interfaces.Repositories;
+﻿using System.Net;
+using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Infrastructure.Data;
 using IngredientServer.Infrastructure.Repositories;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +19,21 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 
+// Configure Kestrel server
+builder.WebHost.ConfigureKestrel(options =>
+{
+    var configuration = builder.Configuration.GetSection("Kestrel:EndPoints");
+    foreach (var endpoint in configuration.GetChildren())
+    {
+        var url = endpoint["Url"];
+        if (string.IsNullOrEmpty(url)) continue;
+        var uri = new System.Uri(url);
+        // Sử dụng IPAddress.Any cho các host như "localhost"
+        options.Listen(IPAddress.TryParse(uri.Host, out var ipAddress) ? ipAddress : System.Net.IPAddress.Any,
+            uri.Port);
+    }
+});
+
 // Database
 // builder.Services.AddDbContext<ApplicationDbContext>(options =>
 //     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -26,8 +43,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         new MySqlServerVersion(new Version(8, 0, 21)))); // Điều chỉnh phiên bản MySQL nếu khác
 
 // Repositories
-builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IIngredientRepository, IngredientRepository>();
 
 // Services
 builder.Services.AddScoped<IAuthService, IngredientServer.Core.Services.AuthService>();
