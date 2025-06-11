@@ -30,7 +30,7 @@ namespace IngredientServer.Core.Entities
     }
 
     // Sửa từ abstract thành concrete class
-    public class Ingredient : BaseEntity
+    public sealed class Ingredient : BaseEntity
     {
         [Required]
         [StringLength(200)]
@@ -64,6 +64,7 @@ namespace IngredientServer.Core.Entities
         public bool IsExpiringSoon => DaysUntilExpiry is <= 7 and >= 0;
 
         // Navigation properties
-        public virtual User User { get; set; } = null!;
+        public User User { get; set; } = null!;
+        public ICollection<FoodIngredient> FoodIngredients { get; set; } = new List<FoodIngredient>();
     }
 }
