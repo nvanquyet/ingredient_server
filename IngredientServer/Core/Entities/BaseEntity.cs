@@ -6,6 +6,9 @@ public abstract class BaseEntity
 {
     [Key]
     public int Id { get; set; }
+    
+    [Required]
+    public int UserId { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

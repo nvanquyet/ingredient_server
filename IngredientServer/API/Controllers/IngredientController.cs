@@ -1,25 +1,34 @@
 ﻿using IngredientServer.Core.Entities;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Utils.DTOs.Ingredient;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 
 namespace IngredientServer.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class IngredientController(IIngredientRepository ingredientRepository) : BaseController
+    public class IngredientController(IIngredientRepository ingredientRepository) : ControllerBase
     {
+        private readonly IIngredientRepository _ingredientRepository = ingredientRepository;
+
         // POST: api/ingredient
         [HttpPost]
+        [Authorize] // Yêu cầu xác thực cho việc tạo ingredient
         public async Task<IActionResult> CreateIngredient([FromBody] CreateIngredientDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            var userId = GetUserIdFromContextOrDto(dto.UserId); // Lấy userId từ token hoặc DTO
+            if (userId <= 0)
+                return Unauthorized("Invalid or missing UserId");
+
             var ingredient = new Ingredient
             {
-                UserId = dto.UserId,
+                UserId = userId,
                 Name = dto.Name,
                 Description = dto.Description,
                 Category = dto.Category,
@@ -29,44 +38,56 @@ namespace IngredientServer.API.Controllers
                 ImageUrl = dto.ImageUrl
             };
 
-            var createdIngredient = await ingredientRepository.AddAsync(ingredient);
+            var createdIngredient = await _ingredientRepository.AddAsync(ingredient);
             var response = MapToResponseDto(createdIngredient);
 
             return CreatedAtAction(nameof(GetIngredient),
-                new { id = createdIngredient.Id }, response);
+                new { id = createdIngredient.Id, userId }, response);
         }
 
         // GET: api/ingredient/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetIngredient(int id)
+        [Authorize] // Yêu cầu xác thực để lấy ingredient
+        public async Task<IActionResult> GetIngredient(int id, [FromQuery] int userId)
         {
-            var ingredient = await ingredientRepository.GetByIdAsync(id);
+            if (userId <= 0)
+                return Unauthorized("Invalid UserId");
+
+            var ingredient = await _ingredientRepository.GetByIdAsync(id, userId);
             if (ingredient == null)
-                return NotFound($"Ingredient with ID {id} not found");
+                return NotFound($"Ingredient with ID {id} not found for user {userId}");
 
             var response = MapToResponseDto(ingredient);
             return Ok(response);
         }
 
-        // GET: api/ingredient/user/{userId}
-        [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetUserIngredients(int userId)
+        // GET: api/ingredient/user
+        [HttpGet("user")]
+        [Authorize] // Yêu cầu xác thực để lấy danh sách
+        public async Task<IActionResult> GetUserIngredients([FromQuery] int userId)
         {
-            var ingredients = await ingredientRepository.GetByUserIdAsync(userId);
+            if (userId <= 0)
+                return Unauthorized("Invalid UserId");
+
+            var ingredients = await _ingredientRepository.GetByUserIdAsync(userId);
             var response = ingredients.Select(MapToResponseDto).ToList();
             return Ok(response);
         }
 
         // PUT: api/ingredient/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateIngredient(int id, [FromBody] UpdateIngredientDto dto)
+        [Authorize] // Yêu cầu xác thực để cập nhật
+        public async Task<IActionResult> UpdateIngredient(int id, [FromBody] UpdateIngredientDto dto, [FromQuery] int userId)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var existingIngredient = await ingredientRepository.GetByIdAsync(id);
+            if (userId <= 0)
+                return Unauthorized("Invalid UserId");
+
+            var existingIngredient = await _ingredientRepository.GetByIdAsync(id, userId);
             if (existingIngredient == null)
-                return NotFound($"Ingredient with ID {id} not found");
+                return NotFound($"Ingredient with ID {id} not found for user {userId}");
 
             existingIngredient.Name = dto.Name;
             existingIngredient.Description = dto.Description;
@@ -76,55 +97,65 @@ namespace IngredientServer.API.Controllers
             existingIngredient.ExpiryDate = dto.ExpiryDate;
             existingIngredient.ImageUrl = dto.ImageUrl;
 
-            var updatedIngredient = await ingredientRepository.UpdateAsync(existingIngredient);
-            if (updatedIngredient == null)
-                return BadRequest("Failed to update ingredient");
-
+            var updatedIngredient = await _ingredientRepository.UpdateAsync(existingIngredient);
             var response = MapToResponseDto(updatedIngredient);
             return Ok(response);
         }
 
         // DELETE: api/ingredient/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteIngredient(int id)
+        [Authorize] // Yêu cầu xác thực để xóa
+        public async Task<IActionResult> DeleteIngredient(int id, [FromQuery] int userId)
         {
-            var success = await ingredientRepository.DeleteAsync(id);
+            if (userId <= 0)
+                return Unauthorized("Invalid UserId");
+
+            var success = await _ingredientRepository.DeleteAsync(id, userId);
             if (!success)
-                return NotFound($"Ingredient with ID {id} not found");
+                return NotFound($"Ingredient with ID {id} not found for user {userId}");
 
             return NoContent();
         }
 
-        // GET: api/ingredient/user/{userId}/expiring?days=7
-        [HttpGet("user/{userId}/expiring")]
-        public async Task<IActionResult> GetExpiringItems(
-            int userId,
-            [FromQuery] int days = 7)
+        // GET: api/ingredient/user/expiring?days=7
+        [HttpGet("user/expiring")]
+        [Authorize] // Yêu cầu xác thực
+        public async Task<IActionResult> GetExpiringItems([FromQuery] int userId, [FromQuery] int days = 7)
         {
+            if (userId <= 0)
+                return Unauthorized("Invalid UserId");
             if (days < 0)
                 return BadRequest("Days parameter must be non-negative");
 
-            var items = await ingredientRepository.GetExpiringItemsAsync(userId, days);
+            var items = await _ingredientRepository.GetExpiringItemsAsync(userId, days);
             var response = items.Select(MapToResponseDto).ToList();
             return Ok(response);
         }
 
-        // GET: api/ingredient/user/{userId}/expired
-        [HttpGet("user/{userId}/expired")]
-        public async Task<IActionResult> GetExpiredItems(int userId)
+        // GET: api/ingredient/user/expired
+        [HttpGet("user/expired")]
+        [Authorize] // Yêu cầu xác thực
+        public async Task<IActionResult> GetExpiredItems([FromQuery] int userId)
         {
-            var items = await ingredientRepository.GetExpiredItemsAsync(userId);
+            if (userId <= 0)
+                return Unauthorized("Invalid UserId");
+
+            var items = await _ingredientRepository.GetExpiredItemsAsync(userId);
             var response = items.Select(MapToResponseDto).ToList();
             return Ok(response);
         }
 
-        // GET: api/ingredient/user/{userId}/sorted?sortBy=name&sortOrder=asc
-        [HttpGet("user/{userId}/sorted")]
+        // GET: api/ingredient/user/sorted?sortBy=name&sortOrder=asc
+        [HttpGet("user/sorted")]
+        [Authorize] // Yêu cầu xác thực
         public async Task<IActionResult> GetSortedItems(
-            int userId,
+            [FromQuery] int userId,
             [FromQuery] string sortBy = "name",
             [FromQuery] string sortOrder = "asc")
         {
+            if (userId <= 0)
+                return Unauthorized("Invalid UserId");
+
             var validSortFields = new[] { "name", "expirydate", "quantity", "createdat", "category" };
             var validSortOrders = new[] { "asc", "desc" };
 
@@ -135,39 +166,55 @@ namespace IngredientServer.API.Controllers
                 return BadRequest($"Invalid sortOrder. Valid values: {string.Join(", ", validSortOrders)}");
 
             var sortDto = new IngredientSortDto { SortBy = sortBy, SortOrder = sortOrder };
-            var items = await ingredientRepository.GetSortedAsync(userId, sortDto);
+            var items = await _ingredientRepository.GetSortedAsync(userId, sortDto);
             var response = items.Select(MapToResponseDto).ToList();
             return Ok(response);
         }
 
-        // GET: api/ingredient/user/{userId}/category/{category}
-        [HttpGet("user/{userId}/category/{category}")]
-        public async Task<IActionResult> GetByCategory(int userId, IngredientCategory category)
+        // GET: api/ingredient/user/category/{category}
+        [HttpGet("user/category/{category}")]
+        [Authorize] // Yêu cầu xác thực
+        public async Task<IActionResult> GetByCategory([FromQuery] int userId, IngredientCategory category)
         {
-            var items = await ingredientRepository.GetByCategoryAsync(userId, category);
+            if (userId <= 0)
+                return Unauthorized("Invalid UserId");
+
+            var items = await _ingredientRepository.GetByCategoryAsync(userId, category);
             var response = items.Select(MapToResponseDto).ToList();
             return Ok(response);
         }
 
         // POST: api/ingredient/filter
         [HttpPost("filter")]
+        [Authorize] // Yêu cầu xác thực
         public async Task<IActionResult> GetFilteredItems([FromBody] IngredientFilterDto filter)
         {
-            var items = await ingredientRepository.GetFilteredAsync(filter);
+            if (filter == null)
+                return BadRequest("Filter data is required");
+
+            if (filter.UserId <= 0)
+                return Unauthorized("Invalid UserId");
+
+            var items = await _ingredientRepository.GetFilteredAsync(filter);
             var response = items.Select(MapToResponseDto).ToList();
             return Ok(response);
         }
 
-        // GET: api/ingredient/user/{userId}/count
-        [HttpGet("user/{userId}/count")]
-        public async Task<IActionResult> GetUserIngredientCount(int userId)
+        // GET: api/ingredient/user/count
+        [HttpGet("user/count")]
+        [Authorize] // Yêu cầu xác thực
+        public async Task<IActionResult> GetUserIngredientCount([FromQuery] int userId)
         {
-            var count = await ingredientRepository.CountByUserIdAsync(userId);
+            if (userId <= 0)
+                return Unauthorized("Invalid UserId");
+
+            var count = await _ingredientRepository.CountByUserIdAsync(userId);
             return Ok(new { Count = count });
         }
 
-        // GET: api/ingredient/categories
+        // GET: api/ingredient/categories (Endpoint công khai)
         [HttpGet("categories")]
+        [AllowAnonymous] // Cho phép truy cập mà không cần xác thực
         public IActionResult GetCategories()
         {
             var categories = Enum.GetValues<IngredientCategory>()
@@ -176,8 +223,9 @@ namespace IngredientServer.API.Controllers
             return Ok(categories);
         }
 
-        // GET: api/ingredient/units
+        // GET: api/ingredient/units (Endpoint công khai)
         [HttpGet("units")]
+        [AllowAnonymous] // Cho phép truy cập mà không cần xác thực
         public IActionResult GetUnits()
         {
             var units = Enum.GetValues<IngredientUnit>()
@@ -201,10 +249,27 @@ namespace IngredientServer.API.Controllers
                 ImageUrl = ingredient.ImageUrl,
                 CreatedAt = ingredient.CreatedAt,
                 UpdatedAt = ingredient.UpdatedAt,
-                DaysUntilExpiry = ingredient.DaysUntilExpiry,
-                IsExpired = ingredient.IsExpired,
-                IsExpiringSoon = ingredient.IsExpiringSoon
+                DaysUntilExpiry = (int) (ingredient.ExpiryDate.Date - DateTime.UtcNow).TotalDays,
+                IsExpired = ingredient.ExpiryDate.Date < DateTime.UtcNow,
+                IsExpiringSoon = ingredient.ExpiryDate.Date <= DateTime.UtcNow.AddDays(7) && ingredient.ExpiryDate.Date > DateTime.UtcNow
             };
+        }
+
+        private int GetUserIdFromContextOrDto(int? dtoUserId)
+        {
+            // Nếu có token và xác thực, ưu tiên lấy từ context
+            if (User?.Identity?.IsAuthenticated == true)
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (int.TryParse(userIdClaim, out int userIdFromToken) && userIdFromToken > 0)
+                    return userIdFromToken;
+            }
+
+            // Nếu không có token hoặc không xác thực, sử dụng userId từ DTO (nếu có)
+            if (dtoUserId.HasValue && dtoUserId > 0)
+                return dtoUserId.Value;
+
+            throw new UnauthorizedAccessException("User ID is not valid or not authenticated.");
         }
     }
 }

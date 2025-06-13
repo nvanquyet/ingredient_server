@@ -1,15 +1,16 @@
 using IngredientServer.Core.Entities;
+using IngredientServer.Utils.DTOs.Ingredient;
 
 namespace IngredientServer.Core.Interfaces.Services;
-public interface IIngredientService
+
+public interface IIngredientService : IBaseService<Ingredient>
 {
-    Task<List<Ingredient>> GetUserIngredientsAsync(int userId);
-    Task<List<Ingredient>> GetIngredientsByIdsAsync(List<int> ingredientIds, int userId);
-    Task<List<Ingredient>> GetExpiringIngredientsAsync(int userId, int daysUntilExpiry);
-    Task<Ingredient?> GetIngredientByIdAsync(int ingredientId, int userId);
-    Task<Ingredient> CreateIngredientAsync(Ingredient ingredient);
-    Task<Ingredient> UpdateIngredientAsync(Ingredient ingredient);
-    Task<bool> DeleteIngredientAsync(int ingredientId, int userId);
-    Task<List<Ingredient>> SearchIngredientsAsync(int userId, string searchTerm);
-    Task<List<Ingredient>> GetIngredientsByCategoryAsync(int userId, IngredientCategory category);
+    Task<Ingredient?> GetByIdAndUserIdAsync(int id, int userId);
+    Task<IEnumerable<Ingredient>> GetByUserIdAsync(int userId, int pageNumber = 1, int pageSize = 10);
+    Task<IEnumerable<Ingredient>> GetExpiringItemsAsync(int userId, int days = 7);
+    Task<IEnumerable<Ingredient>> GetExpiredItemsAsync(int userId);
+    Task<IEnumerable<Ingredient>> GetFilteredAsync(IngredientFilterDto filter, int pageNumber = 1, int pageSize = 10);
+    Task<IEnumerable<Ingredient>> GetSortedAsync(int userId, IngredientSortDto sort, int pageNumber = 1, int pageSize = 10);
+    Task<IEnumerable<Ingredient>> GetByCategoryAsync(int userId, IngredientCategory category, int pageNumber = 1, int pageSize = 10);
+    Task<int> CountByUserIdAsync(int userId);
 }

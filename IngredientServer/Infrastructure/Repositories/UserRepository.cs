@@ -13,19 +13,19 @@ public class UserRepository : BaseRepository<User>, IUserRepository
 
     public async Task<User?> GetByUsernameAsync(string username)
     {
-        return await _context.Users
+        return await Context.Users
             .FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower());
     }
 
     public async Task<User?> GetByEmailAsync(string email)
     {
-        return await _context.Users
+        return await Context.Users
             .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
     }
 
     public async Task<bool> ExistsAsync(string username, string email)
     {
-        return await _context.Users
+        return await Context.Users
             .AnyAsync(u => u.Username.ToLower() == username.ToLower() || 
                            u.Email.ToLower() == email.ToLower());
     }

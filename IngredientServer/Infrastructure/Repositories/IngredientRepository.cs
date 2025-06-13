@@ -6,105 +6,85 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IngredientServer.Infrastructure.Repositories;
 
-public class IngredientRepository : IIngredientRepository
+public class IngredientRepository : BaseRepository<Ingredient>, IIngredientRepository
 {
-    private readonly ApplicationDbContext _context;
-
-    public IngredientRepository(ApplicationDbContext context)
+    public IngredientRepository(ApplicationDbContext context) : base(context)
     {
-        _context = context;
-    }
-
-    public async Task<Ingredient> AddAsync(Ingredient ingredient)
-    {
-        ingredient.CreatedAt = DateTime.UtcNow;
-        _context.Ingredients.Add(ingredient);
-        await _context.SaveChangesAsync();
-        return ingredient;
-    }
-
-    public async Task<Ingredient?> UpdateAsync(Ingredient ingredient)
-    {
-        var existingIngredient = await _context.Ingredients
-            .FirstOrDefaultAsync(i => i.Id == ingredient.Id);
-
-        if (existingIngredient == null) return null;
-
-        existingIngredient.Name = ingredient.Name;
-        existingIngredient.Description = ingredient.Description;
-        existingIngredient.Quantity = ingredient.Quantity;
-        existingIngredient.Unit = ingredient.Unit;
-        existingIngredient.Category = ingredient.Category;
-        existingIngredient.ExpiryDate = ingredient.ExpiryDate;
-        existingIngredient.ImageUrl = ingredient.ImageUrl;
-        existingIngredient.UpdatedAt = DateTime.UtcNow;
-
-        await _context.SaveChangesAsync();
-        return existingIngredient;
-    }
-
-    public async Task<bool> DeleteAsync(int id)
-    {
-        var ingredient = await _context.Ingredients.FindAsync(id);
-        if (ingredient == null) return false;
-
-        _context.Ingredients.Remove(ingredient);
-        await _context.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<Ingredient?> GetByIdAsync(int id)
-    {
-        return await _context.Ingredients
-            .Include(i => i.User)
-            .FirstOrDefaultAsync(i => i.Id == id);
     }
 
     public async Task<Ingredient?> GetByIdAndUserIdAsync(int id, int userId)
     {
-        return await _context.Ingredients
-            .FirstOrDefaultAsync(i => i.Id == id && i.UserId == userId);
+        if (id <= 0 || userId <= 0)
+            throw new ArgumentException("Invalid id or userId");
+
+        return await GetByIdAsync(id, userId); // Tái sử dụng từ BaseRepository
     }
 
-    public async Task<List<Ingredient>> GetAllAsync()
+    public async Task<List<Ingredient>> GetByUserIdAsync(int userId, int pageNumber = 1, int pageSize = 10)
     {
-        return await _context.Ingredients
-            .Include(i => i.User)
-            .ToListAsync();
-    }
+        if (userId <= 0)
+            throw new ArgumentException("Invalid userId");
+        if (pageNumber < 1)
+            throw new ArgumentException("Invalid pageNumber");
+        if (pageSize <= 0)
+            throw new ArgumentException("Invalid pageSize");
 
-    public async Task<List<Ingredient>> GetByUserIdAsync(int userId)
-    {
-        return await _context.Ingredients
+        return await Context.Set<Ingredient>()
             .Where(i => i.UserId == userId)
             .OrderBy(i => i.ExpiryDate)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
             .ToListAsync();
     }
 
     public async Task<List<Ingredient>> GetExpiringItemsAsync(int userId, int days = 7)
     {
-        var cutoffDate = DateTime.Now.Date.AddDays(days);
-        return await _context.Ingredients
+        if (userId <= 0)
+            throw new ArgumentException("Invalid userId");
+        if (days < 0)
+            throw new ArgumentException("Invalid days");
+
+        var cutoffDate = DateTime.UtcNow.Date.AddDays(days);
+        return await Context.Set<Ingredient>()
             .Where(i => i.UserId == userId &&
                         i.ExpiryDate.Date <= cutoffDate &&
-                        i.ExpiryDate.Date >= DateTime.Now.Date)
+                        i.ExpiryDate.Date >= DateTime.UtcNow.Date)
             .OrderBy(i => i.ExpiryDate)
+            .AsNoTracking()
             .ToListAsync();
     }
 
     public async Task<List<Ingredient>> GetExpiredItemsAsync(int userId)
     {
-        return await _context.Ingredients
-            .Where(i => i.UserId == userId && i.ExpiryDate.Date < DateTime.Now.Date)
+        if (userId <= 0)
+            throw new ArgumentException("Invalid userId");
+
+        return await Context.Set<Ingredient>()
+            .Where(i => i.UserId == userId &&
+                        i.ExpiryDate.Date < DateTime.UtcNow.Date)
             .OrderBy(i => i.ExpiryDate)
+            .AsNoTracking()
             .ToListAsync();
     }
 
-    public async Task<List<Ingredient>> GetFilteredAsync(IngredientFilterDto filter)
+    public async Task<List<Ingredient>> GetFilteredAsync(IngredientFilterDto filter, int pageNumber = 1, int pageSize = 10)
     {
-        var query = _context.Ingredients.AsQueryable();
+        if (filter == null)
+            throw new ArgumentNullException(nameof(filter));
+        if (filter.UserId <= 0)
+            throw new ArgumentException("Invalid UserId");
+        if (pageNumber < 1)
+            throw new ArgumentException("Invalid pageNumber");
+        if (pageSize <= 0)
+            throw new ArgumentException("Invalid pageSize");
 
-        query = query.Where(i => i.UserId == filter.UserId);
+        var query = Context.Set<Ingredient>()
+            .Where(i => i.UserId == filter.UserId);
+
+        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+            query = query.Where(i => i.Name.ToLower().Contains(filter.SearchTerm.ToLower()) ||
+                                    (i.Description != null && i.Description.ToLower().Contains(filter.SearchTerm.ToLower())));
 
         if (filter.Category.HasValue)
             query = query.Where(i => i.Category == filter.Category.Value);
@@ -115,16 +95,16 @@ public class IngredientRepository : IIngredientRepository
         if (filter.IsExpired.HasValue)
         {
             if (filter.IsExpired.Value)
-                query = query.Where(i => i.ExpiryDate.Date < DateTime.Now.Date);
+                query = query.Where(i => i.ExpiryDate.Date < DateTime.UtcNow.Date);
             else
-                query = query.Where(i => i.ExpiryDate.Date >= DateTime.Now.Date);
+                query = query.Where(i => i.ExpiryDate.Date >= DateTime.UtcNow.Date);
         }
 
         if (filter.IsExpiringSoon.HasValue && filter.IsExpiringSoon.Value)
         {
-            var cutoffDate = DateTime.Now.Date.AddDays(7);
+            var cutoffDate = DateTime.UtcNow.Date.AddDays(7);
             query = query.Where(i => i.ExpiryDate.Date <= cutoffDate &&
-                                     i.ExpiryDate.Date >= DateTime.Now.Date);
+                                    i.ExpiryDate.Date >= DateTime.UtcNow.Date);
         }
 
         if (filter.ExpiryDateFrom.HasValue)
@@ -133,16 +113,26 @@ public class IngredientRepository : IIngredientRepository
         if (filter.ExpiryDateTo.HasValue)
             query = query.Where(i => i.ExpiryDate.Date <= filter.ExpiryDateTo.Value.Date);
 
-        if (!string.IsNullOrEmpty(filter.SearchTerm))
-            query = query.Where(i => i.Name.Contains(filter.SearchTerm) ||
-                                     (i.Description != null && i.Description.Contains(filter.SearchTerm)));
-
-        return await query.ToListAsync();
+        return await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
+            .ToListAsync();
     }
 
-    public async Task<List<Ingredient>> GetSortedAsync(int userId, IngredientSortDto sort)
+    public async Task<List<Ingredient>> GetSortedAsync(int userId, IngredientSortDto sort, int pageNumber = 1, int pageSize = 10)
     {
-        var query = _context.Ingredients.Where(i => i.UserId == userId);
+        if (userId <= 0)
+            throw new ArgumentException("Invalid userId");
+        if (sort == null)
+            throw new ArgumentNullException(nameof(sort));
+        if (pageNumber < 1)
+            throw new ArgumentException("Invalid pageNumber");
+        if (pageSize <= 0)
+            throw new ArgumentException("Invalid pageSize");
+
+        var query = Context.Set<Ingredient>()
+            .Where(i => i.UserId == userId);
 
         query = sort.SortBy.ToLower() switch
         {
@@ -164,25 +154,37 @@ public class IngredientRepository : IIngredientRepository
             _ => query.OrderBy(i => i.Name)
         };
 
-        return await query.ToListAsync();
+        return await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
+            .ToListAsync();
     }
 
-    public async Task<List<Ingredient>> GetByCategoryAsync(int userId, IngredientCategory category)
+    public async Task<List<Ingredient>> GetByCategoryAsync(int userId, IngredientCategory category, int pageNumber = 1, int pageSize = 10)
     {
-        return await _context.Ingredients
+        if (userId <= 0)
+            throw new ArgumentException("Invalid userId");
+        if (pageNumber < 1)
+            throw new ArgumentException("Invalid pageNumber");
+        if (pageSize <= 0)
+            throw new ArgumentException("Invalid pageSize");
+
+        return await Context.Set<Ingredient>()
             .Where(i => i.UserId == userId && i.Category == category)
             .OrderBy(i => i.ExpiryDate)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
             .ToListAsync();
     }
 
     public async Task<int> CountByUserIdAsync(int userId)
     {
-        return await _context.Ingredients.CountAsync(i => i.UserId == userId);
-    }
+        if (userId <= 0)
+            throw new ArgumentException("Invalid userId");
 
-    public async Task<bool> ExistsAsync(int id, int userId)
-    {
-        return await _context.Ingredients
-            .AnyAsync(i => i.Id == id && i.UserId == userId);
+        return await Context.Set<Ingredient>()
+            .CountAsync(i => i.UserId == userId);
     }
 }

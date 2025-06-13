@@ -40,9 +40,6 @@ namespace IngredientServer.Core.Entities
         public string? Description { get; set; }
 
         [Required]
-        public int UserId { get; set; }
-
-        [Required]
         [Column(TypeName = "decimal(10,2)")]
         public decimal Quantity { get; set; }
 
@@ -65,6 +62,5 @@ namespace IngredientServer.Core.Entities
 
         // Navigation properties
         public User User { get; set; } = null!;
-        public ICollection<FoodIngredient> FoodIngredients { get; set; } = new List<FoodIngredient>();
     }
 }

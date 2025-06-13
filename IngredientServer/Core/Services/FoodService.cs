@@ -1,6 +1,10 @@
 using IngredientServer.Core.Entities;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using IngredientServer.Core.Exceptions;
 
 namespace IngredientServer.Core.Services;
 
@@ -13,49 +17,77 @@ public class FoodService : IFoodService
         _foodRepository = foodRepository;
     }
 
-    public async Task<List<Food>> GetUserFoodsAsync(int userId)
+    public async Task<Food?> GetByIdAsync(int id, int userId)
     {
-        return await _foodRepository.GetByUserIdAsync(userId);
+        if (id <= 0 || userId <= 0)
+            throw new ArgumentException("Invalid id or userId");
+
+        return await _foodRepository.GetByIdAsync(id, userId);
     }
 
-    public async Task<Food?> GetFoodByIdAsync(int foodId, int userId)
+    public async Task<IEnumerable<Food>> GetAllAsync(int userId, int pageNumber = 1, int pageSize = 10)
     {
-        return await _foodRepository.GetByIdAndUserIdAsync(foodId, userId);
+        if (userId <= 0)
+            throw new ArgumentException("Invalid userId");
+        if (pageNumber < 1)
+            throw new ArgumentException("Invalid pageNumber");
+        if (pageSize <= 0)
+            throw new ArgumentException("Invalid pageSize");
+
+        return await _foodRepository.GetAllAsync(userId, pageNumber, pageSize);
     }
 
-    public async Task<Food> CreateFoodAsync(Food food)
+    public async Task<Food> AddAsync(Food entity)
     {
-        food.CreatedAt = DateTime.UtcNow;
-        food.UpdatedAt = DateTime.UtcNow;
-        return await _foodRepository.CreateAsync(food);
+        if (entity == null)
+            throw new ArgumentNullException(nameof(entity));
+        if (entity.UserId <= 0)
+            throw new ArgumentException("Invalid UserId");
+        if (string.IsNullOrWhiteSpace(entity.Name))
+            throw new ArgumentException("Name is required");
+
+        return await _foodRepository.AddAsync(entity);
     }
 
-    public async Task<Food> UpdateFoodAsync(Food food)
+    public async Task<Food> UpdateAsync(Food entity)
     {
-        food.UpdatedAt = DateTime.UtcNow;
-        return await _foodRepository.UpdateAsync(food);
+        if (entity == null)
+            throw new ArgumentNullException(nameof(entity));
+        if (entity.Id <= 0 || entity.UserId <= 0)
+            throw new ArgumentException("Invalid Id or UserId");
+
+        var existing = await _foodRepository.GetByIdAsync(entity.Id, entity.UserId);
+        if (existing == null)
+            throw new NotFoundException($"Food with ID {entity.Id} not found for user {entity.UserId}");
+
+        return await _foodRepository.UpdateAsync(entity);
     }
 
-    public async Task<bool> DeleteFoodAsync(int foodId, int userId)
+    public async Task<bool> DeleteAsync(int id, int userId)
     {
-        var food = await _foodRepository.GetByIdAndUserIdAsync(foodId, userId);
-        if (food == null) return false;
-            
-        return await _foodRepository.DeleteAsync(food);
+        if (id <= 0 || userId <= 0)
+            throw new ArgumentException("Invalid id or userId");
+
+        return await _foodRepository.DeleteAsync(id, userId);
     }
 
-    public async Task<List<Food>> SearchFoodsAsync(int userId, string searchTerm)
+    public async Task<bool> ExistsAsync(int id, int userId)
     {
-        return await _foodRepository.SearchAsync(userId, searchTerm);
+        if (id <= 0 || userId <= 0)
+            throw new ArgumentException("Invalid id or userId");
+
+        return await _foodRepository.ExistsAsync(id, userId);
     }
 
-    public async Task<List<Food>> GetFoodsByCategoryAsync(int userId, FoodCategory category)
+    public async Task<Food?> GetFoodDetailsAsync(int foodId, int userId)
     {
-        return await _foodRepository.GetByCategoryAsync(userId, category);
-    }
+        if (foodId <= 0 || userId <= 0)
+            throw new ArgumentException("Invalid foodId or userId");
 
-    public async Task<List<Food>> GetFoodsByIngredientsAsync(int userId, List<int> ingredientIds)
-    {
-        return await _foodRepository.GetByIngredientsAsync(userId, ingredientIds);
+        var food = await _foodRepository.GetFoodDetailsAsync(foodId, userId);
+        if (food == null)
+            throw new NotFoundException($"Food with ID {foodId} not found for user {userId}");
+
+        return food;
     }
 }
