@@ -45,7 +45,22 @@ public class BaseRepository<T> : IBaseRepository<T> where T : BaseEntity
         return entity;
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public Task<T> CreateAsync(T entity)
+    {
+        //Create async
+        var newEntity = _dbSet.Add(entity);
+        return Task.FromResult(newEntity.Entity);
+    }
+
+    public async Task<bool> DeleteAsync(T entity)
+    {
+        //var entity = await GetByIdAsync(id);
+        _dbSet.Remove(entity);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteByIdAsync(int id)
     {
         var entity = await GetByIdAsync(id);
         if (entity == null)
