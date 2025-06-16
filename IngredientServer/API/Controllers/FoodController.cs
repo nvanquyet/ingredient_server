@@ -21,7 +21,7 @@ namespace IngredientServer.API.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var userId = GetUserIdFromContextOrDto(dto.UserId);
+            var userId = GetCurrentUserId();
             if (userId <= 0)
                 return Unauthorized("Invalid or missing UserId");
 
@@ -38,46 +38,78 @@ namespace IngredientServer.API.Controllers
             var response = MapToResponseDto(createdFood);
 
             return CreatedAtAction(nameof(GetFood),
-                new { id = createdFood.Id, userId }, response);
+                new { id = createdFood.Id }, response);
         }
 
         // PUT: api/food/{id}
         [HttpPut("{id}")]
         [Authorize]
-        public async Task<IActionResult> UpdateFood(int id, [FromBody] UpdateFoodDto dto, [FromQuery] int userId)
+        public async Task<IActionResult> UpdateFood(int id, [FromBody] UpdateFoodDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-
-            if (userId <= 0)
-                return Unauthorized("Invalid UserId");
-
-            var existingFood = await _foodRepository.GetByIdAsync(id, userId);
+            var existingFood = await _foodRepository.GetByIdAsync(id);
             if (existingFood == null)
-                return NotFound($"Food with ID {id} not found for user {userId}");
+                return NotFound($"Food with ID {id} not found");
 
             existingFood.Name = dto.Name;
             existingFood.Category = dto.Category;
             existingFood.Recipe = dto.Recipe;
             existingFood.PreparationTimeMinutes = dto.PreparationTimeMinutes;
-            existingFood.UpdatedAt = DateTime.UtcNow; // Cập nhật thời gian
+            existingFood.UpdatedAt = DateTime.UtcNow;
 
             var updatedFood = await _foodRepository.UpdateAsync(existingFood);
             var response = MapToResponseDto(updatedFood);
             return Ok(response);
         }
 
-        // ... (các phương thức khác như GetFood, DeleteFood giữ nguyên)
+        // GET: api/food/{id}
         [HttpGet("{id}")]
         [Authorize]
-        public async Task<IActionResult> GetFood(int id, [FromQuery] int userId)
+        public async Task<IActionResult> GetFood(int id)
         {
+            var userId = GetCurrentUserId();
             if (userId <= 0)
                 return Unauthorized("Invalid UserId");
 
-            var food = await _foodRepository.GetByIdAsync(id, userId);
+            var food = await _foodRepository.GetByIdAsync(id);
             if (food == null)
-                return NotFound($"Food with ID {id} not found for user {userId}");
+                return NotFound($"Food with ID {id} not found");
+
+            var response = MapToResponseDto(food);
+            return Ok(response);
+        }
+
+        // GET: api/food
+        [HttpGet]
+        [Authorize]
+        public async Task<IActionResult> GetAllFoods([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        {
+            var foods = await _foodRepository.GetAllAsync(pageNumber, pageSize);
+            var response = foods.Select(MapToResponseDto).ToList();
+            return Ok(response);
+        }
+
+        // DELETE: api/food/{id}
+        [HttpDelete("{id}")]
+        [Authorize]
+        public async Task<IActionResult> DeleteFood(int id)
+        {
+            var result = await _foodRepository.DeleteAsync(id);
+            if (!result)
+                return NotFound($"Food with ID {id} not found");
+
+            return NoContent();
+        }
+
+        // GET: api/food/{id}/details
+        [HttpGet("{id}/details")]
+        [Authorize]
+        public async Task<IActionResult> GetFoodDetails(int id)
+        {
+            var food = await _foodRepository.GetFoodDetailsAsync(id);
+            if (food == null)
+                return NotFound($"Food with ID {id} not found");
 
             var response = MapToResponseDto(food);
             return Ok(response);
@@ -97,22 +129,14 @@ namespace IngredientServer.API.Controllers
             };
         }
 
-        private int GetUserIdFromContextOrDto(int? dtoUserId)
+        private int GetCurrentUserId()
         {
-            var userIdFromToken = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (int.TryParse(userIdFromToken, out int tokenUserId) && tokenUserId > 0)
+            var userIdClaim = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdClaim, out int userId) && userId > 0)
             {
-                if (dtoUserId.HasValue && dtoUserId != tokenUserId)
-                    throw new UnauthorizedAccessException("UserId from DTO does not match authenticated user.");
-                return tokenUserId;
+                return userId;
             }
-
-            if (dtoUserId.HasValue && dtoUserId > 0)
-                return dtoUserId.Value;
-
-            throw new UnauthorizedAccessException("User ID is not valid or not authenticated.");
+            return 0;
         }
     }
-
-   
 }

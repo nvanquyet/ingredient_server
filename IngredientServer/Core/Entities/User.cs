@@ -46,7 +46,7 @@ namespace IngredientServer.Core.Entities
         [MaxLength(50)]
         public string Username { get; set; } = string.Empty;
 
-        [Required]
+        //[Required]
         [EmailAddress]
         [MaxLength(100)]
         public string Email { get; set; } = string.Empty;

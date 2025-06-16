@@ -1,37 +1,35 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿// BaseController.cs
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace IngredientServer.API.Controllers;
 
-public class BaseController : ControllerBase
+public abstract class BaseController : ControllerBase
 {
-    protected IActionResult HandleResponse<T>(bool success, string message, T? data = default)
+    protected int GetCurrentUserId()
     {
-        var response = new
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        
+        if (!int.TryParse(userIdClaim, out int userId) || userId <= 0)
         {
-            Success = success,
-            Message = message,
-            Data = data
-        };
-
-        if (success)
-        {
-            return Ok(response);
+            throw new UnauthorizedAccessException("Invalid or missing user authentication.");
         }
 
-        return BadRequest(response);
+        return userId;
     }
 
-    protected IActionResult HandleException(Exception ex, string message = "An error occurred")
+    protected string GetCurrentUsername()
     {
-        // Log the exception here if needed
-        
-        var response = new
-        {
-            Success = false,
-            Message = message,
-            Data = (object?)null
-        };
+        return User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
+    }
 
-        return StatusCode(500, response);
+    protected string GetCurrentUserEmail()
+    {
+        return User.FindFirst(ClaimTypes.Email)?.Value ?? string.Empty;
+    }
+
+    protected bool IsAuthenticated()
+    {
+        return User?.Identity?.IsAuthenticated == true;
     }
 }

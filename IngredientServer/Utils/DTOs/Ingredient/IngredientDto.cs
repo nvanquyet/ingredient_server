@@ -5,40 +5,50 @@ namespace IngredientServer.Utils.DTOs.Ingredient
 {
     public class CreateIngredientDto
     {
-        [Required] public int UserId { get; set; }
+        [Required]
+        [StringLength(200)]
+        public string Name { get; set; } = string.Empty;
 
-        [Required] [StringLength(200)] public string Name { get; set; } = string.Empty;
-
-        [StringLength(1000)] public string? Description { get; set; }
+        [StringLength(1000)]
+        public string? Description { get; set; }
 
         [Required]
         [Range(0.01, double.MaxValue, ErrorMessage = "Quantity must be greater than 0")]
         public decimal Quantity { get; set; }
 
-        [Required] public IngredientUnit Unit { get; set; }
+        [Required]
+        public IngredientUnit Unit { get; set; }
 
-        [Required] public IngredientCategory Category { get; set; }
+        [Required]
+        public IngredientCategory Category { get; set; }
 
-        [Required] public DateTime ExpiryDate { get; set; }
+        [Required]
+        public DateTime ExpiryDate { get; set; }
 
         public string? ImageUrl { get; set; }
     }
 
     public class UpdateIngredientDto
     {
-        [Required] [StringLength(200)] public string Name { get; set; } = string.Empty;
+        [Required]
+        [StringLength(200)]
+        public string Name { get; set; } = string.Empty;
 
-        [StringLength(1000)] public string? Description { get; set; }
+        [StringLength(1000)]
+        public string? Description { get; set; }
 
         [Required]
         [Range(0.01, double.MaxValue)]
         public decimal Quantity { get; set; }
 
-        [Required] public IngredientUnit Unit { get; set; }
+        [Required]
+        public IngredientUnit Unit { get; set; }
 
-        [Required] public IngredientCategory Category { get; set; }
+        [Required]
+        public IngredientCategory Category { get; set; }
 
-        [Required] public DateTime ExpiryDate { get; set; }
+        [Required]
+        public DateTime ExpiryDate { get; set; }
 
         public string? ImageUrl { get; set; }
     }
@@ -63,7 +73,8 @@ namespace IngredientServer.Utils.DTOs.Ingredient
 
     public class IngredientFilterDto
     {
-        public int UserId { get; set; }
+        // Loại bỏ UserId - sẽ lấy từ JWT token
+        
         public IngredientCategory? Category { get; set; }
         public IngredientUnit? Unit { get; set; }
         public bool? IsExpired { get; set; }

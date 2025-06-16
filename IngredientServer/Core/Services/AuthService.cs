@@ -51,7 +51,7 @@ public class AuthService : IAuthService
 
             // Update last login
             user.LastLoginAt = DateTime.UtcNow;
-            await _userRepository.UpdateAsync(user);
+            await _userRepository.UpdateForLoginAsync(user);
 
             var token = GenerateJwtToken(user);
             var response = new AuthResponseDto
@@ -102,7 +102,8 @@ public class AuthService : IAuthService
                 LastName = registerDto.LastName
             };
 
-            await _userRepository.AddAsync(user);
+            // Use AddForRegistrationAsync instead of AddAsync to avoid authentication context issues
+            await _userRepository.AddForRegistrationAsync(user);
 
             var token = GenerateJwtToken(user);
             var response = new AuthResponseDto

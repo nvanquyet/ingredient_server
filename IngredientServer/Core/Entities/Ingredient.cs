@@ -61,6 +61,7 @@ namespace IngredientServer.Core.Entities
         public bool IsExpiringSoon => DaysUntilExpiry is <= 7 and >= 0;
 
         // Navigation properties
+        [ForeignKey("UserId")]
         public User User { get; set; } = null!;
     }
 }

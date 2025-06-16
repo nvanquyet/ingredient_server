@@ -1,16 +1,15 @@
 ﻿using IngredientServer.Core.Entities;
 using IngredientServer.Core.Interfaces.Repositories;
+using IngredientServer.Core.Interfaces.Services;
+using IngredientServer.Core.Services;
 using IngredientServer.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace IngredientServer.Infrastructure.Repositories;
 
-public class UserRepository : BaseRepository<User>, IUserRepository
+public class UserRepository(ApplicationDbContext context, IUserContextService userContextService)
+    : BaseRepository<User>(context, userContextService), IUserRepository
 {
-    public UserRepository(ApplicationDbContext context) : base(context)
-    {
-    }
-
     public async Task<User?> GetByUsernameAsync(string username)
     {
         return await Context.Users
@@ -28,5 +27,23 @@ public class UserRepository : BaseRepository<User>, IUserRepository
         return await Context.Users
             .AnyAsync(u => u.Username.ToLower() == username.ToLower() || 
                            u.Email.ToLower() == email.ToLower());
+    }
+    
+    public async Task<User> AddForRegistrationAsync(User user)
+    {
+        user.CreatedAt = DateTime.UtcNow;
+        user.UpdatedAt = DateTime.UtcNow;
+        user.IsActive = true;
+        
+        Context.Users.Add(user);
+        await Context.SaveChangesAsync();
+        return user;
+    }
+    
+    public async Task UpdateForLoginAsync(User user)
+    {
+        user.UpdatedAt = DateTime.UtcNow;
+        Context.Users.Update(user);
+        await Context.SaveChangesAsync();
     }
 }

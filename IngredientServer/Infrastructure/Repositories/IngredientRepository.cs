@@ -1,36 +1,20 @@
 ﻿using IngredientServer.Core.Entities;
 using IngredientServer.Core.Interfaces.Repositories;
+using IngredientServer.Core.Interfaces.Services;
+using IngredientServer.Core.Services;
 using IngredientServer.Infrastructure.Data;
 using IngredientServer.Utils.DTOs.Ingredient;
 using Microsoft.EntityFrameworkCore;
 
 namespace IngredientServer.Infrastructure.Repositories;
 
-public class IngredientRepository : BaseRepository<Ingredient>, IIngredientRepository
+public class IngredientRepository(ApplicationDbContext context, IUserContextService userContextService)
+    : BaseRepository<Ingredient>(context, userContextService), IIngredientRepository
 {
-    public IngredientRepository(ApplicationDbContext context) : base(context)
+    public async Task<List<Ingredient>> GetAllUserIngredientsAsync(int pageNumber = 1, int pageSize = 10)
     {
-    }
-
-    public async Task<Ingredient?> GetByIdAndUserIdAsync(int id, int userId)
-    {
-        if (id <= 0 || userId <= 0)
-            throw new ArgumentException("Invalid id or userId");
-
-        return await GetByIdAsync(id, userId); // Tái sử dụng từ BaseRepository
-    }
-
-    public async Task<List<Ingredient>> GetByUserIdAsync(int userId, int pageNumber = 1, int pageSize = 10)
-    {
-        if (userId <= 0)
-            throw new ArgumentException("Invalid userId");
-        if (pageNumber < 1)
-            throw new ArgumentException("Invalid pageNumber");
-        if (pageSize <= 0)
-            throw new ArgumentException("Invalid pageSize");
-
         return await Context.Set<Ingredient>()
-            .Where(i => i.UserId == userId)
+            .Where(i => i.UserId == AuthenticatedUserId)
             .OrderBy(i => i.ExpiryDate)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -38,16 +22,11 @@ public class IngredientRepository : BaseRepository<Ingredient>, IIngredientRepos
             .ToListAsync();
     }
 
-    public async Task<List<Ingredient>> GetExpiringItemsAsync(int userId, int days = 7)
+    public async Task<List<Ingredient>> GetExpiringItemsAsync(int days = 7)
     {
-        if (userId <= 0)
-            throw new ArgumentException("Invalid userId");
-        if (days < 0)
-            throw new ArgumentException("Invalid days");
-
         var cutoffDate = DateTime.UtcNow.Date.AddDays(days);
         return await Context.Set<Ingredient>()
-            .Where(i => i.UserId == userId &&
+            .Where(i => i.UserId == AuthenticatedUserId &&
                         i.ExpiryDate.Date <= cutoffDate &&
                         i.ExpiryDate.Date >= DateTime.UtcNow.Date)
             .OrderBy(i => i.ExpiryDate)
@@ -55,13 +34,10 @@ public class IngredientRepository : BaseRepository<Ingredient>, IIngredientRepos
             .ToListAsync();
     }
 
-    public async Task<List<Ingredient>> GetExpiredItemsAsync(int userId)
+    public async Task<List<Ingredient>> GetExpiredItemsAsync()
     {
-        if (userId <= 0)
-            throw new ArgumentException("Invalid userId");
-
         return await Context.Set<Ingredient>()
-            .Where(i => i.UserId == userId &&
+            .Where(i => i.UserId == AuthenticatedUserId &&
                         i.ExpiryDate.Date < DateTime.UtcNow.Date)
             .OrderBy(i => i.ExpiryDate)
             .AsNoTracking()
@@ -70,17 +46,8 @@ public class IngredientRepository : BaseRepository<Ingredient>, IIngredientRepos
 
     public async Task<List<Ingredient>> GetFilteredAsync(IngredientFilterDto filter, int pageNumber = 1, int pageSize = 10)
     {
-        if (filter == null)
-            throw new ArgumentNullException(nameof(filter));
-        if (filter.UserId <= 0)
-            throw new ArgumentException("Invalid UserId");
-        if (pageNumber < 1)
-            throw new ArgumentException("Invalid pageNumber");
-        if (pageSize <= 0)
-            throw new ArgumentException("Invalid pageSize");
-
         var query = Context.Set<Ingredient>()
-            .Where(i => i.UserId == filter.UserId);
+            .Where(i => i.UserId == AuthenticatedUserId);
 
         if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
             query = query.Where(i => i.Name.ToLower().Contains(filter.SearchTerm.ToLower()) ||
@@ -120,19 +87,10 @@ public class IngredientRepository : BaseRepository<Ingredient>, IIngredientRepos
             .ToListAsync();
     }
 
-    public async Task<List<Ingredient>> GetSortedAsync(int userId, IngredientSortDto sort, int pageNumber = 1, int pageSize = 10)
+    public async Task<List<Ingredient>> GetSortedAsync(IngredientSortDto sort, int pageNumber = 1, int pageSize = 10)
     {
-        if (userId <= 0)
-            throw new ArgumentException("Invalid userId");
-        if (sort == null)
-            throw new ArgumentNullException(nameof(sort));
-        if (pageNumber < 1)
-            throw new ArgumentException("Invalid pageNumber");
-        if (pageSize <= 0)
-            throw new ArgumentException("Invalid pageSize");
-
         var query = Context.Set<Ingredient>()
-            .Where(i => i.UserId == userId);
+            .Where(i => i.UserId == AuthenticatedUserId);
 
         query = sort.SortBy.ToLower() switch
         {
@@ -161,17 +119,10 @@ public class IngredientRepository : BaseRepository<Ingredient>, IIngredientRepos
             .ToListAsync();
     }
 
-    public async Task<List<Ingredient>> GetByCategoryAsync(int userId, IngredientCategory category, int pageNumber = 1, int pageSize = 10)
+    public async Task<List<Ingredient>> GetByCategoryAsync(IngredientCategory category, int pageNumber = 1, int pageSize = 10)
     {
-        if (userId <= 0)
-            throw new ArgumentException("Invalid userId");
-        if (pageNumber < 1)
-            throw new ArgumentException("Invalid pageNumber");
-        if (pageSize <= 0)
-            throw new ArgumentException("Invalid pageSize");
-
         return await Context.Set<Ingredient>()
-            .Where(i => i.UserId == userId && i.Category == category)
+            .Where(i => i.UserId == AuthenticatedUserId && i.Category == category)
             .OrderBy(i => i.ExpiryDate)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -179,12 +130,9 @@ public class IngredientRepository : BaseRepository<Ingredient>, IIngredientRepos
             .ToListAsync();
     }
 
-    public async Task<int> CountByUserIdAsync(int userId)
+    public async Task<int> GetUserIngredientCountAsync()
     {
-        if (userId <= 0)
-            throw new ArgumentException("Invalid userId");
-
         return await Context.Set<Ingredient>()
-            .CountAsync(i => i.UserId == userId);
+            .CountAsync(i => i.UserId == AuthenticatedUserId);
     }
 }

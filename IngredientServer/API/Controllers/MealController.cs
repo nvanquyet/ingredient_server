@@ -23,7 +23,7 @@ namespace IngredientServer.API.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var userId = GetUserIdFromContextOrDto(dto.UserId);
+            var userId = GetCurrentUserId();
             if (userId <= 0)
                 return Unauthorized("Invalid or missing UserId");
 
@@ -38,27 +38,24 @@ namespace IngredientServer.API.Controllers
             var response = MapToResponseDto(createdMeal);
 
             return CreatedAtAction(nameof(GetMeal),
-                new { id = createdMeal.Id, userId }, response);
+                new { id = createdMeal.Id }, response);
         }
 
         // PUT: api/meal/{id}
         [HttpPut("{id}")]
         [Authorize]
-        public async Task<IActionResult> UpdateMeal(int id, [FromBody] UpdateMealDto dto, [FromQuery] int userId)
+        public async Task<IActionResult> UpdateMeal(int id, [FromBody] UpdateMealDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            if (userId <= 0)
-                return Unauthorized("Invalid UserId");
-
-            var existingMeal = await _mealRepository.GetByIdAsync(id, userId);
+            var existingMeal = await _mealRepository.GetByIdAsync(id);
             if (existingMeal == null)
-                return NotFound($"Meal with ID {id} not found for user {userId}");
+                return NotFound($"Meal with ID {id} not found");
 
             existingMeal.MealType = EnumExtension.ConvertStringToMealType<MealType>(dto.Name);
             existingMeal.MealDate = dto.MealDate;
-            existingMeal.UpdatedAt = DateTime.UtcNow; // Cập nhật thời gian
+            existingMeal.UpdatedAt = DateTime.UtcNow;
 
             var updatedMeal = await _mealRepository.UpdateAsync(existingMeal);
             var response = MapToResponseDto(updatedMeal);
@@ -68,44 +65,93 @@ namespace IngredientServer.API.Controllers
         // POST: api/meal/{mealId}/foods
         [HttpPost("{mealId}/foods")]
         [Authorize]
-        public async Task<IActionResult> AddFoodToMeal(int mealId, [FromBody] AddFoodToMealDto dto, [FromQuery] int userId)
+        public async Task<IActionResult> AddFoodToMeal(int mealId, [FromBody] AddFoodToMealDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-
-            if (userId <= 0)
-                return Unauthorized("Invalid UserId");
-
-            await _mealRepository.AddFoodToMealAsync(mealId, dto.FoodId, dto.PortionWeight, userId);
-            return NoContent();
+            try
+            {
+                await _mealRepository.AddFoodToMealAsync(mealId, dto.FoodId, dto.PortionWeight);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         // DELETE: api/meal/{mealId}/foods/{foodId}
         [HttpDelete("{mealId}/foods/{foodId}")]
         [Authorize]
-        public async Task<IActionResult> RemoveFoodFromMeal(int mealId, int foodId, [FromQuery] int userId)
+        public async Task<IActionResult> RemoveFoodFromMeal(int mealId, int foodId)
         {
-            if (userId <= 0)
-                return Unauthorized("Invalid UserId");
-
-            await _mealRepository.RemoveFoodFromMealAsync(mealId, foodId, userId);
-            return NoContent();
+            try
+            {
+                await _mealRepository.RemoveFoodFromMealAsync(mealId, foodId);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
-        // ... (các phương thức khác như GetMeal, GetRecentMeals giữ nguyên)
+        // GET: api/meal/{id}
         [HttpGet("{id}")]
         [Authorize]
-        public async Task<IActionResult> GetMeal(int id, [FromQuery] int userId)
+        public async Task<IActionResult> GetMeal(int id)
         {
-            if (userId <= 0)
-                return Unauthorized("Invalid UserId");
-
-            var meal = await _mealRepository.GetByIdAsync(id, userId);
+            var meal = await _mealRepository.GetByIdAsync(id);
             if (meal == null)
-                return NotFound($"Meal with ID {id} not found for user {userId}");
+                return NotFound($"Meal with ID {id} not found");
 
             var response = MapToResponseDto(meal);
             return Ok(response);
+        }
+
+        // GET: api/meal
+        [HttpGet]
+        [Authorize]
+        public async Task<IActionResult> GetAllMeals([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        {
+            var meals = await _mealRepository.GetAllAsync(pageNumber, pageSize);
+            var response = meals.Select(MapToResponseDto).ToList();
+            return Ok(response);
+        }
+
+        // GET: api/meal/recent
+        [HttpGet("recent")]
+        [Authorize]
+        public async Task<IActionResult> GetRecentMeals([FromQuery] int days = 7, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        {
+            var meals = await _mealRepository.GetRecentMealsAsync(days, pageNumber, pageSize);
+            var response = meals.Select(MapToResponseDto).ToList();
+            return Ok(response);
+        }
+
+        // GET: api/meal/{id}/details
+        [HttpGet("{id}/details")]
+        [Authorize]
+        public async Task<IActionResult> GetMealDetails(int id)
+        {
+            var meal = await _mealRepository.GetMealDetailsAsync(id);
+            if (meal == null)
+                return NotFound($"Meal with ID {id} not found");
+
+            var response = MapToResponseDto(meal);
+            return Ok(response);
+        }
+
+        // DELETE: api/meal/{id}
+        [HttpDelete("{id}")]
+        [Authorize]
+        public async Task<IActionResult> DeleteMeal(int id)
+        {
+            var result = await _mealRepository.DeleteAsync(id);
+            if (!result)
+                return NotFound($"Meal with ID {id} not found");
+
+            return NoContent();
         }
         
         private static MealResponseDto MapToResponseDto(Meal meal)
@@ -121,22 +167,14 @@ namespace IngredientServer.API.Controllers
             };
         }
 
-        private int GetUserIdFromContextOrDto(int? dtoUserId)
+        private int GetCurrentUserId()
         {
-            var userIdFromToken = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (int.TryParse(userIdFromToken, out int tokenUserId) && tokenUserId > 0)
+            var userIdClaim = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdClaim, out int userId) && userId > 0)
             {
-                if (dtoUserId.HasValue && dtoUserId != tokenUserId)
-                    throw new UnauthorizedAccessException("UserId from DTO does not match authenticated user.");
-                return tokenUserId;
+                return userId;
             }
-
-            if (dtoUserId.HasValue && dtoUserId > 0)
-                return dtoUserId.Value;
-
-            throw new UnauthorizedAccessException("User ID is not valid or not authenticated.");
+            return 0;
         }
     }
-
-    
 }

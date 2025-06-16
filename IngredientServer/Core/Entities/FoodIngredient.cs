@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace IngredientServer.Core.Entities
 {
     // Entity trung gian để liên kết Food và Ingredient với số lượng cụ thể
-    public abstract class FoodIngredient : BaseEntity
+    public class FoodIngredient : BaseEntity
     {
         [Required]
         public int FoodId { get; set; }
