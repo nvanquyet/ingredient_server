@@ -1,6 +1,5 @@
 ﻿# Stage 1: Base image
 FROM mcr.microsoft.com/dotnet/runtime:9.0 AS base
-USER $APP_UID
 WORKDIR /app
 
 # Stage 2: Build
@@ -22,7 +21,9 @@ RUN dotnet publish "IngredientServer.csproj" -c $BUILD_CONFIGURATION -o /app/pub
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-# Add wait-for-it script
+# Tải và cấp quyền cho wait-for-it.sh trước khi chuyển user
 ADD https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh .
 RUN chmod +x wait-for-it.sh
+# Chuyển sang user không phải root
+USER $APP_UID
 ENTRYPOINT ["./wait-for-it.sh", "sqlserver:1433", "--", "dotnet", "IngredientServer.dll"]
