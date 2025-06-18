@@ -1,7 +1,9 @@
-﻿FROM mcr.microsoft.com/dotnet/runtime:9.0 AS base
+﻿# Stage 1: Base image
+FROM mcr.microsoft.com/dotnet/runtime:9.0 AS base
 USER $APP_UID
 WORKDIR /app
 
+# Stage 2: Build
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
@@ -11,11 +13,16 @@ COPY . .
 WORKDIR "/src/IngredientServer"
 RUN dotnet build "IngredientServer.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
+# Stage 3: Publish
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "IngredientServer.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
+# Stage 4: Final
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "IngredientServer.dll"]
+# Add wait-for-it script
+ADD https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh .
+RUN chmod +x wait-for-it.sh
+ENTRYPOINT ["./wait-for-it.sh", "sqlserver:1433", "--", "dotnet", "IngredientServer.dll"]

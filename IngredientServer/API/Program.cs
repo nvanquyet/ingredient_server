@@ -8,12 +8,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using IngredientServer.Core.Services;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,24 +18,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Configure Kestrel server
-builder.WebHost.ConfigureKestrel(options =>
-{
-    var configuration = builder.Configuration.GetSection("Kestrel:EndPoints");
-    foreach (var endpoint in configuration.GetChildren())
-    {
-        var url = endpoint["Url"];
-        if (string.IsNullOrEmpty(url)) continue;
-        var uri = new Uri(url);
-        options.Listen(IPAddress.TryParse(uri.Host, out var ipAddress) ? ipAddress : IPAddress.Any, uri.Port);
-    }
-});
-
 // Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"),
-        new MySqlServerVersion(new Version(8, 0, 21)))); // Adjust MySQL version if needed
-
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
@@ -53,14 +35,11 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 //builder.Services.AddScoped<IAIService, AIService>(); // Assuming AIService exists
 
 // JWT Authentication
-var jwtSecret = builder.Configuration["Jwt:Secret"];
+var jwtSecret = builder.Configuration["Jwt:Secret"] ?? throw new InvalidOperationException("JWT Secret is not configured");
 Console.WriteLine("=== DEBUG CONFIGURATION ===");
 Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
 Console.WriteLine($"Content Root: {builder.Environment.ContentRootPath}");
-if (string.IsNullOrEmpty(jwtSecret))
-{
-    throw new InvalidOperationException("JWT Secret is not configured");
-}
+Console.WriteLine($"JWT Secret: {(string.IsNullOrEmpty(jwtSecret) ? "Not configured" : "Configured")}");
 
 builder.Services.AddAuthentication(options =>
 {
