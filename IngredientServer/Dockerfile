@@ -24,10 +24,14 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 COPY wait-for-it.sh .
 RUN chmod +x wait-for-it.sh
-# Cài đặt bash nếu cần
-RUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*
-# Giữ user non-root
+
+# Install bash and curl for healthcheck
+RUN apt-get update && apt-get install -y bash curl && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
 RUN adduser --disabled-password --gecos '' dotnetuser
 RUN chown -R dotnetuser:dotnetuser /app
 USER dotnetuser
-ENTRYPOINT ["/bin/bash", "-c", "./wait-for-it.sh sqlserver:1433 -t 60 -- dotnet IngredientServer.dll"]
+
+# Wait for MySQL instead of SQL Server
+ENTRYPOINT ["/bin/bash", "-c", "./wait-for-it.sh mysql:3306 -t 60 -- dotnet IngredientServer.dll"]

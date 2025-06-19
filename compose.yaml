@@ -1,32 +1,32 @@
 ﻿services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: ingredientserver-db
+  mysql:
+    image: mysql:8.0
+    container_name: ingredientserver-mysql
     environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=${DB_SA_PASSWORD}
-      - MSSQL_PID=Express
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - MYSQL_DATABASE=IngredientServerDb
+      - MYSQL_USER=ingredientuser
+      - MYSQL_PASSWORD=${DB_PASSWORD}
     ports:
-      - "1433:1433"
+      - "3306:3306"
     volumes:
-      - sqlserver_data:/var/opt/mssql
-      - ./backups:/var/backups
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
     networks:
       - internal-network
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          memory: 1G
-        reservations:
           memory: 512M
-    # Tạm thời comment healthcheck để test
-    # healthcheck:
-    #   test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ${DB_SA_PASSWORD} -Q 'SELECT 1' -C"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 5
-    #   start_period: 60s
+        reservations:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   ingredientserver:
     image: ingredientserver:latest
@@ -37,22 +37,22 @@
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=IngredientServerDb;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=true;MultipleActiveResultSets=true;Connection Timeout=30;
+      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=IngredientServerDb;User=ingredientuser;Password=${DB_PASSWORD};
       - JWT__Secret=${JWT_SECRET}
     depends_on:
-      - sqlserver  # Bỏ condition để test
+      mysql:
+        condition: service_healthy
     networks:
       - internal-network
     restart: unless-stopped
     volumes:
       - ./logs:/app/logs
-    # Comment healthcheck tạm thời
-    # healthcheck:
-    #   test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 40s
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   nginx:
     image: nginx:alpine
@@ -64,13 +64,13 @@
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro
     depends_on:
-      - ingredientserver  # Sửa lại dependency
+      - ingredientserver
     networks:
       - internal-network
     restart: unless-stopped
 
 volumes:
-  sqlserver_data:
+  mysql_data:
     driver: local
 
 networks:
