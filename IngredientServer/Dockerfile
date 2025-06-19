@@ -23,5 +23,6 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 COPY wait-for-it.sh .
 RUN chmod +x wait-for-it.sh
-USER $APP_UID
+# Chạy dưới quyền root tạm thời để đảm bảo quyền
+USER root
 ENTRYPOINT ["./wait-for-it.sh", "sqlserver:1433", "-t", "60", "--", "dotnet", "IngredientServer.dll"]
