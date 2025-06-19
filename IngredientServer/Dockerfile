@@ -21,9 +21,7 @@ RUN dotnet publish "IngredientServer.csproj" -c $BUILD_CONFIGURATION -o /app/pub
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-# Tải và cấp quyền cho wait-for-it.sh trước khi chuyển user
-ADD https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh .
+COPY wait-for-it.sh .
 RUN chmod +x wait-for-it.sh
-# Chuyển sang user không phải root
 USER $APP_UID
-ENTRYPOINT ["./wait-for-it.sh", "sqlserver:1433", "--", "dotnet", "IngredientServer.dll"]
+ENTRYPOINT ["./wait-for-it.sh", "sqlserver:1433", "-t", "60", "--", "dotnet", "IngredientServer.dll"]
