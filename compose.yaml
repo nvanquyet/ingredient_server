@@ -1,7 +1,7 @@
 ﻿services:
   mysql:
-    image: mysql:8.0
-    container_name: ingredientserver-mysql
+    image: mariadb:10.4
+    container_name: ingredientserver-mariadb
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
       - MYSQL_DATABASE=IngredientServerDb
