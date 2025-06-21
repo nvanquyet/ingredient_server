@@ -179,22 +179,11 @@ namespace IngredientServer.Core.Entities
                 !string.IsNullOrEmpty(targetData.NewPassword) && 
                 !string.IsNullOrEmpty(targetData.ConfirmNewPassword))
             {
-                if (targetData.CurrentPassword != PasswordHash)
+                if (targetData.CurrentPassword == PasswordHash 
+                    && targetData.NewPassword == targetData.ConfirmNewPassword)
                 {
-                    throw new Exception("Current password is incorrect");
+                    this.PasswordHash = BCrypt.Net.BCrypt.HashPassword(targetData.NewPassword);
                 }
-
-                if (targetData.NewPassword != targetData.ConfirmNewPassword)
-                {
-                    throw new Exception("New password and confirmation do not match");
-                }
-
-                if (targetData.NewPassword.Length < 8)
-                {
-                    throw new Exception("New password must be at least 8 characters long");
-                }
-
-                this.PasswordHash = BCrypt.Net.BCrypt.HashPassword(targetData.NewPassword);
             }
 
             this.UpdatedAt = DateTime.UtcNow;
