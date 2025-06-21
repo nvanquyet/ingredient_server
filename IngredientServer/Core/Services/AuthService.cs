@@ -86,8 +86,6 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 Username = registerDto.Username,
                 Email = registerDto.Email,
                 PasswordHash = HashPassword(registerDto.Password),
-                FirstName = registerDto.FirstName,
-                LastName = registerDto.LastName,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
             };
@@ -239,7 +237,9 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
             Username = user.Username,
             Email = user.Email,
             FirstName = user.FirstName,
-            LastName = user.LastName
+            LastName = user.LastName,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt,
         };
     }
 }
