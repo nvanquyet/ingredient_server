@@ -1,44 +1,46 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using IngredientServer.Utils.DTOs.Auth;
 
 namespace IngredientServer.Core.Entities
 {
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum NutritionGoal
     {
-        Balanced,           // Cân bằng dinh dưỡng
-        WeightLoss,         // Giảm cân
-        WeightGain,         // Tăng cân
-        MuscleGain,         // Tăng cơ
-        LowCarb,            // Ít carb
-        HighProtein,        // Nhiều protein
-        Vegetarian,         // Ăn chay
-        Vegan,              // Ăn thuần chay
-        Keto,               // Chế độ Keto
-        Mediterranean,      // Địa Trung Hải
-        Paleo,              // Paleo
-        LowSodium,          // Ít muối
-        DiabeticFriendly,   // Phù hợp tiểu đường
-        HeartHealthy,       // Bảo vệ tim mạch
-        AntiInflammatory,   // Chống viêm
-        Other               // Khác
+        Balanced = 0,           // Cân bằng dinh dưỡng
+        WeightLoss = 1,         // Giảm cân
+        WeightGain = 2,         // Tăng cân
+        MuscleGain = 3,         // Tăng cơ
+        LowCarb = 4,            // Ít carb
+        HighProtein = 5,        // Nhiều protein
+        Vegetarian = 6,         // Ăn chay
+        Vegan = 7,              // Ăn thuần chay
+        Keto = 8,               // Chế độ Keto
+        Mediterranean = 9,      // Địa Trung Hải
+        Paleo = 10,              // Paleo
+        LowSodium = 11,          // Ít muối
+        DiabeticFriendly = 12,   // Phù hợp tiểu đường
+        HeartHealthy = 13,       // Bảo vệ tim mạch
+        AntiInflammatory = 14,   // Chống viêm
+        Other = 15              // Khác
     }
-
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum ActivityLevel
     {
-        Sedentary,      // Ít vận động
-        Light,          // Vận động nhẹ
-        Moderate,       // Vận động vừa
-        Active,         // Vận động nhiều
-        VeryActive      // Vận động rất nhiều
+        Sedentary = 0,      // Ít vận động
+        Light = 1,          // Vận động nhẹ
+        Moderate = 2,       // Vận động vừa
+        Active = 3,         // Vận động nhiều
+        VeryActive = 4    // Vận động rất nhiều
     }
-
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum Gender
     {
-        Male,
-        Female,
-        Other,
-        PreferNotToSay
+        Male = 0,
+        Female = 1,
+        Other = 2,
+        PreferNotToSay = 3
     }
 
     public class User : BaseEntity
