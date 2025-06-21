@@ -9,15 +9,8 @@ namespace IngredientServer.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize] // Apply to entire controller
-    public class IngredientController : BaseController
+    public class IngredientController(IIngredientRepository ingredientRepository) : BaseController
     {
-        private readonly IIngredientRepository _ingredientRepository;
-
-        public IngredientController(IIngredientRepository ingredientRepository)
-        {
-            _ingredientRepository = ingredientRepository;
-        }
-
         // POST: api/ingredient
         [HttpPost]
         public async Task<IActionResult> CreateIngredient([FromBody] CreateIngredientDto dto)
@@ -37,7 +30,7 @@ namespace IngredientServer.API.Controllers
                 ImageUrl = dto.ImageUrl
             };
 
-            var createdIngredient = await _ingredientRepository.AddAsync(ingredient);
+            var createdIngredient = await ingredientRepository.AddAsync(ingredient);
             var response = MapToResponseDto(createdIngredient);
 
             return CreatedAtAction(nameof(GetIngredient),
@@ -48,7 +41,7 @@ namespace IngredientServer.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetIngredient(int id)
         {
-            var ingredient = await _ingredientRepository.GetByIdAsync(id);
+            var ingredient = await ingredientRepository.GetByIdAsync(id);
             if (ingredient == null)
                 return NotFound($"Ingredient with ID {id} not found");
 
@@ -60,7 +53,7 @@ namespace IngredientServer.API.Controllers
         [HttpGet("user")]
         public async Task<IActionResult> GetUserIngredients([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var ingredients = await _ingredientRepository.GetAllUserIngredientsAsync(pageNumber, pageSize);
+            var ingredients = await ingredientRepository.GetAllUserIngredientsAsync(pageNumber, pageSize);
             var response = ingredients.Select(MapToResponseDto).ToList();
             return Ok(response);
         }
@@ -72,7 +65,7 @@ namespace IngredientServer.API.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var existingIngredient = await _ingredientRepository.GetByIdAsync(id);
+            var existingIngredient = await ingredientRepository.GetByIdAsync(id);
             if (existingIngredient == null)
                 return NotFound($"Ingredient with ID {id} not found");
 
@@ -84,7 +77,7 @@ namespace IngredientServer.API.Controllers
             existingIngredient.ExpiryDate = dto.ExpiryDate;
             existingIngredient.ImageUrl = dto.ImageUrl;
 
-            var updatedIngredient = await _ingredientRepository.UpdateAsync(existingIngredient);
+            var updatedIngredient = await ingredientRepository.UpdateAsync(existingIngredient);
             var response = MapToResponseDto(updatedIngredient);
             return Ok(response);
         }
@@ -93,7 +86,7 @@ namespace IngredientServer.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteIngredient(int id)
         {
-            var success = await _ingredientRepository.DeleteAsync(id);
+            var success = await ingredientRepository.DeleteAsync(id);
             if (!success)
                 return NotFound($"Ingredient with ID {id} not found");
 
@@ -107,7 +100,7 @@ namespace IngredientServer.API.Controllers
             if (days < 0)
                 return BadRequest("Days parameter must be non-negative");
 
-            var items = await _ingredientRepository.GetExpiringItemsAsync(days);
+            var items = await ingredientRepository.GetExpiringItemsAsync(days);
             var response = items.Select(MapToResponseDto).ToList();
             return Ok(response);
         }
@@ -116,7 +109,7 @@ namespace IngredientServer.API.Controllers
         [HttpGet("user/expired")]
         public async Task<IActionResult> GetExpiredItems()
         {
-            var items = await _ingredientRepository.GetExpiredItemsAsync();
+            var items = await ingredientRepository.GetExpiredItemsAsync();
             var response = items.Select(MapToResponseDto).ToList();
             return Ok(response);
         }
@@ -139,7 +132,7 @@ namespace IngredientServer.API.Controllers
                 return BadRequest($"Invalid sortOrder. Valid values: {string.Join(", ", validSortOrders)}");
 
             var sortDto = new IngredientSortDto { SortBy = sortBy, SortOrder = sortOrder };
-            var items = await _ingredientRepository.GetSortedAsync(sortDto, pageNumber, pageSize);
+            var items = await ingredientRepository.GetSortedAsync(sortDto, pageNumber, pageSize);
             var response = items.Select(MapToResponseDto).ToList();
             return Ok(response);
         }
@@ -148,7 +141,7 @@ namespace IngredientServer.API.Controllers
         [HttpGet("user/category/{category}")]
         public async Task<IActionResult> GetByCategory(IngredientCategory category, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var items = await _ingredientRepository.GetByCategoryAsync(category, pageNumber, pageSize);
+            var items = await ingredientRepository.GetByCategoryAsync(category, pageNumber, pageSize);
             var response = items.Select(MapToResponseDto).ToList();
             return Ok(response);
         }
@@ -160,7 +153,7 @@ namespace IngredientServer.API.Controllers
             if (filter == null)
                 return BadRequest("Filter data is required");
 
-            var items = await _ingredientRepository.GetFilteredAsync(filter, pageNumber, pageSize);
+            var items = await ingredientRepository.GetFilteredAsync(filter, pageNumber, pageSize);
             var response = items.Select(MapToResponseDto).ToList();
             return Ok(response);
         }
@@ -169,7 +162,7 @@ namespace IngredientServer.API.Controllers
         [HttpGet("user/count")]
         public async Task<IActionResult> GetUserIngredientCount()
         {
-            var count = await _ingredientRepository.GetUserIngredientCountAsync();
+            var count = await ingredientRepository.GetUserIngredientCountAsync();
             return Ok(new { Count = count });
         }
 
