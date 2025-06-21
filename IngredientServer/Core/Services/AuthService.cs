@@ -87,7 +87,9 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 Email = registerDto.Email,
                 PasswordHash = HashPassword(registerDto.Password),
                 FirstName = registerDto.FirstName,
-                LastName = registerDto.LastName
+                LastName = registerDto.LastName,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
             };
 
             // Use AddForRegistrationAsync instead of AddAsync to avoid authentication context issues
