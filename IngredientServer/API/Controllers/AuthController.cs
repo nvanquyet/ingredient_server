@@ -9,15 +9,8 @@ namespace IngredientServer.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController : BaseController
+public class AuthController(IAuthService authService) : BaseController
 {
-    private readonly IAuthService _authService;
-
-    public AuthController(IAuthService authService)
-    {
-        _authService = authService;
-    }
-
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
@@ -27,7 +20,7 @@ public class AuthController : BaseController
             return BadRequest(ModelState);
         }
 
-        var result = await _authService.LoginAsync(loginDto);
+        var result = await authService.LoginAsync(loginDto);
 
         if (!result.Success)
         {
@@ -46,7 +39,7 @@ public class AuthController : BaseController
             return BadRequest(ModelState);
         }
 
-        var result = await _authService.RegisterAsync(registerDto);
+        var result = await authService.RegisterAsync(registerDto);
 
         if (!result.Success)
         {
@@ -67,7 +60,7 @@ public class AuthController : BaseController
             return BadRequest("Invalid user ID");
         }
 
-        var result = await _authService.LogoutAsync(userId);
+        var result = await authService.LogoutAsync(userId);
 
         if (!result.Success)
         {
@@ -92,7 +85,7 @@ public class AuthController : BaseController
             });
         }
 
-        var user = await _authService.GetUserProfileAsync(userId);
+        var user = await authService.GetUserProfileAsync(userId);
         return Ok(user);
     }
     
@@ -111,7 +104,7 @@ public class AuthController : BaseController
             });
         }
 
-        var user = await _authService.UpdateUserProfileAsync(userId, updateUserProfileDto);
+        var user = await authService.UpdateUserProfileAsync(userId, updateUserProfileDto);
         return Ok(user);
     }
 }
