@@ -79,29 +79,39 @@ public class AuthController : BaseController
 
     [HttpGet("me")]
     [Authorize]
-    public IActionResult GetCurrentUser()
+    public async Task<IActionResult> GetUserProfile()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var usernameClaim = User.FindFirst(ClaimTypes.Name)?.Value;
-        var emailClaim = User.FindFirst(ClaimTypes.Email)?.Value;
 
-        if (string.IsNullOrEmpty(userIdClaim))
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
         {
-            return Unauthorized();
+            return Unauthorized(new ResponseDto<object>
+            {
+                Success = false,
+                Message = "Invalid user ID or unauthorized access"
+            });
         }
 
-        var userData = new
-        {
-            Id = int.Parse(userIdClaim),
-            Username = usernameClaim,
-            Email = emailClaim
-        };
+        var user = await _authService.GetUserProfileAsync(userId);
+        return Ok(user);
+    }
+    
+    [HttpPut("me")]
+    [Authorize]
+    public async Task<IActionResult> UpdateUserProfile([FromBody] UpdateUserProfileDto updateUserProfileDto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-        return Ok(new
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
         {
-            Success = true,
-            Message = "User information retrieved successfully",
-            Data = userData
-        });
+            return Unauthorized(new ResponseDto<object>
+            {
+                Success = false,
+                Message = "Invalid user ID or unauthorized access"
+            });
+        }
+
+        var user = await _authService.UpdateUserProfileAsync(userId, updateUserProfileDto);
+        return Ok(user);
     }
 }

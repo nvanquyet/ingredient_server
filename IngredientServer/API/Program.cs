@@ -130,5 +130,5 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     context.Database.EnsureCreated();
 }
-
+app.MapGet("/health", () => new Microsoft.AspNetCore.Mvc.OkResult());
 app.Run();

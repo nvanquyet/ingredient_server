@@ -32,24 +32,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(e => e.Height).HasColumnType("decimal(5,2)");
             entity.Property(e => e.Weight).HasColumnType("decimal(5,2)");
             entity.Property(e => e.TargetWeight).HasColumnType("decimal(5,2)");
-            entity.Property(e => e.DailyCalorieGoal).HasColumnType("decimal(7,2)");
-            entity.Property(e => e.DailyProteinGoal).HasColumnType("decimal(6,2)");
-            entity.Property(e => e.DailyCarbGoal).HasColumnType("decimal(6,2)");
-            entity.Property(e => e.DailyFatGoal).HasColumnType("decimal(6,2)");
-            entity.Property(e => e.DailyFiberGoal).HasColumnType("decimal(6,2)");
-            entity.Property(e => e.DailySodiumLimit).HasColumnType("decimal(8,2)");
             entity.Property(e => e.FoodAllergies).HasMaxLength(1000);
             entity.Property(e => e.FoodPreferences).HasMaxLength(1000);
-            entity.Property(e => e.FoodRestrictions).HasMaxLength(1000);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             
             // Enum conversions
             entity.Property(e => e.PrimaryNutritionGoal).HasConversion<string>();
-            entity.Property(e => e.SecondaryNutritionGoal).HasConversion<string>();
             entity.Property(e => e.ActivityLevel).HasConversion<string>();
-            entity.Property(e => e.Gender).HasConversion<string>();
+            entity.Property(e => e.gender).HasConversion<string>();
         });
 
         // Ingredient

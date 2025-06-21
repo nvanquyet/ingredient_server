@@ -49,8 +49,6 @@ public class AuthService : IAuthService
                 };
             }
 
-            // Update last login
-            user.LastLoginAt = DateTime.UtcNow;
             await _userRepository.UpdateForLoginAsync(user);
 
             var token = GenerateJwtToken(user);
@@ -156,6 +154,48 @@ public class AuthService : IAuthService
                 Data = false
             });
         }
+    }
+    
+    public Task<ResponseDto<User>> GetUserProfileAsync(int userId)
+    {
+        var user = _userRepository.GetByIdAsync(userId);
+        return Task.FromResult(new ResponseDto<User>
+        {
+            Success = true,
+            Message = "User profile retrieved successfully",
+            Data = user.Result
+        });
+    }
+
+    public Task<ResponseDto<bool>> UpdateUserProfileAsync(int userId, UpdateUserProfileDto? updateUserProfileDto)
+    {
+        if(updateUserProfileDto == null)
+        {
+            return Task.FromResult(new ResponseDto<bool>
+            {
+                Success = false,
+                Message = "Invalid user profile data"
+            });
+        }
+        
+        var user = _userRepository.GetByIdAsync(userId);
+        
+        if (user.Result == null)
+        {
+            return Task.FromResult(new ResponseDto<bool>
+            {
+                Success = false,
+                Message = "User not found"
+            });
+        }
+        user.Result.UpdateUserProfile(updateUserProfileDto);
+        _userRepository.UpdateAsync(user.Result);
+        return Task.FromResult(new ResponseDto<bool>
+        {
+            Success = true,
+            Message = "User profile updated successfully",
+            Data = true
+        });
     }
 
     public string GenerateJwtToken(User user)

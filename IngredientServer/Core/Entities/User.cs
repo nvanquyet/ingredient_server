@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using IngredientServer.Utils.DTOs.Auth;
 
 namespace IngredientServer.Core.Entities
 {
@@ -46,7 +47,6 @@ namespace IngredientServer.Core.Entities
         [MaxLength(50)]
         public string Username { get; set; } = string.Empty;
 
-        //[Required]
         [EmailAddress]
         [MaxLength(100)]
         public string Email { get; set; } = string.Empty;
@@ -62,70 +62,30 @@ namespace IngredientServer.Core.Entities
 
         public bool IsActive { get; set; } = true;
 
-        public DateTime? LastLoginAt { get; set; }
-
-        // Thông tin cá nhân cho tính toán dinh dưỡng
+        // Thông tin cá nhân
         public DateTime? DateOfBirth { get; set; }
-
-        public Gender? Gender { get; set; }
-
+        public Gender? gender { get; set; }
         [Column(TypeName = "decimal(5,2)")]
         public decimal? Height { get; set; } // cm
-
         [Column(TypeName = "decimal(5,2)")]
         public decimal? Weight { get; set; } // kg
-
         [Column(TypeName = "decimal(5,2)")]
-        public decimal? TargetWeight { get; set; } // kg - Cân nặng mục tiêu
+        public decimal? TargetWeight { get; set; } // kg
 
-        // Mục tiêu dinh dưỡng và lối sống
+        // Mục tiêu dinh dưỡng
         public NutritionGoal PrimaryNutritionGoal { get; set; } = NutritionGoal.Balanced;
-        
-        public NutritionGoal? SecondaryNutritionGoal { get; set; } // Mục tiêu phụ
-
         public ActivityLevel ActivityLevel { get; set; } = ActivityLevel.Sedentary;
-
-        // Mục tiêu hàng ngày (có thể tự động tính hoặc người dùng tự đặt)
-        [Column(TypeName = "decimal(7,2)")]
-        public decimal? DailyCalorieGoal { get; set; }
-
-        [Column(TypeName = "decimal(6,2)")]
-        public decimal? DailyProteinGoal { get; set; } // gram
-
-        [Column(TypeName = "decimal(6,2)")]
-        public decimal? DailyCarbGoal { get; set; } // gram
-
-        [Column(TypeName = "decimal(6,2)")]
-        public decimal? DailyFatGoal { get; set; } // gram
-
-        [Column(TypeName = "decimal(6,2)")]
-        public decimal? DailyFiberGoal { get; set; } // gram
-
-        [Column(TypeName = "decimal(8,2)")]
-        public decimal? DailySodiumLimit { get; set; } // mg
 
         // Ràng buộc ăn uống
         public bool HasFoodAllergies { get; set; } = false;
-        
         [StringLength(1000)]
-        public string? FoodAllergies { get; set; } 
-        
-        [StringLength(1000)]
-        public string? FoodPreferences { get; set; } 
+        public string? FoodAllergies { get; set; }
 
+        // Tùy chọn (có thể thêm sau)
         [StringLength(1000)]
-        public string? FoodRestrictions { get; set; } 
-
-        // Cài đặt ứng dụng
+        public string? FoodPreferences { get; set; }
         public bool EnableNotifications { get; set; } = true;
-        
         public bool EnableMealReminders { get; set; } = true;
-        
-        public TimeSpan? BreakfastReminderTime { get; set; }
-        
-        public TimeSpan? LunchReminderTime { get; set; }
-        
-        public TimeSpan? DinnerReminderTime { get; set; }
 
         // Navigation properties
         public ICollection<Ingredient> Ingredients { get; set; } = new List<Ingredient>();
@@ -141,18 +101,16 @@ namespace IngredientServer.Core.Entities
             ? Math.Round(Weight.Value / (decimal)Math.Pow((double)(Height.Value / 100), 2), 2)
             : null;
 
-
         public string FullName => $"{FirstName} {LastName}".Trim();
 
-        // BMR (Basal Metabolic Rate) calculation using Mifflin-St Jeor Equation
         public decimal? BMR
         {
             get
             {
-                if (!Weight.HasValue || !Height.HasValue || !Age.HasValue || !Gender.HasValue)
+                if (!Weight.HasValue || !Height.HasValue || !Age.HasValue || !gender.HasValue)
                     return null;
 
-                decimal bmr = Gender == Entities.Gender.Male
+                decimal bmr = gender == Gender.Male
                     ? (10 * Weight.Value) + (6.25m * Height.Value) - (5 * Age.Value) + 5
                     : (10 * Weight.Value) + (6.25m * Height.Value) - (5 * Age.Value) - 161;
 
@@ -160,7 +118,6 @@ namespace IngredientServer.Core.Entities
             }
         }
 
-        // TDEE (Total Daily Energy Expenditure)
         public decimal? TDEE
         {
             get
@@ -179,6 +136,66 @@ namespace IngredientServer.Core.Entities
 
                 return Math.Round(BMR.Value * multiplier, 2);
             }
+        }
+
+        public void UpdateUserProfile(UpdateUserProfileDto targetData)
+        {
+            if (targetData.FirstName != null)
+                this.FirstName = targetData.FirstName;
+            if (targetData.LastName != null)
+                this.LastName = targetData.LastName;
+            if (targetData.Email != null)
+                this.Email = targetData.Email;
+            if (targetData.Username != null)
+                this.Username = targetData.Username; 
+            if (targetData.Gender.HasValue)
+                this.gender = targetData.Gender;
+            if (targetData.DateOfBirth.HasValue)
+                this.DateOfBirth = targetData.DateOfBirth;
+            if (targetData.Height.HasValue)
+                this.Height = targetData.Height;
+            if (targetData.Weight.HasValue)
+                this.Weight = targetData.Weight;
+            if (targetData.TargetWeight.HasValue)
+                this.TargetWeight = targetData.TargetWeight;
+            if (targetData.PrimaryNutritionGoal.HasValue)
+                this.PrimaryNutritionGoal = targetData.PrimaryNutritionGoal.Value;
+            if (targetData.ActivityLevel.HasValue)
+                this.ActivityLevel = targetData.ActivityLevel.Value;
+            if (targetData.HasFoodAllergies.HasValue)
+                this.HasFoodAllergies = targetData.HasFoodAllergies.Value;
+            if (targetData.FoodAllergies != null)
+                this.FoodAllergies = targetData.FoodAllergies;
+            if (targetData.FoodPreferences != null)
+                this.FoodPreferences = targetData.FoodPreferences;
+            if (targetData.EnableNotifications.HasValue)
+                this.EnableNotifications = targetData.EnableNotifications.Value;
+            if (targetData.EnableMealReminders.HasValue)
+                this.EnableMealReminders = targetData.EnableMealReminders.Value;
+            
+            if (!string.IsNullOrEmpty(targetData.CurrentPassword) && 
+                !string.IsNullOrEmpty(targetData.NewPassword) && 
+                !string.IsNullOrEmpty(targetData.ConfirmNewPassword))
+            {
+                if (targetData.CurrentPassword != PasswordHash)
+                {
+                    throw new Exception("Current password is incorrect");
+                }
+
+                if (targetData.NewPassword != targetData.ConfirmNewPassword)
+                {
+                    throw new Exception("New password and confirmation do not match");
+                }
+
+                if (targetData.NewPassword.Length < 8)
+                {
+                    throw new Exception("New password must be at least 8 characters long");
+                }
+
+                this.PasswordHash = BCrypt.Net.BCrypt.HashPassword(targetData.NewPassword);
+            }
+
+            this.UpdatedAt = DateTime.UtcNow;
         }
     }
 }
