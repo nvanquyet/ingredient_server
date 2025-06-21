@@ -12,24 +12,14 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace IngredientServer.Core.Services;
-public class AuthService : IAuthService
+public class AuthService(IUserRepository userRepository, IConfiguration configuration, ILogger<AuthService> logger)
+    : IAuthService
 {
-    private readonly IUserRepository _userRepository;
-    private readonly IConfiguration _configuration;
-    private readonly ILogger<AuthService> _logger;
-
-    public AuthService(IUserRepository userRepository, IConfiguration configuration, ILogger<AuthService> logger)
-    {
-        _userRepository = userRepository;
-        _configuration = configuration;
-        _logger = logger;
-    }
-
     public async Task<ResponseDto<AuthResponseDto>> LoginAsync(LoginDto loginDto)
     {
         try
         {
-            var user = await _userRepository.GetByUsernameAsync(loginDto.Username);
+            var user = await userRepository.GetByUsernameAsync(loginDto.Username);
             
             if (user == null || !VerifyPassword(loginDto.Password, user.PasswordHash))
             {
@@ -49,7 +39,7 @@ public class AuthService : IAuthService
                 };
             }
 
-            await _userRepository.UpdateForLoginAsync(user);
+            await userRepository.UpdateForLoginAsync(user);
 
             var token = GenerateJwtToken(user);
             var response = new AuthResponseDto
@@ -68,7 +58,7 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during login");
+            logger.LogError(ex, "Error during login");
             return new ResponseDto<AuthResponseDto>
             {
                 Success = false,
@@ -82,7 +72,7 @@ public class AuthService : IAuthService
         try
         {
             // Check if user exists
-            if (await _userRepository.ExistsAsync(registerDto.Username, registerDto.Email))
+            if (await userRepository.ExistsAsync(registerDto.Username, registerDto.Email))
             {
                 return new ResponseDto<AuthResponseDto>
                 {
@@ -101,7 +91,7 @@ public class AuthService : IAuthService
             };
 
             // Use AddForRegistrationAsync instead of AddAsync to avoid authentication context issues
-            await _userRepository.AddForRegistrationAsync(user);
+            await userRepository.AddForRegistrationAsync(user);
 
             var token = GenerateJwtToken(user);
             var response = new AuthResponseDto
@@ -120,7 +110,7 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during registration");
+            logger.LogError(ex, "Error during registration");
             return new ResponseDto<AuthResponseDto>
             {
                 Success = false,
@@ -146,7 +136,7 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during logout");
+            logger.LogError(ex, "Error during logout");
             return Task.FromResult(new ResponseDto<bool>
             {
                 Success = false,
@@ -158,7 +148,7 @@ public class AuthService : IAuthService
     
     public Task<ResponseDto<User>> GetUserProfileAsync(int userId)
     {
-        var user = _userRepository.GetByIdAsync(userId);
+        var user = userRepository.GetByIdAsync(userId);
         return Task.FromResult(new ResponseDto<User>
         {
             Success = true,
@@ -167,41 +157,41 @@ public class AuthService : IAuthService
         });
     }
 
-    public Task<ResponseDto<bool>> UpdateUserProfileAsync(int userId, UpdateUserProfileDto? updateUserProfileDto)
+    public Task<ResponseDto<User>> UpdateUserProfileAsync(int userId, UpdateUserProfileDto? updateUserProfileDto)
     {
         if(updateUserProfileDto == null)
         {
-            return Task.FromResult(new ResponseDto<bool>
+            return Task.FromResult(new ResponseDto<User>
             {
                 Success = false,
                 Message = "Invalid user profile data"
             });
         }
         
-        var user = _userRepository.GetByIdAsync(userId);
+        var user = userRepository.GetByIdAsync(userId);
         
         if (user.Result == null)
         {
-            return Task.FromResult(new ResponseDto<bool>
+            return Task.FromResult(new ResponseDto<User>
             {
                 Success = false,
                 Message = "User not found"
             });
         }
         user.Result.UpdateUserProfile(updateUserProfileDto);
-        _userRepository.UpdateAsync(user.Result);
-        return Task.FromResult(new ResponseDto<bool>
+        userRepository.UpdateAsync(user.Result);
+        return Task.FromResult(new ResponseDto<User>
         {
             Success = true,
             Message = "User profile updated successfully",
-            Data = true
+            Data = user.Result
         });
     }
 
     public string GenerateJwtToken(User user)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Secret"] ?? "");
+        var key = Encoding.ASCII.GetBytes(configuration["Jwt:Secret"] ?? "");
         
         var tokenDescriptor = new SecurityTokenDescriptor
         {
