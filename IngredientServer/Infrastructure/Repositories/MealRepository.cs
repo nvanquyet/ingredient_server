@@ -7,139 +7,49 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IngredientServer.Infrastructure.Repositories;
 
-public class MealRepository(ApplicationDbContext context, IUserContextService userContextService)
-    : BaseRepository<Meal>(context, userContextService), IMealRepository
+public class MealRepository : BaseRepository<Meal>, IMealRepository
 {
-    public async Task<List<Meal>> GetByTimeRangeAsync(DateTime startDate, DateTime endDate, int pageNumber = 1, int pageSize = 10)
+    public MealRepository(ApplicationDbContext context, IUserContextService userContextService)
+        : base(context, userContextService)
+    {
+    }
+
+    // Override GetAllAsync to include related MealFoods
+    public override async Task<IEnumerable<Meal>> GetAllAsync(int pageNumber = 1, int pageSize = 10)
     {
         return await Context.Set<Meal>()
-            .Where(m => m.UserId == AuthenticatedUserId && m.MealDate >= startDate && m.MealDate <= endDate)
+            .Where(e => e.UserId == AuthenticatedUserId)
             .Include(m => m.MealFoods)
-                .ThenInclude(mf => mf.Food)
-            .OrderByDescending(m => m.MealDate)
+            .ThenInclude(mf => mf.Food)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .AsNoTracking()
             .ToListAsync();
     }
 
-    public async Task<List<Meal>> GetRecentMealsAsync(int days, int pageNumber = 1, int pageSize = 10)
-    {
-        var startDate = DateTime.UtcNow.Date.AddDays(-days);
-        var endDate = DateTime.UtcNow.Date.AddDays(1); // Include today
-        return await GetByTimeRangeAsync(startDate, endDate, pageNumber, pageSize);
-    }
-
-    public async Task<List<Meal>> GetByMealTypeAsync(MealType mealType, int pageNumber = 1, int pageSize = 10)
+    // Override GetByIdAsync to include related MealFoods
+    public override async Task<Meal?> GetByIdAsync(int id)
     {
         return await Context.Set<Meal>()
-            .Where(m => m.UserId == AuthenticatedUserId && m.MealType == mealType)
+            .Where(e => e.Id == id && e.UserId == AuthenticatedUserId)
             .Include(m => m.MealFoods)
-                .ThenInclude(mf => mf.Food)
-            .OrderByDescending(m => m.MealDate)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .AsNoTracking()
-            .ToListAsync();
+            .ThenInclude(mf => mf.Food)
+            .FirstOrDefaultAsync();
     }
 
-    public async Task<List<Meal>> GetTodayMealsAsync()
+    // Get meals by date
+    public async Task<IEnumerable<Meal>> GetByDateAsync(string date, int pageNumber = 1, int pageSize = 10)
     {
-        var today = DateTime.UtcNow.Date;
-        return await Context.Set<Meal>()
-            .Where(m => m.UserId == AuthenticatedUserId && m.MealDate.Date == today)
-            .Include(m => m.MealFoods)
-                .ThenInclude(mf => mf.Food)
-            .OrderBy(m => m.MealType)
-            .AsNoTracking()
-            .ToListAsync();
-    }
-
-    public async Task AddFoodToMealAsync(int mealId, int foodId, decimal portionWeight)
-    {
-        // Verify meal ownership
-        var meal = await GetByIdAsync(mealId);
-        if (meal == null)
-            throw new UnauthorizedAccessException("Meal not found or access denied.");
-
-        // Verify food ownership
-        var food = await Context.Set<Food>()
-            .Where(f => f.Id == foodId && f.UserId == AuthenticatedUserId)
-            .FirstOrDefaultAsync();
-        if (food == null)
-            throw new UnauthorizedAccessException("Food not found or access denied.");
-
-        // Check if food is already in meal
-        var existingMealFood = await Context.Set<MealFood>()
-            .Where(mf => mf.MealId == mealId && mf.FoodId == foodId)
-            .FirstOrDefaultAsync();
-
-        if (existingMealFood != null)
+        if (!DateTime.TryParse(date, out var parsedDate))
         {
-            // Update portion weight if already exists
-            //existingMealFood.PortionWeight = portionWeight;
-            Context.Set<MealFood>().Update(existingMealFood);
-        }
-        else
-        {
-            // Add new meal food
-            var mealFood = new MealFood
-            {
-                FoodId = foodId,
-                MealId = mealId
-            };
-            Context.Set<MealFood>().Add(mealFood);
+            throw new ArgumentException("Invalid date format.");
         }
 
-        await Context.SaveChangesAsync();
-    }
-
-    public async Task RemoveFoodFromMealAsync(int mealId, int foodId)
-    {
-        // Verify meal ownership first
-        var meal = await GetByIdAsync(mealId);
-        if (meal == null)
-            throw new UnauthorizedAccessException("Meal not found or access denied.");
-
-        var mealFood = await Context.Set<MealFood>()
-            .Where(mf => mf.MealId == mealId && mf.FoodId == foodId)
-            .FirstOrDefaultAsync();
-
-        if (mealFood == null)
-            throw new InvalidOperationException("Food not found in this meal.");
-
-        Context.Set<MealFood>().Remove(mealFood);
-        await Context.SaveChangesAsync();
-    }
-
-    public async Task<Meal?> GetMealDetailsAsync(int mealId)
-    {
         return await Context.Set<Meal>()
-            .Where(m => m.Id == mealId && m.UserId == AuthenticatedUserId)
+            .Where(m => m.UserId == AuthenticatedUserId && m.MealDate.Date == parsedDate.Date)
             .Include(m => m.MealFoods)
-                .ThenInclude(mf => mf.Food)
-                    .ThenInclude(f => f.FoodIngredients)
-                        .ThenInclude(fi => fi.Ingredient)
-            .AsNoTracking()
-            .FirstOrDefaultAsync();
-    }
-
-    public async Task<int> GetUserMealCountAsync()
-    {
-        return await Context.Set<Meal>()
-            .CountAsync(m => m.UserId == AuthenticatedUserId);
-    }
-
-    public async Task<List<Meal>> GetMealsByDateAsync(DateTime date, int pageNumber = 1, int pageSize = 10)
-    {
-        return await Context.Set<Meal>()
-            .Where(m => m.UserId == AuthenticatedUserId && m.MealDate.Date == date.Date)
-            .Include(m => m.MealFoods)
-                .ThenInclude(mf => mf.Food)
-            .OrderBy(m => m.MealType)
+            .ThenInclude(mf => mf.Food)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .AsNoTracking()
             .ToListAsync();
     }
 }

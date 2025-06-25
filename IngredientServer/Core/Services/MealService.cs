@@ -1,22 +1,11 @@
 ﻿using IngredientServer.Core.Entities;
-using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Ingredient;
 using IngredientServer.Utils.DTOs.Meal;
 using Microsoft.AspNetCore.Mvc;
 
-namespace IngredientServer.API.Controllers;
-using IngredientServer.Core;
-using IngredientServer.Core.Interfaces.Services;
-using IngredientServer.Utils;
-using IngredientServer.Utils.DTOs;
-using IngredientServer.Utils.DTOs.Meal;
-using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Threading.Tasks;
-
-namespace IngredientServer.Controllers;
+namespace IngredientServer.Core.Services;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -84,7 +73,7 @@ public class MealsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateMeal([FromBody] CreateMealDto request)
+    public async Task<IActionResult> CreateMeal([FromBody] MealDto request)
     {
         if (!ModelState.IsValid)
         {
@@ -119,7 +108,7 @@ public class MealsController : ControllerBase
     }
 
     [HttpPut("{mealId}")]
-    public async Task<IActionResult> UpdateMeal(int mealId, [FromBody] UpdateMealDto request)
+    public async Task<IActionResult> UpdateMeal(int mealId, [FromBody] MealDto request)
     {
         if (!ModelState.IsValid)
         {

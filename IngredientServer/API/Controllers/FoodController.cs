@@ -1,142 +1,188 @@
 ﻿using IngredientServer.Core.Entities;
 using IngredientServer.Core.Interfaces.Repositories;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using IngredientServer.Core.Interfaces.Services;
+using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Ingredient;
+using Microsoft.AspNetCore.Mvc;
 
-namespace IngredientServer.API.Controllers
+namespace IngredientServer.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class FoodsController(
+    IFoodRepository foodRepository,
+    IIngredientRepository ingredientRepository,
+    IMealRepository mealRepository,
+    IExternalApiService externalApiService,
+    IFoodService foodService)
+    : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class FoodController(IFoodRepository foodRepository) : ControllerBase
+    private readonly IFoodRepository _foodRepository = foodRepository;
+    private readonly IIngredientRepository _ingredientRepository = ingredientRepository;
+    private readonly IMealRepository _mealRepository = mealRepository;
+    private readonly IFoodService _foodService = foodService;
+
+    [HttpPost]
+    public async Task<ActionResult<ApiResponse<FoodDto>>> CreateFood([FromBody] CreateFoodDto dto)
     {
-        private readonly IFoodRepository _foodRepository = foodRepository;
-
-        // POST: api/food
-        [HttpPost]
-        [Authorize]
-        public async Task<IActionResult> CreateFood([FromBody] CreateFoodDto dto)
+        // Validate DTO
+        if (!ModelState.IsValid)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var userId = GetCurrentUserId();
-            if (userId <= 0)
-                return Unauthorized("Invalid or missing UserId");
-
-            var food = new Food
+            return BadRequest(new ApiResponse<FoodDto>
             {
-                UserId = userId,
-                Name = dto.Name,
-                Category = dto.Category,
-                Recipe = dto.Recipe,
-                PreparationTimeMinutes = dto.PreparationTimeMinutes,
-            };
-
-            var createdFood = await _foodRepository.AddAsync(food);
-            var response = MapToResponseDto(createdFood);
-
-            return CreatedAtAction(nameof(GetFood),
-                new { id = createdFood.Id }, response);
+                Success = false,
+                Message = "Invalid input data.",
+                Metadata = ModelState.ToDictionary(
+                    m => m.Key,
+                    m => m.Value?.Errors.Select(e => e.ErrorMessage).ToList())
+            });
         }
 
-        // PUT: api/food/{id}
-        [HttpPut("{id}")]
-        [Authorize]
-        public async Task<IActionResult> UpdateFood(int id, [FromBody] UpdateFoodDto dto)
+        // Map DTO to entity and save (handled by service for ingredient deduction and meal creation)
+        var food = await _foodService.CreateFoodAsync(dto);
+        return Ok(new ApiResponse<FoodDto>
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            var existingFood = await _foodRepository.GetByIdAsync(id);
-            if (existingFood == null)
-                return NotFound($"Food with ID {id} not found");
+            Success = true,
+            Data = MapToFoodDto(food),
+            Message = "Food created successfully."
+        });
+    }
 
-            existingFood.Name = dto.Name;
-            existingFood.Category = dto.Category;
-            existingFood.Recipe = dto.Recipe;
-            existingFood.PreparationTimeMinutes = dto.PreparationTimeMinutes;
-            existingFood.UpdatedAt = DateTime.UtcNow;
-
-            var updatedFood = await _foodRepository.UpdateAsync(existingFood);
-            var response = MapToResponseDto(updatedFood);
-            return Ok(response);
-        }
-
-        // GET: api/food/{id}
-        [HttpGet("{id}")]
-        [Authorize]
-        public async Task<IActionResult> GetFood(int id)
+    [HttpPut("{foodId}")]
+    public async Task<ActionResult<ApiResponse<FoodDto>>> UpdateFood(int foodId, [FromBody] UpdateFoodDto dto)
+    {
+        if (!ModelState.IsValid)
         {
-            var userId = GetCurrentUserId();
-            if (userId <= 0)
-                return Unauthorized("Invalid UserId");
-
-            var food = await _foodRepository.GetByIdAsync(id);
-            if (food == null)
-                return NotFound($"Food with ID {id} not found");
-
-            var response = MapToResponseDto(food);
-            return Ok(response);
-        }
-
-        // GET: api/food
-        [HttpGet]
-        [Authorize]
-        public async Task<IActionResult> GetAllFoods([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
-        {
-            var foods = await _foodRepository.GetAllAsync(pageNumber, pageSize);
-            var response = foods.Select(MapToResponseDto).ToList();
-            return Ok(response);
-        }
-
-        // DELETE: api/food/{id}
-        [HttpDelete("{id}")]
-        [Authorize]
-        public async Task<IActionResult> DeleteFood(int id)
-        {
-            var result = await _foodRepository.DeleteAsync(id);
-            if (!result)
-                return NotFound($"Food with ID {id} not found");
-
-            return NoContent();
-        }
-
-        // GET: api/food/{id}/details
-        [HttpGet("{id}/details")]
-        [Authorize]
-        public async Task<IActionResult> GetFoodDetails(int id)
-        {
-            var food = await _foodRepository.GetFoodDetailsAsync(id);
-            if (food == null)
-                return NotFound($"Food with ID {id} not found");
-
-            var response = MapToResponseDto(food);
-            return Ok(response);
-        }
-        
-        private static FoodResponseDto MapToResponseDto(Food food)
-        {
-            return new FoodResponseDto
+            return BadRequest(new ApiResponse<FoodDto>
             {
-                Id = food.Id,
-                Name = food.Name,
-                Category = food.Category.ToString(),
-                Recipe = food.Recipe,
-                UserId = food.UserId,
-                CreatedAt = food.CreatedAt,
-                UpdatedAt = food.UpdatedAt
-            };
+                Success = false,
+                Message = "Invalid input data.",
+                Metadata = ModelState.ToDictionary(
+                    m => m.Key,
+                    m => m.Value?.Errors.Select(e => e.ErrorMessage).ToList())
+            });
         }
 
-        private int GetCurrentUserId()
+        try
         {
-            var userIdClaim = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (int.TryParse(userIdClaim, out int userId) && userId > 0)
+            var food = await _foodService.UpdateFoodAsync(foodId, dto);
+            return Ok(new ApiResponse<FoodDto>
             {
-                return userId;
-            }
-            return 0;
+                Success = true,
+                Data = MapToFoodDto(food),
+                Message = "Food updated successfully."
+            });
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized(new ApiResponse<FoodDto> { Success = false, Message = "Access denied." });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new ApiResponse<FoodDto> { Success = false, Message = "Food not found." });
+        }
+    }
+
+    [HttpDelete("{foodId}")]
+    public async Task<ActionResult<ApiResponse<bool>>> DeleteFood(int foodId)
+    {
+        try
+        {
+            var success = await _foodService.DeleteFoodAsync(foodId);
+            return Ok(new ApiResponse<bool>
+            {
+                Success = true,
+                Data = success,
+                Message = "Food deleted successfully."
+            });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized(new ApiResponse<bool> { Success = false, Message = "Access denied." });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new ApiResponse<bool> { Success = false, Message = "Food not found." });
+        }
+    }
+
+    [HttpGet("suggestions")]
+    public async Task<ActionResult<ApiResponse<IEnumerable<FoodSuggestionDto>>>> GetFoodSuggestions(
+        [FromQuery] string? availableIngredients, [FromQuery] int? nutritionGoalId)
+    {
+        var request = new FoodSuggestionRequest
+        {
+            IngredientIds = availableIngredients?.Split(',').Select(int.Parse).ToList(),
+            NutritionGoal = nutritionGoalId.HasValue ? (NutritionGoal)nutritionGoalId.Value : NutritionGoal.Balanced
+        };
+
+        var suggestions = await externalApiService.GetFoodSuggestionsAsync(request);
+        return Ok(new ApiResponse<IEnumerable<FoodSuggestionDto>>
+        {
+            Success = true,
+            Data = suggestions,
+            Message = "Suggestions retrieved successfully."
+        });
+    }
+
+    [HttpGet("recipe/{foodName}")]
+    public async Task<ActionResult<ApiResponse<RecipeDto>>> GetRecipe(string foodName)
+    {
+        var request = new GetRecipeRequestDto { FoodName = foodName };
+        var recipe = await externalApiService.GetRecipeAsync(request);
+        return Ok(new ApiResponse<RecipeDto>
+        {
+            Success = true,
+            Data = recipe,
+            Message = "Recipe retrieved successfully."
+        });
+    }
+
+    [HttpPost("recipe")]
+    public async Task<ActionResult<ApiResponse<RecipeDto>>> GetRecipePost([FromBody] GetRecipeRequestDto request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new ApiResponse<RecipeDto>
+            {
+                Success = false,
+                Message = "Invalid input data.",
+                Metadata = ModelState.ToDictionary(
+                    m => m.Key,
+                    m => m.Value?.Errors.Select(e => e.ErrorMessage).ToList())
+            });
+        }
+
+        var recipe = await externalApiService.GetRecipeAsync(request);
+        return Ok(new ApiResponse<RecipeDto>
+        {
+            Success = true,
+            Data = recipe,
+            Message = "Recipe retrieved successfully."
+        });
+    }
+
+    private FoodDto MapToFoodDto(Food food)
+    {
+        return new FoodDto
+        {
+            Id = food.Id,
+            Name = food.Name,
+            Description = food.Description,
+            Quantity = food.Quantity,
+            Calories = food.Calories,
+            Protein = food.Protein,
+            Carbs = food.Carbs,
+            Fat = food.Fat,
+            CreatedAt = food.CreatedAt,
+            UpdatedAt = food.UpdatedAt,
+            Ingredients = food.FoodIngredients.Select(fi => new FoodIngredientDto
+            {
+                IngredientId = fi.IngredientId,
+                Quantity = fi.Quantity,
+                Unit = fi.Unit,
+                IngredientName = fi.Ingredient.Name
+            }).ToList()
+        };
     }
 }

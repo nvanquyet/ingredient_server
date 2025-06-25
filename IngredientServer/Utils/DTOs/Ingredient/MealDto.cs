@@ -1,78 +1,98 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using IngredientServer.Core.Entities;
+using IngredientServer.Utils.DTOs.Ingredient;
 
-namespace IngredientServer.Utils.DTOs.Ingredient
+namespace IngredientServer.Utils.DTOs.Meal
 {
-    public class CreateMealDto
-    {
-        [Required]
-        [StringLength(100)]
-        public string Name { get; set; } = string.Empty;
-        
-        [Required]
-        public DateTime MealDate { get; set; }
-        
-        [StringLength(500)]
-        public string? Description { get; set; }
-        
-        // Loại bỏ UserId - sẽ lấy từ JWT token
-    }
-
-    public class UpdateMealDto
-    {
-        [Required]
-        [StringLength(100)]
-        public string Name { get; set; } = string.Empty;
-        
-        [Required]
-        public DateTime MealDate { get; set; }
-        
-        [StringLength(500)]
-        public string? Description { get; set; }
-    }
-
-    public class AddFoodToMealDto
-    {
-        [Required]
-        [Range(1, int.MaxValue, ErrorMessage = "FoodId must be greater than 0")]
-        public int FoodId { get; set; }
-        
-        [Required]
-        [Range(0.1, 10000, ErrorMessage = "Portion weight must be between 0.1 and 10000")]
-        public decimal PortionWeight { get; set; } = 100;
-    }
-
-    public class MealResponseDto
+    // Response DTOs
+    public class MealDto
     {
         public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
+        public MealType MealType { get; set; }
         public DateTime MealDate { get; set; }
-        public string? Description { get; set; }
-        public int UserId { get; set; }
+        public DateTime? ConsumedAt { get; set; }
+        public double TotalCalories { get; set; }
+        public double TotalProtein { get; set; }
+        public double TotalCarbs { get; set; }
+        public double TotalFat { get; set; }
+        public int FoodCount { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }
-
-    public class MealDetailsResponseDto : MealResponseDto
+    
+    public class MealWithFoodsDto
     {
-        public List<MealFoodDto> Foods { get; set; } = new();
-        public int TotalCalories { get; set; }
-        public decimal TotalWeight { get; set; }
+        public int Id { get; set; }
+        public MealType MealType { get; set; }
+        public DateTime MealDate { get; set; }
+        public DateTime? ConsumedAt { get; set; }
+        public double TotalCalories { get; set; }
+        public double TotalProtein { get; set; }
+        public double TotalCarbs { get; set; }
+        public double TotalFat { get; set; }
+        public int FoodCount { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public IEnumerable<FoodDto> Foods { get; set; } = new List<FoodDto>();
     }
-
-    public class MealFoodDto
+    
+    public class MealNutritionSummaryDto
     {
-        public int FoodId { get; set; }
-        public string FoodName { get; set; } = string.Empty;
-        public decimal PortionWeight { get; set; }
-        public int EstimatedCalories { get; set; }
+        public int MealId { get; set; }
+        public MealType MealType { get; set; }
+        public DateTime MealDate { get; set; }
+        public double TotalCalories { get; set; }
+        public double TotalProtein { get; set; }
+        public double TotalCarbs { get; set; }
+        public double TotalFat { get; set; }
+        public int FoodCount { get; set; }
+        
+        // Percentage breakdown
+        public double ProteinPercentage { get; set; }
+        public double CarbsPercentage { get; set; }
+        public double FatPercentage { get; set; }
     }
-
-    public class MealListResponseDto
+    
+    public class DailyNutritionSummaryDto
     {
-        public List<MealResponseDto> Meals { get; set; } = new();
-        public int TotalCount { get; set; }
-        public int PageNumber { get; set; }
-        public int PageSize { get; set; }
-        public int TotalPages { get; set; }
+        public DateTime Date { get; set; }
+        public double TotalCalories { get; set; }
+        public double TotalProtein { get; set; }
+        public double TotalCarbs { get; set; }
+        public double TotalFat { get; set; }
+        public int TotalMeals { get; set; }
+        public int TotalFoods { get; set; }
+        
+        // User's targets (if available)
+        public double? TargetCalories { get; set; }
+        public double? TargetProtein { get; set; }
+        public double? TargetCarbs { get; set; }
+        public double? TargetFat { get; set; }
+        
+        // Progress percentages
+        public double? CaloriesProgress { get; set; }
+        public double? ProteinProgress { get; set; }
+        public double? CarbsProgress { get; set; }
+        public double? FatProgress { get; set; }
+        
+        public IEnumerable<MealNutritionSummaryDto> MealBreakdown { get; set; } = new List<MealNutritionSummaryDto>();
     }
+    
+    public class WeeklyNutritionSummaryDto
+    {
+        public DateTime WeekStart { get; set; }
+        public DateTime WeekEnd { get; set; }
+        public double AverageCalories { get; set; }
+        public double AverageProtein { get; set; }
+        public double AverageCarbs { get; set; }
+        public double AverageFat { get; set; }
+        public double TotalCalories { get; set; }
+        public double TotalProtein { get; set; }
+        public double TotalCarbs { get; set; }
+        public double TotalFat { get; set; }
+        public int TotalMeals { get; set; }
+        public int TotalFoods { get; set; }
+        
+        public IEnumerable<DailyNutritionSummaryDto> DailyBreakdown { get; set; } = new List<DailyNutritionSummaryDto>();
+    }
+    
 }

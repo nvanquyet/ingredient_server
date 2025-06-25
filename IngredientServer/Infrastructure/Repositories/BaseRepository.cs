@@ -15,14 +15,14 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
 
     protected int AuthenticatedUserId => userContextService.GetAuthenticatedUserId();
 
-    public async Task<T?> GetByIdAsync(int id)
+    public virtual async Task<T?> GetByIdAsync(int id)
     {
         return await Context.Set<T>()
             .Where(e => e.Id == id && e.UserId == AuthenticatedUserId)
             .FirstOrDefaultAsync();
     }
 
-    public async Task<IEnumerable<T>> GetAllAsync(int pageNumber = 1, int pageSize = 10)
+    public virtual async Task<IEnumerable<T>> GetAllAsync(int pageNumber = 1, int pageSize = 10)
     {
         return await Context.Set<T>()
             .Where(e => e.UserId == AuthenticatedUserId)
@@ -31,7 +31,7 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
             .ToListAsync();
     }
 
-    public async Task<T> AddAsync(T entity)
+    public virtual async Task<T> AddAsync(T entity)
     {
         entity.UserId = AuthenticatedUserId; // Automatically set UserId from context
         Context.Set<T>().Add(entity);
@@ -39,7 +39,7 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
         return entity;
     }
 
-    public async Task<T> UpdateAsync(T entity)
+    public virtual async Task<T> UpdateAsync(T entity)
     {
         // Verify ownership
         var existingEntity = await GetByIdAsync(entity.Id);
@@ -54,7 +54,7 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
         return entity;
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public virtual async Task<bool> DeleteAsync(int id)
     {
         var entity = await GetByIdAsync(id);
         if (entity == null)
@@ -68,7 +68,7 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
         return true;
     }
 
-    public async Task<bool> ExistsAsync(int id)
+    public virtual async Task<bool> ExistsAsync(int id)
     {
         return await Context.Set<T>()
             .AnyAsync(e => e.Id == id && e.UserId == AuthenticatedUserId);

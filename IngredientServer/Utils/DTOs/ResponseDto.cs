@@ -3,7 +3,7 @@
 
 using IngredientServer.Core.Entities;
 
-namespace IngredientServer.Core.DTOs
+namespace IngredientServer.Utils.DTOs
 {
     public class FoodSuggestionRequest
     {
@@ -88,6 +88,13 @@ namespace IngredientServer.Core.DTOs
         public bool Success { get; set; }
         public T? Data { get; set; }
         public string Message { get; set; } = string.Empty;
-        public Dictionary<string, object>? Metadata { get; set; }
+        public Dictionary<string, List<string>?> Metadata { get; set; }
+    }
+    
+    public class ErrorDto
+    {
+        public string ErrorCode { get; set; } = string.Empty;
+        public string ErrorMessage { get; set; } = string.Empty;
+        public Dictionary<string, List<string>?>? ValidationErrors { get; set; }
     }
 }
