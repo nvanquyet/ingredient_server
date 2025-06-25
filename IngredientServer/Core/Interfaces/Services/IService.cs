@@ -1,20 +1,29 @@
 ﻿using IngredientServer.Core.Entities;
-using IngredientServer.Utils.DTOs.Ingredient;
-using IngredientServer.Utils.DTOs.Meal;
-
+using IngredientServer.Utils.DTOs;
+using IngredientServer.Utils.DTOs.Entity;
 namespace IngredientServer.Core.Interfaces.Services;
+
+public interface INutritionService
+{
+    Task<DailyNutritionSummaryDto> GetDailyNutritionSummaryAsync(int userId, DateTime date);
+    Task<WeeklyNutritionSummaryDto> GetWeeklyNutritionSummaryAsync(int userId, DateTime startDate, DateTime endDate);
+    Task<TotalNutritionSummaryDto> GetTotalNutritionSummaryAsync(int userId);
+}
+
 
 public interface IFoodService
 {
-    Task<Food> CreateFoodAsync(CreateFoodDto dto);
-    Task<Food> UpdateFoodAsync(int foodId, UpdateFoodDto dto);
+    Task<Food> CreateFoodAsync(FoodDataDto dataDto);
+    Task<Food> UpdateFoodAsync(int foodId, FoodDataDto dto);
     Task<bool> DeleteFoodAsync(int foodId);
+    Task<List<FoodSuggestionDto>> GetSuggestionsAsync(FoodSuggestionRequestDto requestDto);
+    Task<FoodRecipeDto> GetRecipeSuggestionsAsync(FoodRecipeRequestDto recipeRequest);
 }
 
 public interface IIngredientService
 {
-    Task<Ingredient> CreateIngredientAsync(CreateIngredientDto dto);
-    Task<Ingredient> UpdateIngredientAsync(int ingredientId, UpdateIngredientDto dto);
+    Task<IngredientDto> CreateIngredientAsync(IngredientDataDto dataDto);
+    Task<IngredientDto> UpdateIngredientAsync(int ingredientId, IngredientDataDto dto);
     Task<bool> DeleteIngredientAsync(int ingredientId);
     
     Task<IngredientSearchResultDto> GetAllAsync(IngredientFilterDto filter);
@@ -23,8 +32,8 @@ public interface IIngredientService
 public interface IMealService
 {
     Task<MealWithFoodsDto> GetByIdAsync(int mealId);
-    Task<IEnumerable<MealWithFoodsDto>> GetByDateAsync(string date, int pageNumber = 1, int pageSize = 10);
-    Task<Meal> CreateMealAsync(MealType mealType, DateTime mealDate);
-    Task<Meal> UpdateMealAsync(int mealId, MealDto updateMealDto);
+    Task<IEnumerable<MealWithFoodsDto>> GetByDateAsync(string date);
+    Task<MealDto> CreateMealAsync(MealType mealType, DateTime mealDate);
+    Task<MealDto> UpdateMealAsync(int mealId, MealDto updateMealDto);
     Task<bool> DeleteMealAsync(int mealId);
 }

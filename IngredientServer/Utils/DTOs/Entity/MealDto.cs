@@ -1,7 +1,6 @@
 ﻿using IngredientServer.Core.Entities;
-using IngredientServer.Utils.DTOs.Ingredient;
 
-namespace IngredientServer.Utils.DTOs.Meal
+namespace IngredientServer.Utils.DTOs.Entity
 {
     // Response DTOs
     public class MealDto
@@ -10,11 +9,6 @@ namespace IngredientServer.Utils.DTOs.Meal
         public MealType MealType { get; set; }
         public DateTime MealDate { get; set; }
         public DateTime? ConsumedAt { get; set; }
-        public double TotalCalories { get; set; }
-        public double TotalProtein { get; set; }
-        public double TotalCarbs { get; set; }
-        public double TotalFat { get; set; }
-        public int FoodCount { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }
@@ -25,10 +19,6 @@ namespace IngredientServer.Utils.DTOs.Meal
         public MealType MealType { get; set; }
         public DateTime MealDate { get; set; }
         public DateTime? ConsumedAt { get; set; }
-        public double TotalCalories { get; set; }
-        public double TotalProtein { get; set; }
-        public double TotalCarbs { get; set; }
-        public double TotalFat { get; set; }
         public int FoodCount { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
@@ -93,6 +83,20 @@ namespace IngredientServer.Utils.DTOs.Meal
         public int TotalFoods { get; set; }
         
         public IEnumerable<DailyNutritionSummaryDto> DailyBreakdown { get; set; } = new List<DailyNutritionSummaryDto>();
+    }
+
+    public class TotalNutritionSummaryDto
+    {
+        public double AverageCalories { get; set; }
+        public double AverageProtein { get; set; }
+        public double AverageCarbs { get; set; }
+        public double AverageFat { get; set; }
+        public double TotalCalories { get; set; }
+        public double TotalProtein { get; set; }
+        public double TotalCarbs { get; set; }
+        public double TotalFat { get; set; }
+        public int TotalMeals { get; set; }
+        public int TotalFoods { get; set; }
     }
     
 }

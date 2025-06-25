@@ -1,221 +1,88 @@
 ﻿using IngredientServer.Core.Entities;
+using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
-using IngredientServer.Utils.DTOs;
-using IngredientServer.Utils.DTOs.Ingredient;
-using IngredientServer.Utils.DTOs.Meal;
-using Microsoft.AspNetCore.Mvc;
+using IngredientServer.Utils.DTOs.Entity;
 
 namespace IngredientServer.Core.Services;
 
-[ApiController]
-[Route("api/[controller]")]
-public class MealsController : ControllerBase
+public class MealService(
+    IMealRepository mealRepository,
+    IMealFoodRepository mealFoodRepository,
+    IUserContextService userContextService)
+    : IMealService
 {
-    private readonly IMealService _mealService;
+    private readonly IMealFoodRepository _mealFoodRepository = mealFoodRepository;
 
-    public MealsController(IMealService mealService)
+    public async Task<MealWithFoodsDto> GetByIdAsync(int mealId)
     {
-        _mealService = mealService;
-    }
-
-    [HttpGet("{mealId}")]
-    public async Task<IActionResult> GetMeal(int mealId)
-    {
-        try
-        {
-            var meal = await _mealService.GetByIdAsync(mealId);
-            return Ok(new ApiResponse<MealWithFoodsDto>
-            {
-                Success = true,
-                Data = meal,
-                Message = "Meal retrieved successfully."
-            });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new ApiResponse<ErrorDto>
-            {
-                Success = false,
-                Message = ex.Message
-            });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Unauthorized(new ApiResponse<ErrorDto>
-            {
-                Success = false,
-                Message = "Access denied."
-            });
-        }
-    }
-
-    [HttpGet("by-date/{date}")]
-    public async Task<IActionResult> GetMealsByDate(string date, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
-    {
-        try
-        {
-            var meals = await _mealService.GetByDateAsync(date, pageNumber, pageSize);
-            return Ok(new ApiResponse<IEnumerable<MealWithFoodsDto>>
-            {
-                Success = true,
-                Data = meals,
-                Message = "Meals retrieved successfully."
-            });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new ApiResponse<ErrorDto>
-            {
-                Success = false,
-                Message = ex.Message
-            });
-        }
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> CreateMeal([FromBody] MealDto request)
-    {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(new ApiResponse<ErrorDto>
-            {
-                Success = false,
-                Message = "Invalid input data.",
-                Metadata = ModelState.ToDictionary(
-                    m => m.Key,
-                    m => m.Value?.Errors.Select(e => e.ErrorMessage).ToList())
-            });
-        }
-
-        try
-        {
-            var meal = await _mealService.CreateMealAsync(request.MealType, request.MealDate);
-            return Ok(new ApiResponse<MealWithFoodsDto>
-            {
-                Success = true,
-                Data = MapToMealWithFoodsDto(meal),
-                Message = "Meal created successfully."
-            });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new ApiResponse<ErrorDto>
-            {
-                Success = false,
-                Message = ex.Message
-            });
-        }
-    }
-
-    [HttpPut("{mealId}")]
-    public async Task<IActionResult> UpdateMeal(int mealId, [FromBody] MealDto request)
-    {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(new ApiResponse<ErrorDto>
-            {
-                Success = false,
-                Message = "Invalid input data.",
-                Metadata = ModelState.ToDictionary(
-                    m => m.Key,
-                    m => m.Value?.Errors.Select(e => e.ErrorMessage).ToList())
-            });
-        }
-
-        try
-        {
-            var meal = await _mealService.UpdateMealAsync(mealId, request);
-            return Ok(new ApiResponse<MealWithFoodsDto>
-            {
-                Success = true,
-                Data = MapToMealWithFoodsDto(meal),
-                Message = "Meal updated successfully."
-            });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new ApiResponse<ErrorDto>
-            {
-                Success = false,
-                Message = ex.Message
-            });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Unauthorized(new ApiResponse<ErrorDto>
-            {
-                Success = false,
-                Message = "Access denied."
-            });
-        }
-    }
-
-    [HttpDelete("{mealId}")]
-    public async Task<IActionResult> DeleteMeal(int mealId)
-    {
-        try
-        {
-            var success = await _mealService.DeleteMealAsync(mealId);
-            return Ok(new ApiResponse<bool>
-            {
-                Success = true,
-                Data = success,
-                Message = "Meal deleted successfully."
-            });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new ApiResponse<ErrorDto>
-            {
-                Success = false,
-                Message = ex.Message
-            });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Unauthorized(new ApiResponse<ErrorDto>
-            {
-                Success = false,
-                Message = "Access denied."
-            });
-        }
-    }
-
-    private MealWithFoodsDto MapToMealWithFoodsDto(Meal meal)
-    {
+        var meal = await mealRepository.GetByIdWithFoodsAsync(mealId);
         return new MealWithFoodsDto
         {
             Id = meal.Id,
             MealType = meal.MealType,
             MealDate = meal.MealDate,
-            ConsumedAt = meal.ConsumedAt,
-            TotalCalories = meal.TotalCalories,
-            TotalProtein = meal.TotalProtein,
-            TotalCarbs = meal.TotalCarbs,
-            TotalFat = meal.TotalFat,
-            FoodCount = meal.FoodCount,
-            CreatedAt = meal.CreatedAt,
-            UpdatedAt = meal.UpdatedAt,
             Foods = meal.MealFoods.Select(mf => new FoodDto
             {
                 Id = mf.Food.Id,
                 Name = mf.Food.Name,
-                Description = mf.Food.Description,
-                Quantity = mf.Food.Quantity,
                 Calories = mf.Food.Calories,
                 Protein = mf.Food.Protein,
                 Carbs = mf.Food.Carbs,
                 Fat = mf.Food.Fat,
-                CreatedAt = mf.Food.CreatedAt,
-                UpdatedAt = mf.Food.UpdatedAt,
-                Ingredients = mf.Food.FoodIngredients.Select(fi => new FoodIngredientDto
-                {
-                    IngredientId = fi.IngredientId,
-                    Quantity = fi.Quantity,
-                    Unit = fi.Unit,
-                    IngredientName = fi.Ingredient.Name
-                }).ToList()
+                Quantity = mf.Food.Quantity
             }).ToList()
         };
+    }
+
+    public async Task<IEnumerable<MealWithFoodsDto>> GetByDateAsync(string date)
+    {
+        var meals = await mealRepository.GetByDateAsync(date);
+        return meals.Select(m => new MealWithFoodsDto
+        {
+            Id = m.Id,
+            MealType = m.MealType,
+            MealDate = m.MealDate,
+            Foods = m.MealFoods.Select(mf => new FoodDto
+            {
+                Id = mf.Food.Id,
+                Name = mf.Food.Name,
+                Calories = mf.Food.Calories,
+                Protein = mf.Food.Protein,
+                Carbs = mf.Food.Carbs,
+                Fat = mf.Food.Fat,
+                Quantity = mf.Food.Quantity
+            }).ToList()
+        });
+    }
+
+    public async Task<MealDto> CreateMealAsync(MealType mealType, DateTime mealDate)
+    {
+        var meal = new Meal
+        {
+            MealType = mealType,
+            MealDate = mealDate,
+            UserId = userContextService.GetAuthenticatedUserId()
+        };
+
+        var savedMeal = await mealRepository.AddAsync(meal);
+        return savedMeal.ToDto();
+    }
+
+    public async Task<MealDto> UpdateMealAsync(int mealId, MealDto updateMealDto)
+    {
+        var meal = await mealRepository.GetByIdAsync(mealId);
+        if (meal == null)
+        {
+            throw new UnauthorizedAccessException("Meal not found or access denied.");
+        }
+        meal.UpdateMeal(updateMealDto);
+        var updatedMeal = await mealRepository.UpdateAsync(meal);
+        return updatedMeal.ToDto();
+    }
+
+    public async Task<bool> DeleteMealAsync(int mealId)
+    {
+        //Current version cannot delete meals, only update them
+        return false;
     }
 }

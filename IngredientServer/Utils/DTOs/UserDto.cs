@@ -1,4 +1,7 @@
-﻿namespace IngredientServer.Utils.DTOs;
+﻿using System.Text.Json.Serialization;
+using IngredientServer.Core.Entities;
+
+namespace IngredientServer.Utils.DTOs;
 
 public class UserDto
 {
@@ -10,4 +13,20 @@ public class UserDto
     public bool IsActive { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime CreatedAt { get; set; } 
+}
+
+public class UserInformationDto
+{
+    public Gender? Gender { get; set; }
+    
+    public DateTime? DateOfBirth { get; set; }
+    
+    public decimal? Height { get; set; }
+    public decimal? Weight { get; set; }
+    public decimal? TargetWeight { get; set; }
+    
+    public NutritionGoal? PrimaryNutritionGoal { get; set; }
+    
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public ActivityLevel? ActivityLevel { get; set; }
 }

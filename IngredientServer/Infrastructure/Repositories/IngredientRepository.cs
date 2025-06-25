@@ -1,9 +1,8 @@
 ﻿using IngredientServer.Core.Entities;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
-using IngredientServer.Core.Services;
 using IngredientServer.Infrastructure.Data;
-using IngredientServer.Utils.DTOs.Ingredient;
+using IngredientServer.Utils.DTOs.Entity;
 using Microsoft.EntityFrameworkCore;
 
 namespace IngredientServer.Infrastructure.Repositories;
@@ -12,7 +11,7 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
     : BaseRepository<Ingredient>(context, userContextService), IIngredientRepository
 {
     // Override GetAllAsync to support filtering and pagination
-    public async Task<IEnumerable<Ingredient>> GetAllAsync(int pageNumber = 1, int pageSize = 10, IngredientFilterDto? filter = null)
+    public async Task<IEnumerable<Ingredient>> GetByFilterAsync(IngredientFilterDto? filter = null)
     {
         var query = Context.Set<Ingredient>()
             .Where(e => e.UserId == AuthenticatedUserId);
@@ -32,7 +31,7 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
                 query = query.Where(i => i.IsExpiringSoon == filter.IsExpiringSoon.Value);
 
             if (filter.IsLowStock.HasValue)
-                query = query.Where(i => i.Quantity <= 10); // Example threshold for low stock
+                query = query.Where(i => i.Quantity <= 10); 
 
             if (!string.IsNullOrEmpty(filter.SearchTerm))
                 query = query.Where(i => i.Name.Contains(filter.SearchTerm));
@@ -49,45 +48,30 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
             if (filter.MaxQuantity.HasValue)
                 query = query.Where(i => i.Quantity <= filter.MaxQuantity.Value);
 
-            if (!string.IsNullOrEmpty(filter.SortBy))
+            if (string.IsNullOrEmpty(filter.SortBy)) return await query.ToListAsync();
             {
-                switch (filter.SortBy.ToLower())
+                query = filter.SortBy.ToLower() switch
                 {
-                    case "name":
-                        query = filter.SortDirection?.ToLower() == "desc" 
-                            ? query.OrderByDescending(i => i.Name) 
-                            : query.OrderBy(i => i.Name);
-                        break;
-                    case "quantity":
-                        query = filter.SortDirection?.ToLower() == "desc" 
-                            ? query.OrderByDescending(i => i.Quantity) 
-                            : query.OrderBy(i => i.Quantity);
-                        break;
-                    case "expirydate":
-                        query = filter.SortDirection?.ToLower() == "desc" 
-                            ? query.OrderByDescending(i => i.ExpiryDate) 
-                            : query.OrderBy(i => i.ExpiryDate);
-                        break;
-                    case "category":
-                        query = filter.SortDirection?.ToLower() == "desc" 
-                            ? query.OrderByDescending(i => i.Category) 
-                            : query.OrderBy(i => i.Category);
-                        break;
-                    case "createdat":
-                        query = filter.SortDirection?.ToLower() == "desc" 
-                            ? query.OrderByDescending(i => i.CreatedAt) 
-                            : query.OrderBy(i => i.CreatedAt);
-                        break;
-                    default:
-                        query = query.OrderBy(i => i.Id);
-                        break;
-                }
+                    "name" => filter.SortDirection?.ToLower() == "desc"
+                        ? query.OrderByDescending(i => i.Name)
+                        : query.OrderBy(i => i.Name),
+                    "quantity" => filter.SortDirection?.ToLower() == "desc"
+                        ? query.OrderByDescending(i => i.Quantity)
+                        : query.OrderBy(i => i.Quantity),
+                    "expirydate" => filter.SortDirection?.ToLower() == "desc"
+                        ? query.OrderByDescending(i => i.ExpiryDate)
+                        : query.OrderBy(i => i.ExpiryDate),
+                    "category" => filter.SortDirection?.ToLower() == "desc"
+                        ? query.OrderByDescending(i => i.Category)
+                        : query.OrderBy(i => i.Category),
+                    "createdat" => filter.SortDirection?.ToLower() == "desc"
+                        ? query.OrderByDescending(i => i.CreatedAt)
+                        : query.OrderBy(i => i.CreatedAt),
+                    _ => query.OrderBy(i => i.Id)
+                };
             }
         }
 
-        return await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+        return await query.ToListAsync();
     }
 }

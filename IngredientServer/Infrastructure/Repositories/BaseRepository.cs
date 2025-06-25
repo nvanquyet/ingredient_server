@@ -1,4 +1,5 @@
-﻿using IngredientServer.Core.Entities;
+﻿using System.Linq.Expressions;
+using IngredientServer.Core.Entities;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Core.Services;
@@ -22,12 +23,17 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
             .FirstOrDefaultAsync();
     }
 
-    public virtual async Task<IEnumerable<T>> GetAllAsync(int pageNumber = 1, int pageSize = 10)
+    public virtual async Task<IEnumerable<T>> GetAllAsync()
     {
         return await Context.Set<T>()
             .Where(e => e.UserId == AuthenticatedUserId)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
+            .ToListAsync();
+    }
+    
+    public virtual async Task<IEnumerable<T>> GetAllAsync(Expression<Func<T, bool>> predicate)
+    {
+        return await Context.Set<T>()
+            .Where(predicate)
             .ToListAsync();
     }
 
@@ -64,6 +70,22 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
         }
         
         Context.Set<T>().Remove(entity);
+        await Context.SaveChangesAsync();
+        return true;
+    }
+    
+    public virtual async Task<bool> DeleteAsync(Expression<Func<T, bool>> predicate)
+    {
+        var entities = await Context.Set<T>()
+            .Where(predicate)
+            .ToListAsync();
+
+        if (!entities.Any())
+        {
+            throw new UnauthorizedAccessException("Entities not found or access denied.");
+        }
+
+        Context.Set<T>().RemoveRange(entities);
         await Context.SaveChangesAsync();
         return true;
     }

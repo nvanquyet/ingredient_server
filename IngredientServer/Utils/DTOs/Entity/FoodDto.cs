@@ -1,10 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using IngredientServer.Core.Entities;
 
-namespace IngredientServer.Utils.DTOs.Ingredient
+namespace IngredientServer.Utils.DTOs.Entity
 {
      // Request DTOs
-    public class CreateFoodDto
+    public class FoodDataDto
     {
         [Required]
         [StringLength(200)]
@@ -41,33 +41,6 @@ namespace IngredientServer.Utils.DTOs.Ingredient
         public IEnumerable<FoodIngredientDto> Ingredients { get; set; } = new List<FoodIngredientDto>();
     }
     
-    public class UpdateFoodDto
-    {
-        [StringLength(200)]
-        public string? Name { get; set; }
-        
-        public string? Description { get; set; }
-        
-        [Range(0.1, double.MaxValue)]
-        public double? Quantity { get; set; }
-        
-        [Range(0, double.MaxValue)]
-        public double? Calories { get; set; }
-        
-        [Range(0, double.MaxValue)]
-        public double? Protein { get; set; }
-        
-        [Range(0, double.MaxValue)]
-        public double? Carbs { get; set; }
-        
-        [Range(0, double.MaxValue)]
-        public double? Fat { get; set; }
-        
-        public DateTime? Date { get; set; }
-        public MealType? MealType { get; set; }
-        public IEnumerable<FoodIngredientDto>? Ingredients { get; set; }
-    }
-    
     public class FoodIngredientDto
     {
         [Required]
@@ -100,29 +73,35 @@ namespace IngredientServer.Utils.DTOs.Ingredient
         public IEnumerable<FoodIngredientDto> Ingredients { get; set; } = new List<FoodIngredientDto>();
     }
     
+    public class FoodSuggestionRequestDto
+    {
+        public List<int>? IngredientIds { get; set; }
+        public NutritionGoal NutritionGoal { get; set; } = NutritionGoal.Balanced;
+        public int MaxSuggestions { get; set; } = 5;
+        public UserInformationDto UserInformation { get; set; }
+    }
+    
     public class FoodSuggestionDto
     {
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
-        public double EstimatedCalories { get; set; }
-        public double EstimatedProtein { get; set; }
-        public double EstimatedCarbs { get; set; }
-        public double EstimatedFat { get; set; }
-        public IEnumerable<string> RequiredIngredients { get; set; } = new List<string>();
-        public IEnumerable<string> OptionalIngredients { get; set; } = new List<string>();
         public string Difficulty { get; set; } = string.Empty;
         public int PrepTimeMinutes { get; set; }
         public int CookTimeMinutes { get; set; }
     }
     
-    public class RecipeDto
+    public class FoodRecipeDto
     {
         public string FoodName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
         public string PrepTime { get; set; } = string.Empty;
         public string CookTime { get; set; } = string.Empty;
         public string TotalTime { get; set; } = string.Empty;
         public string Difficulty { get; set; } = string.Empty;
-        public int Servings { get; set; }
+        public double EstimatedCalories { get; set; }
+        public double EstimatedProtein { get; set; }
+        public double EstimatedCarbs { get; set; }
+        public double EstimatedFat { get; set; }
         public IEnumerable<RecipeIngredientDto> Ingredients { get; set; } = new List<RecipeIngredientDto>();
         public IEnumerable<string> Instructions { get; set; } = new List<string>();
         public string? Tips { get; set; }
@@ -134,7 +113,7 @@ namespace IngredientServer.Utils.DTOs.Ingredient
         public string Quantity { get; set; } = string.Empty;
     }
     
-    public class GetRecipeRequestDto
+    public class FoodRecipeRequestDto
     {
         [Required]
         public string FoodName { get; set; } = string.Empty;

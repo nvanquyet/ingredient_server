@@ -1,17 +1,18 @@
 ﻿using IngredientServer.Core.Entities;
-using IngredientServer.Utils.DTOs.Meal;
 
 namespace IngredientServer.Core.Interfaces.Repositories;
 
-
 public interface IMealRepository : IBaseRepository<Meal>
 {
-    // Get meals by date
+    // Lấy meals theo ngày
     Task<IEnumerable<Meal>> GetByDateAsync(string date, int pageNumber = 1, int pageSize = 10);
+    Task<IEnumerable<Meal>> GetByDateAsync(DateTime date);
+    // Lấy meal kèm foods
+    Task<Meal> GetByIdWithFoodsAsync(int mealId);
 }
 
 public interface IMealFoodRepository : IBaseRepository<MealFood>
 {
-    // Get MealFoods by MealId
+    // Lấy MealFoods theo MealId
     Task<IEnumerable<MealFood>> GetByMealIdAsync(int mealId);
 }

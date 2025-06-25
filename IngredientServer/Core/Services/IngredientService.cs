@@ -1,111 +1,93 @@
 ﻿using IngredientServer.Core.Entities;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
-using IngredientServer.Utils.DTOs.Ingredient;
+using IngredientServer.Utils.DTOs.Entity;
 
 namespace IngredientServer.Core.Services;
 
 public class IngredientService(IIngredientRepository ingredientRepository, IUserContextService userContextService)
     : IIngredientService
 {
-    public async Task<IngredientSearchResultDto> GetAllAsync(IngredientFilterDto filter)
-    {
-        // Validate filter
-        if (filter == null)
-        {
-            throw new ArgumentNullException(nameof(filter), "Filter cannot be null.");
-        }
-
-        if (filter.PageNumber < 1)
-        {
-            throw new ArgumentException("Page number must be greater than or equal to 1.", nameof(filter.PageNumber));
-        }
-
-        if (filter.PageSize < 1)
-        {
-            throw new ArgumentException("Page size must be greater than or equal to 1.", nameof(filter.PageSize));
-        }
-
-        // Get filtered and paginated ingredients
-        var ingredients = await ingredientRepository.GetAllAsync(filter.PageNumber, filter.PageSize, filter);
-
-        // Get total count for pagination
-        var totalCount = (await ingredientRepository.GetAllAsync(1, int.MaxValue, filter)).Count();
-
-        // Map to DTO
-        var result = new IngredientSearchResultDto
-        {
-            Ingredients = ingredients.Select(i => new IngredientDto
-            {
-                Id = i.Id,
-                Name = i.Name,
-                Description = i.Description,
-                Quantity = i.Quantity,
-                Unit = i.Unit,
-                Category = i.Category,
-                ExpiryDate = i.ExpiryDate,
-                ImageUrl = i.ImageUrl,
-                CreatedAt = i.CreatedAt,
-                UpdatedAt = i.UpdatedAt,
-                DaysUntilExpiry = i.DaysUntilExpiry,
-                IsExpired = i.IsExpired,
-                IsExpiringSoon = i.IsExpiringSoon,
-                Status = i.IsExpired ? "Expired" : i.IsExpiringSoon ? "Expiring Soon" : i.Quantity <= 10 ? "Low Stock" : "Available",
-                UnitDisplay = i.Unit.ToString(),
-                CategoryDisplay = i.Category.ToString()
-            }).ToList(),
-            TotalCount = totalCount,
-            PageNumber = filter.PageNumber,
-            PageSize = filter.PageSize,
-            TotalPages = (int)Math.Ceiling((double)totalCount / filter.PageSize),
-            HasNextPage = filter.PageNumber < (int)Math.Ceiling((double)totalCount / filter.PageSize),
-            HasPreviousPage = filter.PageNumber > 1
-        };
-
-        return result;
-    }
-
-    public async Task<Ingredient> CreateIngredientAsync(CreateIngredientDto dto)
+    public async Task<IngredientDto> CreateIngredientAsync(IngredientDataDto dataDto)
     {
         var ingredient = new Ingredient
         {
-            Name = dto.Name,
-            Description = dto.Description,
-            Quantity = dto.Quantity,
-            Unit = dto.Unit,
-            Category = dto.Category,
-            ExpiryDate = dto.ExpiryDate,
-            ImageUrl = dto.ImageUrl,
-            UserId = userContextService.GetAuthenticatedUserId(),
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            Name = dataDto.Name,
+            Description = dataDto.Description,
+            Category = dataDto.Category,
+            Quantity = dataDto.Quantity,
+            ExpiryDate = dataDto.ExpiryDate,
+            Unit = dataDto.Unit,
+            UserId = userContextService.GetAuthenticatedUserId()
         };
 
-        return await ingredientRepository.AddAsync(ingredient);
+        var savedIngredient = await ingredientRepository.AddAsync(ingredient);
+        return new IngredientDto
+        {
+            Id = savedIngredient.Id,
+            Name = savedIngredient.Name,
+            Description = savedIngredient.Description,
+            Unit = savedIngredient.Unit,
+            Category = savedIngredient.Category,
+            Quantity = savedIngredient.Quantity,
+            ExpiryDate = savedIngredient.ExpiryDate,
+        };
     }
 
-    public async Task<Ingredient> UpdateIngredientAsync(int ingredientId, UpdateIngredientDto dto)
+    public async Task<IngredientDto> UpdateIngredientAsync(int ingredientId, IngredientDataDto dto)
     {
         var ingredient = await ingredientRepository.GetByIdAsync(ingredientId);
         if (ingredient == null)
         {
-            throw new KeyNotFoundException("Ingredient not found or access denied.");
+            throw new UnauthorizedAccessException("Ingredient not found or access denied.");
         }
 
-        if (!string.IsNullOrEmpty(dto.Name)) ingredient.Name = dto.Name;
-        if (!string.IsNullOrEmpty(dto.Description)) ingredient.Description = dto.Description;
-        if (dto.Quantity.HasValue) ingredient.Quantity = dto.Quantity.Value;
-        if (dto.Unit.HasValue) ingredient.Unit = dto.Unit.Value;
-        if (dto.Category.HasValue) ingredient.Category = dto.Category.Value;
-        if (dto.ExpiryDate.HasValue) ingredient.ExpiryDate = dto.ExpiryDate.Value;
-        if (!string.IsNullOrEmpty(dto.ImageUrl)) ingredient.ImageUrl = dto.ImageUrl;
-        ingredient.UpdatedAt = DateTime.UtcNow;
+        ingredient.Name = dto.Name;
+        ingredient.Description = dto.Description;
+        ingredient.Unit = dto.Unit;
+        ingredient.Category = dto.Category;
+        ingredient.Quantity = dto.Quantity;
+        ingredient.ExpiryDate = dto.ExpiryDate;
 
-        return await ingredientRepository.UpdateAsync(ingredient);
+        var updatedIngredient = await ingredientRepository.UpdateAsync(ingredient);
+        return new IngredientDto
+        {
+            Id = updatedIngredient.Id,
+            Name = updatedIngredient.Name,
+            Description = updatedIngredient.Description,
+            Unit = updatedIngredient.Unit,
+            Category = updatedIngredient.Category,
+            Quantity = updatedIngredient.Quantity,
+            ExpiryDate = updatedIngredient.ExpiryDate,
+        };
     }
 
     public async Task<bool> DeleteIngredientAsync(int ingredientId)
     {
         return await ingredientRepository.DeleteAsync(ingredientId);
+    }
+
+    public async Task<IngredientSearchResultDto> GetAllAsync(IngredientFilterDto filter)
+    {
+        var ingredients = await ingredientRepository.GetByFilterAsync(filter);
+        var enumerable = ingredients as Ingredient[] ?? ingredients.ToArray();
+        return new IngredientSearchResultDto
+        {
+            Ingredients = enumerable.Select(i => new IngredientDto
+            {
+                Id = i.Id,
+                Name = i.Name,
+                Description = i.Description,
+                ImageUrl = i.ImageUrl,
+                Unit = i.Unit,
+                Category = i.Category,
+                Quantity = i.Quantity,
+                ExpiryDate = i.ExpiryDate,
+                DaysUntilExpiry = (i.ExpiryDate - DateTime.UtcNow).Days,
+                IsExpired = i.ExpiryDate < DateTime.UtcNow,
+                IsExpiringSoon = (i.ExpiryDate - DateTime.UtcNow).Days <= 7,
+            }).ToList(),
+            TotalCount = enumerable.Count()
+        };
     }
 }

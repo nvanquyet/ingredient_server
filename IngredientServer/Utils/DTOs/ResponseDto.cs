@@ -5,13 +5,7 @@ using IngredientServer.Core.Entities;
 
 namespace IngredientServer.Utils.DTOs
 {
-    public class FoodSuggestionRequest
-    {
-        public List<int>? IngredientIds { get; set; }
-        public NutritionGoal NutritionGoal { get; set; } = NutritionGoal.Balanced;
-        public int MaxSuggestions { get; set; } = 5;
-    }
-
+   
     public class GenerateRecipeRequest
     {
         public string FoodName { get; set; } = string.Empty;

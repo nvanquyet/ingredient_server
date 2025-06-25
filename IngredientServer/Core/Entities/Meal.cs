@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using IngredientServer.Utils.DTOs.Entity;
 
 namespace IngredientServer.Core.Entities
 {
@@ -41,5 +42,27 @@ namespace IngredientServer.Core.Entities
         
         // Computed properties
         public int FoodCount => MealFoods.Count;
+
+
+        public void UpdateMeal(MealDto target)
+        {
+            this.MealType = target.MealType;
+            this.MealDate = target.MealDate;
+            this.ConsumedAt = target.ConsumedAt;
+            this.UpdatedAt = target.UpdatedAt;
+        }
+        
+        public MealDto ToDto()
+        {
+            return new MealDto
+            {
+                Id = this.Id,
+                MealType = this.MealType,
+                MealDate = this.MealDate,
+                ConsumedAt = this.ConsumedAt,
+                CreatedAt = this.CreatedAt,
+                UpdatedAt = this.UpdatedAt
+            };
+        }
     }
 }

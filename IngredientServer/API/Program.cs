@@ -8,9 +8,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
-using IngredientServer.Core.Repositories;
 using IngredientServer.Core.Services;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,7 +20,12 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.WriteIndented = true;
+    });
 
 // Database - MySQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -29,17 +34,25 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))));
 
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<IUserContextService, UserContextService>();
 
-// Repositories
+// Repositories - từ Infrastructure.Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IIngredientRepository, IngredientRepository>();
 builder.Services.AddScoped<IFoodRepository, FoodRepository>();
 builder.Services.AddScoped<IMealRepository, MealRepository>();
+builder.Services.AddScoped<IMealFoodRepository, MealFoodRepository>();
+builder.Services.AddScoped<IFoodIngredientRepository, FoodIngredientRepository>();
 
-// Services
+// Services - từ Core.Services
 builder.Services.AddScoped<IAuthService, AuthService>();
-//builder.Services.AddScoped<IAIService, AIService>(); // Assuming AIService exists
+builder.Services.AddScoped<IFoodService, FoodService>();
+builder.Services.AddScoped<IIngredientService, IngredientService>();
+builder.Services.AddScoped<IMealService, MealService>();
+builder.Services.AddScoped<INutritionService, NutritionService>();
+builder.Services.AddScoped<IUserContextService, UserContextService>();
+
+// HttpClient cho external API calls
+builder.Services.AddHttpClient();
 
 // JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? throw new InvalidOperationException("JWT Secret is not configured");
@@ -82,6 +95,13 @@ builder.Services.AddCors(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
+    c.SwaggerDoc("v1", new OpenApiInfo 
+    { 
+        Title = "Ingredient Server API", 
+        Version = "v1",
+        Description = "API for managing ingredients, foods, meals and nutrition tracking"
+    });
+
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below.",
@@ -107,30 +127,75 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// AutoMapper (nếu cần)
+// builder.Services.AddAutoMapper(typeof(Program));
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Ingredient Server API v1");
+        c.RoutePrefix = string.Empty; // Swagger UI at root
+    });
 }
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
+
+// Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
 // Custom JWT middleware
 app.UseMiddleware<JwtMiddleware>();
 
+// Global error handling middleware (optional)
+app.UseMiddleware<GlobalErrorHandlingMiddleware>();
+
 app.MapControllers();
+
+// Health check endpoint
+app.MapGet("/health", () => Results.Ok(new { 
+    status = "healthy", 
+    timestamp = DateTime.UtcNow,
+    version = "1.0.0"
+}));
+
+// API info endpoint
+app.MapGet("/api/info", () => Results.Ok(new {
+    name = "Ingredient Server API",
+    version = "1.0.0",
+    description = "API for managing ingredients, foods, meals and nutrition tracking",
+    endpoints = new[] {
+        "/api/auth - Authentication endpoints",
+        "/api/ingredient - Ingredient management", 
+        "/api/food - Food management",
+        "/api/meal - Meal management",
+        "/api/nutrition - Nutrition tracking and analytics"
+    }
+}));
 
 // Create database if it doesn't exist
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    context.Database.EnsureCreated();
+    try
+    {
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await context.Database.EnsureCreatedAsync();
+        Console.WriteLine("Database initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Database initialization failed: {ex.Message}");
+        throw;
+    }
 }
-app.MapGet("/health", () => new Microsoft.AspNetCore.Mvc.OkResult());
+
+Console.WriteLine($"Application starting on {DateTime.UtcNow}");
+Console.WriteLine($"Environment: {app.Environment.EnvironmentName}");
+
 app.Run();
