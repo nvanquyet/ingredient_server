@@ -1,5 +1,6 @@
 ﻿using IngredientServer.Core.Entities;
 using IngredientServer.Core.Interfaces.Services;
+using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Entity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,102 +13,215 @@ namespace IngredientServer.API.Controllers;
 public class FoodController(IFoodService foodService) : ControllerBase
 {
     [HttpPost]
-    public async Task<ActionResult<Food>> CreateFood([FromBody] FoodDataDto dataDto)
+    public async Task<ActionResult<ApiResponse<Food>>> CreateFood([FromBody] FoodDataDto dataDto)
     {
         try
         {
             var food = await foodService.CreateFoodAsync(dataDto);
-            return CreatedAtAction(nameof(GetFood), new { id = food.Id }, food);
+            return CreatedAtAction(
+                nameof(GetFood), 
+                new { id = food.Id }, 
+                new ApiResponse<Food>
+                {
+                    Success = true,
+                    Data = food,
+                    Message = "Food created successfully"
+                });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new ApiResponse<Food>
+            {
+                Success = false,
+                Message = ex.Message
+            });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
+            return StatusCode(500, new ApiResponse<Food>
+            {
+                Success = false,
+                Message = "Internal server error",
+                Metadata = new Dictionary<string, List<string>?>
+                {
+                    ["details"] = new List<string> { ex.Message }
+                }
+            });
         }
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<Food>> UpdateFood(int id, [FromBody] FoodDataDto dto)
+    public async Task<ActionResult<ApiResponse<Food>>> UpdateFood(int id, [FromBody] FoodDataDto dto)
     {
         try
         {
             var food = await foodService.UpdateFoodAsync(id, dto);
-            return Ok(food);
+            return Ok(new ApiResponse<Food>
+            {
+                Success = true,
+                Data = food,
+                Message = "Food updated successfully"
+            });
         }
         catch (UnauthorizedAccessException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return NotFound(new ApiResponse<Food>
+            {
+                Success = false,
+                Message = ex.Message
+            });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new ApiResponse<Food>
+            {
+                Success = false,
+                Message = ex.Message
+            });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
+            return StatusCode(500, new ApiResponse<Food>
+            {
+                Success = false,
+                Message = "Internal server error",
+                Metadata = new Dictionary<string, List<string>?>
+                {
+                    ["details"] = new List<string> { ex.Message }
+                }
+            });
         }
     }
 
     [HttpDelete("{id}")]
-    public async Task<ActionResult> DeleteFood(int id)
+    public async Task<ActionResult<ApiResponse<bool>>> DeleteFood(int id)
     {
         try
         {
             var result = await foodService.DeleteFoodAsync(id);
             if (result)
-                return NoContent();
-            return NotFound(new { message = "Food not found" });
+            {
+                return Ok(new ApiResponse<bool>
+                {
+                    Success = true,
+                    Data = true,
+                    Message = "Food deleted successfully"
+                });
+            }
+            
+            return NotFound(new ApiResponse<bool>
+            {
+                Success = false,
+                Data = false,
+                Message = "Food not found"
+            });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
+            return StatusCode(500, new ApiResponse<bool>
+            {
+                Success = false,
+                Data = false,
+                Message = "Internal server error",
+                Metadata = new Dictionary<string, List<string>?>
+                {
+                    ["details"] = new List<string> { ex.Message }
+                }
+            });
         }
     }
 
     [HttpPost("suggestions")]
-    public async Task<ActionResult<List<FoodSuggestionDto>>> GetSuggestions([FromBody] FoodSuggestionRequestDto requestDto)
+    public async Task<ActionResult<ApiResponse<List<FoodSuggestionDto>>>> GetSuggestions([FromBody] FoodSuggestionRequestDto requestDto)
     {
         try
         {
             var suggestions = await foodService.GetSuggestionsAsync(requestDto);
-            return Ok(suggestions);
+            return Ok(new ApiResponse<List<FoodSuggestionDto>>
+            {
+                Success = true,
+                Data = suggestions,
+                Message = "Food suggestions retrieved successfully",
+                Metadata = new Dictionary<string, List<string>?>
+                {
+                    ["count"] = new List<string> { suggestions.Count.ToString() }
+                }
+            });
         }
         catch (HttpRequestException ex)
         {
-            return StatusCode(503, new { message = "Service unavailable", details = ex.Message });
+            return StatusCode(503, new ApiResponse<List<FoodSuggestionDto>>
+            {
+                Success = false,
+                Message = "Service unavailable",
+                Metadata = new Dictionary<string, List<string>?>
+                {
+                    ["details"] = new List<string> { ex.Message }
+                }
+            });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
+            return StatusCode(500, new ApiResponse<List<FoodSuggestionDto>>
+            {
+                Success = false,
+                Message = "Internal server error",
+                Metadata = new Dictionary<string, List<string>?>
+                {
+                    ["details"] = new List<string> { ex.Message }
+                }
+            });
         }
     }
 
     [HttpPost("recipes")]
-    public async Task<ActionResult<FoodRecipeDto>> GetRecipeSuggestions([FromBody] FoodRecipeRequestDto recipeRequest)
+    public async Task<ActionResult<ApiResponse<FoodRecipeDto>>> GetRecipeSuggestions([FromBody] FoodRecipeRequestDto recipeRequest)
     {
         try
         {
             var recipe = await foodService.GetRecipeSuggestionsAsync(recipeRequest);
-            return Ok(recipe);
+            return Ok(new ApiResponse<FoodRecipeDto>
+            {
+                Success = true,
+                Data = recipe,
+                Message = "Recipe retrieved successfully"
+            });
         }
         catch (HttpRequestException ex)
         {
-            return StatusCode(503, new { message = "Service unavailable", details = ex.Message });
+            return StatusCode(503, new ApiResponse<FoodRecipeDto>
+            {
+                Success = false,
+                Message = "Service unavailable",
+                Metadata = new Dictionary<string, List<string>?>
+                {
+                    ["details"] = new List<string> { ex.Message }
+                }
+            });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
+            return StatusCode(500, new ApiResponse<FoodRecipeDto>
+            {
+                Success = false,
+                Message = "Internal server error",
+                Metadata = new Dictionary<string, List<string>?>
+                {
+                    ["details"] = new List<string> { ex.Message }
+                }
+            });
         }
     }
 
-    // Helper method for CreatedAtAction
     [HttpGet("{id}")]
-    public async Task<ActionResult> GetFood(int id)
+    public async Task<ActionResult<ApiResponse<object>>> GetFood(int id)
     {
-        // This is a placeholder - you might want to implement this in your service
-        return Ok(new { id, message = "Food retrieved successfully" });
+        // Implement actual logic here when service method is available
+        return Ok(new ApiResponse<object>
+        {
+            Success = true,
+            Data = new { id, message = "Food retrieved successfully" },
+            Message = "Food found"
+        });
     }
 }
