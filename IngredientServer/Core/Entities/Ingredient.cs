@@ -5,28 +5,35 @@ namespace IngredientServer.Core.Entities
 {
     public enum IngredientUnit
     {
-        Kilogram,
-        Liter,
-        Piece,
-        Box,
-        Gram,
-        Milliliter
+        Kilogram = 0,
+        Liter = 1,
+        Piece = 2,
+        Box = 3,
+        Gram = 4,
+        Milliliter = 5,
+        Can = 6,
+        Cup = 7,
+        Tablespoon = 8,
+        Teaspoon = 9,
+        Package = 10,
+        Bottle = 11,
+        Other = 12
     }
 
     public enum IngredientCategory
     {
-        Dairy,
-        Meat,
-        Vegetables,
-        Fruits,
-        Grains,
-        Beverages,
-        Condiments,
-        Snacks,
-        Frozen,
-        Canned,
-        Spices,
-        Other
+        Dairy = 0,
+        Meat = 1,
+        Vegetables = 2,
+        Fruits = 3,
+        Grains = 4,
+        Beverages = 5,
+        Condiments = 6,
+        Snacks = 7,
+        Frozen = 8,
+        Canned = 9,
+        Spices = 10,
+        Other = 11
     }
 
     // Sửa từ abstract thành concrete class

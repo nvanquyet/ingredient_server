@@ -57,7 +57,11 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
     public async Task<bool> DeleteAsync(int id)
     {
         var entity = await GetByIdAsync(id);
-        if (entity == null) return false;
+        if (entity == null)
+        {
+            throw new UnauthorizedAccessException("Entity not found or access denied.");
+            return false;
+        }
         
         Context.Set<T>().Remove(entity);
         await Context.SaveChangesAsync();
