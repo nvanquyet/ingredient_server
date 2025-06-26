@@ -7,6 +7,7 @@ using IngredientServer.API.Middlewares;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using IngredientServer.Core.Services;
 using Microsoft.AspNetCore.Builder;
@@ -23,10 +24,18 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
+        // Cho phép tên trường JSON theo kiểu camelCase (name thay vì Name)
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        
+        // Hỗ trợ chuyển đổi chuỗi thành enum
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        
+        // Giữ lại cấu hình xử lý vòng tham chiếu nếu cần
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        
+        // Giữ lại định dạng JSON đẹp nếu muốn
         options.JsonSerializerOptions.WriteIndented = true;
     });
-
 // Database - MySQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(

@@ -66,8 +66,9 @@ public class RegisterDto
     public string LastName { get; set; } = string.Empty;
 }
 
-public class UpdateUserProfileDto 
+public class UserProfileDto 
 {
+    public int Id { get; set; }
     [MaxLength(50)]
     public string? Username { get; set; }
     

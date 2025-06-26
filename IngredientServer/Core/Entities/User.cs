@@ -141,7 +141,7 @@ namespace IngredientServer.Core.Entities
             }
         }
 
-        public void UpdateUserProfile(UpdateUserProfileDto targetData)
+        public void UpdateUserProfile(UserProfileDto targetData)
         {
             if (targetData.FirstName != null)
                 this.FirstName = targetData.FirstName;
@@ -177,5 +177,30 @@ namespace IngredientServer.Core.Entities
                 this.EnableMealReminders = targetData.EnableMealReminders.Value;
             this.UpdatedAt = DateTime.UtcNow;
         }
+
+        public UserProfileDto ToDto()
+        {
+            return new UserProfileDto
+            {
+                Id = this.Id,
+                Username = this.Username,
+                Email = this.Email,
+                FirstName = this.FirstName,
+                LastName = this.LastName,
+                Gender = this.gender,
+                DateOfBirth = this.DateOfBirth,
+                Height = this.Height,
+                Weight = this.Weight,
+                TargetWeight = this.TargetWeight,
+                PrimaryNutritionGoal = this.PrimaryNutritionGoal,
+                ActivityLevel = this.ActivityLevel,
+                HasFoodAllergies = this.HasFoodAllergies,
+                FoodAllergies = this.FoodAllergies,
+                FoodPreferences = this.FoodPreferences,
+                EnableNotifications = this.EnableNotifications,
+                EnableMealReminders = this.EnableMealReminders,
+            };
+        }
+        
     }
 }

@@ -146,32 +146,33 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
         }
     }
     
-    public async Task<ResponseDto<User>> GetUserProfileAsync(int userId)
+    public async Task<ResponseDto<UserProfileDto>> GetUserProfileAsync(int userId)
     {
         var user = await userRepository.GetByIdAsync(userId);
         if (user == null)
         {
-            return new ResponseDto<User>
+            return new ResponseDto<UserProfileDto>
             {
                 Success = false,
                 Message = "User not found",
                 Data = null
             };
         }
-    
-        return new ResponseDto<User>
+
+        var userProfileDto = user.ToDto();
+        return new ResponseDto<UserProfileDto>
         {
             Success = true,
             Message = "User profile retrieved successfully",
-            Data = user
+            Data = userProfileDto
         };
     }
 
-    public Task<ResponseDto<User>> UpdateUserProfileAsync(int userId, UpdateUserProfileDto? updateUserProfileDto)
+    public async Task<ResponseDto<User>> UpdateUserProfileAsync(int userId, UserProfileDto? updateUserProfileDto)
     {
         if(updateUserProfileDto == null)
         {
-            return Task.FromResult(new ResponseDto<User>
+            return await Task.FromResult(new ResponseDto<User>
             {
                 Success = false,
                 Message = "Invalid user profile data"
@@ -182,15 +183,15 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
         
         if (user.Result == null)
         {
-            return Task.FromResult(new ResponseDto<User>
+            return await Task.FromResult(new ResponseDto<User>
             {
                 Success = false,
                 Message = "User not found"
             });
         }
         user.Result.UpdateUserProfile(updateUserProfileDto);
-        userRepository.UpdateAsync(user.Result);
-        return Task.FromResult(new ResponseDto<User>
+        await userRepository.UpdateAsync(user.Result);
+        return await Task.FromResult(new ResponseDto<User>
         {
             Success = true,
             Message = "User profile updated successfully",
@@ -199,7 +200,7 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
     }
 
 
-    public async Task<ResponseDto<bool>> ChangePasswordAsync(int userId, ChangePasswordDto changePasswordDto)
+    public async Task<ResponseDto<bool>> ChangePasswordAsync(int userId, ChangePasswordDto? changePasswordDto)
     {
         if (changePasswordDto == null)
         {

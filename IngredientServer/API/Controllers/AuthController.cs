@@ -92,7 +92,7 @@ public class AuthController(IAuthService authService) : BaseController
     
     [HttpPut("me")]
     [Authorize]
-    public async Task<IActionResult> UpdateUserProfile([FromBody] UpdateUserProfileDto updateUserProfileDto)
+    public async Task<IActionResult> UpdateUserProfile([FromBody] UserProfileDto userProfileDto)
     {
         // Thêm validation check
         if (!ModelState.IsValid)
@@ -111,14 +111,14 @@ public class AuthController(IAuthService authService) : BaseController
             });
         }
 
-        var user = await authService.UpdateUserProfileAsync(userId, updateUserProfileDto);
+        var user = await authService.UpdateUserProfileAsync(userId, userProfileDto);
         return Ok(user);
     }
     
     
     [HttpPut("change_password")]
     [Authorize]
-    public async Task<IActionResult> OnChangePassword([FromBody] ChangePasswordDto dto)
+    public async Task<IActionResult> OnChangePassword([FromBody] ChangePasswordDto? dto)
     {
         // Thêm validation check
         if (!ModelState.IsValid)
