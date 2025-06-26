@@ -46,9 +46,12 @@ public class UserRepository(ApplicationDbContext context, IUserContextService us
         Context.Users.Update(user);
         await Context.SaveChangesAsync();
     }
-
+    
     public async Task<User?> GetByIdAsync(int id)
     {
-        return await Context.Users.FindAsync(id);
+        var user = await Context.Users
+            .FirstOrDefaultAsync(u => u.Id == id);
+        Console.WriteLine($"GetByIdAsync - UserId: {id}, User: {(user == null ? "null" : user.Id)}");
+        return user;
     }
 }

@@ -47,16 +47,20 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
 
     public virtual async Task<T> UpdateAsync(T entity)
     {
-        // Verify ownership
-        var existingEntity = await GetByIdAsync(entity.Id);
-        if (existingEntity == null)
-        {
-            throw new UnauthorizedAccessException("Entity not found or access denied.");
-        }
-
-        entity.UserId = AuthenticatedUserId; // Ensure UserId is correct
+        if (entity == null)
+            throw new ArgumentNullException(nameof(entity));
+        entity.UserId = AuthenticatedUserId;
         Context.Set<T>().Update(entity);
-        await Context.SaveChangesAsync();
+        try
+        {
+            await Context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            // Log lỗi chi tiết
+            Console.WriteLine($"UpdateAsync Error: {ex.InnerException?.Message}");
+            throw new UnauthorizedAccessException("Entity not found or access denied.", ex);
+        }
         return entity;
     }
 
