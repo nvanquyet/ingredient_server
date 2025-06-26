@@ -18,6 +18,7 @@ public interface IFoodService
     Task<bool> DeleteFoodAsync(int foodId);
     Task<List<FoodSuggestionDto>> GetSuggestionsAsync(FoodSuggestionRequestDto requestDto);
     Task<FoodRecipeDto> GetRecipeSuggestionsAsync(FoodRecipeRequestDto recipeRequest);
+    Task<FoodDto> GetFoodByIdAsync(int id);
 }
 
 public interface IIngredientService
@@ -27,6 +28,7 @@ public interface IIngredientService
     Task<bool> DeleteIngredientAsync(int ingredientId);
     
     Task<IngredientSearchResultDto> GetAllAsync(IngredientFilterDto filter);
+    Task<IngredientDto> GetIngredientByIdAsync(int id);
 }
 
 public interface IMealService

@@ -217,10 +217,11 @@ public class FoodController(IFoodService foodService) : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> GetFood(int id)
     {
         // Implement actual logic here when service method is available
+        var food = await foodService.GetFoodByIdAsync(id);
         return Ok(new ApiResponse<object>
         {
             Success = true,
-            Data = new { id, message = "Food retrieved successfully" },
+            Data = food,
             Message = "Food found"
         });
     }

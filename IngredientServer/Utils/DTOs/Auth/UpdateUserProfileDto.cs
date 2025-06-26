@@ -6,11 +6,7 @@ public class UpdateUserProfileDto
 {
     [MaxLength(50)]
     public string? Username { get; set; }
-
-    public string? CurrentPassword { get; set; }
-    public string? NewPassword { get; set; }
-    public string? ConfirmNewPassword { get; set; }
-
+    
     [EmailAddress]
     [MaxLength(100)]
     public string? Email { get; set; }
@@ -44,4 +40,19 @@ public class UpdateUserProfileDto
     
     public bool? EnableNotifications { get; set; }
     public bool? EnableMealReminders { get; set; }
+}
+
+public class ChangePasswordDto
+{
+    [Required]
+    [MinLength(6)]
+    public string CurrentPassword { get; set; } = string.Empty;
+
+    [Required]
+    [MinLength(6)]
+    public string NewPassword { get; set; } = string.Empty;
+
+    [Required]
+    [Compare(nameof(NewPassword), ErrorMessage = "Passwords do not match.")]
+    public string ConfirmNewPassword { get; set; } = string.Empty;
 }

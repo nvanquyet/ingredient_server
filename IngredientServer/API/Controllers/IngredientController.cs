@@ -151,10 +151,11 @@ public class IngredientController(IIngredientService ingredientService) : Contro
     public ActionResult<ApiResponse<object>> GetIngredient(int id)
     {
         // Implement actual logic here when service method is available
+        var ingredient = ingredientService.GetIngredientByIdAsync(id);
         return Ok(new ApiResponse<object>
         {
             Success = true,
-            Data = new { id, message = "Ingredient retrieved successfully" },
+            Data = ingredient,
             Message = "Ingredient found"
         });
     }

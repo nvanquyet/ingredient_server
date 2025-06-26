@@ -174,18 +174,6 @@ namespace IngredientServer.Core.Entities
                 this.EnableNotifications = targetData.EnableNotifications.Value;
             if (targetData.EnableMealReminders.HasValue)
                 this.EnableMealReminders = targetData.EnableMealReminders.Value;
-            
-            if (!string.IsNullOrEmpty(targetData.CurrentPassword) && 
-                !string.IsNullOrEmpty(targetData.NewPassword) && 
-                !string.IsNullOrEmpty(targetData.ConfirmNewPassword))
-            {
-                if (targetData.CurrentPassword == PasswordHash 
-                    && targetData.NewPassword == targetData.ConfirmNewPassword)
-                {
-                    this.PasswordHash = BCrypt.Net.BCrypt.HashPassword(targetData.NewPassword);
-                }
-            }
-
             this.UpdatedAt = DateTime.UtcNow;
         }
     }

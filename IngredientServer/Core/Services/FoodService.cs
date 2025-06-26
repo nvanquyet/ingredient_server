@@ -189,4 +189,24 @@ public class FoodService(
         }
         return response;
     }
+
+    public async Task<FoodDto> GetFoodByIdAsync(int id)
+    {
+        var food = await foodRepository.GetByIdAsync(id);
+        if (food == null)
+        {
+            throw new UnauthorizedAccessException("Food not found or access denied.");
+        }
+        return new FoodDto
+        {
+            Id = food.Id,
+            Name = food.Name,
+            Description = food.Description,
+            Quantity = food.Quantity,
+            Calories = food.Calories,
+            Protein = food.Protein,
+            Carbs = food.Carbs,
+            Fat = food.Fat,
+        };
+    }
 }

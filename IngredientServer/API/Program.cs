@@ -44,12 +44,12 @@ builder.Services.AddScoped<IMealFoodRepository, MealFoodRepository>();
 builder.Services.AddScoped<IFoodIngredientRepository, FoodIngredientRepository>();
 
 // Services - từ Core.Services
+builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFoodService, FoodService>();
 builder.Services.AddScoped<IIngredientService, IngredientService>();
 builder.Services.AddScoped<IMealService, MealService>();
 builder.Services.AddScoped<INutritionService, NutritionService>();
-builder.Services.AddScoped<IUserContextService, UserContextService>();
 
 // HttpClient cho external API calls
 builder.Services.AddHttpClient();

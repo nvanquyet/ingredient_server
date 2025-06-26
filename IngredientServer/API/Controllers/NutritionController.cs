@@ -1,4 +1,5 @@
 ﻿// NutritionController.cs
+
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Entity;
@@ -10,15 +11,16 @@ namespace IngredientServer.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class NutritionController(INutritionService nutritionService) : ControllerBase
+public class NutritionController(INutritionService nutritionService, IUserContextService userContextService)
+    : ControllerBase
 {
-    [HttpGet("daily/{userId}")]
+    [HttpGet("daily")]
     public async Task<ActionResult<ApiResponse<DailyNutritionSummaryDto>>> GetDailyNutritionSummary(
-        int userId, 
         [FromQuery] DateTime date)
     {
         try
         {
+            var userId = userContextService.GetAuthenticatedUserId();
             var summary = await nutritionService.GetDailyNutritionSummaryAsync(userId, date);
             return Ok(new ApiResponse<DailyNutritionSummaryDto>
             {
@@ -54,14 +56,14 @@ public class NutritionController(INutritionService nutritionService) : Controlle
         }
     }
 
-    [HttpGet("weekly/{userId}")]
+    [HttpGet("weekly")]
     public async Task<ActionResult<ApiResponse<WeeklyNutritionSummaryDto>>> GetWeeklyNutritionSummary(
-        int userId,
         [FromQuery] DateTime startDate,
         [FromQuery] DateTime endDate)
     {
         try
         {
+            var userId = userContextService.GetAuthenticatedUserId();
             var summary = await nutritionService.GetWeeklyNutritionSummaryAsync(userId, startDate, endDate);
             return Ok(new ApiResponse<WeeklyNutritionSummaryDto>
             {
@@ -98,11 +100,12 @@ public class NutritionController(INutritionService nutritionService) : Controlle
         }
     }
 
-    [HttpGet("total/{userId}")]
-    public async Task<ActionResult<ApiResponse<TotalNutritionSummaryDto>>> GetTotalNutritionSummary(int userId)
+    [HttpGet("total")]
+    public async Task<ActionResult<ApiResponse<TotalNutritionSummaryDto>>> GetTotalNutritionSummary()
     {
         try
         {
+            var userId = userContextService.GetAuthenticatedUserId();
             var summary = await nutritionService.GetTotalNutritionSummaryAsync(userId);
             return Ok(new ApiResponse<TotalNutritionSummaryDto>
             {

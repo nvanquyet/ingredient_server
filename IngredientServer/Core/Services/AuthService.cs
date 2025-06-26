@@ -198,6 +198,66 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
         });
     }
 
+
+    public async Task<ResponseDto<bool>> ChangePasswordAsync(int userId, ChangePasswordDto changePasswordDto)
+    {
+        if (changePasswordDto == null)
+        {
+            return await Task.FromResult(new ResponseDto<bool>
+            {
+                Success = false,
+                Message = "Invalid password change data"
+            });
+        }
+        var user = await userRepository.GetByIdAsync(userId);
+        if (user == null)
+        {
+            return new ResponseDto<bool>
+            {
+                Success = false,
+                Message = "User not found"
+            };
+        }
+        if (string.IsNullOrWhiteSpace(changePasswordDto.CurrentPassword) ||
+            string.IsNullOrWhiteSpace(changePasswordDto.NewPassword) ||
+            changePasswordDto.NewPassword.Length < 6)
+        {
+            return new ResponseDto<bool>
+            {
+                Success = false,
+                Message = "Invalid password change request"
+            };
+        }
+        
+        if (changePasswordDto.NewPassword != changePasswordDto.ConfirmNewPassword)
+        {
+            return new ResponseDto<bool>
+            {
+                Success = false,
+                Message = "New password and confirmation do not match"
+            };
+        }
+        
+        if (!VerifyPassword(changePasswordDto.CurrentPassword, user.PasswordHash))
+        {
+            return new ResponseDto<bool>
+            {
+                Success = false,
+                Message = "Old password is incorrect"
+            };
+        }
+        
+        user.PasswordHash = HashPassword(changePasswordDto.NewPassword);
+        await userRepository.UpdateAsync(user);
+        return new ResponseDto<bool>
+        {
+            Success = true,
+            Message = "Password changed successfully",
+            Data = true
+        };
+    }
+    
+
     public string GenerateJwtToken(User user)
     {
         var tokenHandler = new JwtSecurityTokenHandler();

@@ -90,4 +90,26 @@ public class IngredientService(IIngredientRepository ingredientRepository, IUser
             TotalCount = enumerable.Count()
         };
     }
+
+    public async Task<IngredientDto> GetIngredientByIdAsync(int id)
+    {
+        var ingredient = await ingredientRepository.GetByIdAsync(id);
+        if (ingredient == null)
+        {
+            throw new UnauthorizedAccessException("Ingredient not found or access denied.");
+        }
+        return new IngredientDto
+        {
+            Id = ingredient.Id,
+            Name = ingredient.Name,
+            Description = ingredient.Description,
+            Unit = ingredient.Unit,
+            Category = ingredient.Category,
+            Quantity = ingredient.Quantity,
+            ExpiryDate = ingredient.ExpiryDate,
+            DaysUntilExpiry = (ingredient.ExpiryDate - DateTime.UtcNow).Days,
+            IsExpired = ingredient.ExpiryDate < DateTime.UtcNow,
+            IsExpiringSoon = (ingredient.ExpiryDate - DateTime.UtcNow).Days <= 7
+        };
+    }
 }

@@ -113,4 +113,30 @@ public class AuthController(IAuthService authService) : BaseController
         var user = await authService.UpdateUserProfileAsync(userId, updateUserProfileDto);
         return Ok(user);
     }
+    
+    
+    [HttpPut("change_password")]
+    [Authorize]
+    public async Task<IActionResult> OnChangePassword([FromBody] ChangePasswordDto dto)
+    {
+        // Thêm validation check
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+        {
+            return Unauthorized(new ResponseDto<object>
+            {
+                Success = false,
+                Message = "Invalid user ID or unauthorized access"
+            });
+        }
+
+        var user = await authService.ChangePasswordAsync(userId, dto);
+        return Ok(user);
+    }
 }
