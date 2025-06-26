@@ -179,9 +179,9 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
             });
         }
         
-        var user = userRepository.GetByIdAsync(userId);
+        var user = await userRepository.GetByIdAsync(userId);
         
-        if (user.Result == null)
+        if (user == null)
         {
             return await Task.FromResult(new ResponseDto<User>
             {
@@ -189,13 +189,13 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 Message = "User not found"
             });
         }
-        user.Result.UpdateUserProfile(updateUserProfileDto);
-        await userRepository.UpdateAsync(user.Result);
+        user.UpdateUserProfile(updateUserProfileDto);
+        await userRepository.UpdateAsync(user);
         return await Task.FromResult(new ResponseDto<User>
         {
             Success = true,
             Message = "User profile updated successfully",
-            Data = user.Result
+            Data = user
         });
     }
 
