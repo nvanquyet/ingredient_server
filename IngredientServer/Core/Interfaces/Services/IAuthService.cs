@@ -1,4 +1,5 @@
 ﻿using IngredientServer.Core.Entities;
+using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Auth;
 using IngredientServer.Utils.DTOs.Common;
 

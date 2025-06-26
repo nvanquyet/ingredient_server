@@ -4,6 +4,7 @@ using IngredientServer.Utils.DTOs.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using IngredientServer.Utils.DTOs;
 
 namespace IngredientServer.API.Controllers;
 

@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Auth;
 
 namespace IngredientServer.Core.Entities
