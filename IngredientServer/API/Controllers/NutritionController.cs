@@ -20,6 +20,10 @@ public class NutritionController(INutritionService nutritionService, IUserContex
     {
         try
         {
+            if (date == default)
+            {
+                date = DateTime.UtcNow.Date; // Default to today if no date is provided
+            }
             var userId = userContextService.GetAuthenticatedUserId();
             var summary = await nutritionService.GetDailyNutritionSummaryAsync(userId, date);
             return Ok(new ApiResponse<DailyNutritionSummaryDto>

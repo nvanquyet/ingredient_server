@@ -16,6 +16,18 @@ public class IngredientController(IIngredientService ingredientService) : Contro
     {
         try
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponse<IngredientDto>
+                {
+                    Success = false,
+                    Message = "Invalid data",
+                    Metadata = new Dictionary<string, List<string>?>
+                    {
+                        ["errors"] = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+                    }
+                });
+            }
             var ingredient = await ingredientService.CreateIngredientAsync(dataDto);
             return CreatedAtAction(
                 nameof(GetIngredient), 
@@ -46,6 +58,18 @@ public class IngredientController(IIngredientService ingredientService) : Contro
     {
         try
         {
+            if(ModelState.IsValid == false)
+            {
+                return BadRequest(new ApiResponse<IngredientDto>
+                {
+                    Success = false,
+                    Message = "Invalid data",
+                    Metadata = new Dictionary<string, List<string>?>
+                    {
+                        ["errors"] = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+                    }
+                });
+            }
             var ingredient = await ingredientService.UpdateIngredientAsync(id, dto);
             return Ok(new ApiResponse<IngredientDto>
             {
@@ -81,6 +105,15 @@ public class IngredientController(IIngredientService ingredientService) : Contro
     {
         try
         {
+            if (id <= 0)
+            {
+                return BadRequest(new ApiResponse<bool>
+                {
+                    Success = false,
+                    Data = false,
+                    Message = "Invalid ingredient ID"
+                });
+            }
             var result = await ingredientService.DeleteIngredientAsync(id);
             if (result)
             {
@@ -119,6 +152,18 @@ public class IngredientController(IIngredientService ingredientService) : Contro
     {
         try
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponse<IngredientSearchResultDto>
+                {
+                    Success = false,
+                    Message = "Invalid filter parameters",
+                    Metadata = new Dictionary<string, List<string>?>
+                    {
+                        ["errors"] = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+                    }
+                });
+            }
             var result = await ingredientService.GetAllAsync(filter);
             return Ok(new ApiResponse<IngredientSearchResultDto>
             {
@@ -150,6 +195,14 @@ public class IngredientController(IIngredientService ingredientService) : Contro
     [HttpGet("{id}")]
     public ActionResult<ApiResponse<object>> GetIngredient(int id)
     {
+        if (id <= 0)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Invalid ingredient ID"
+            });
+        }
         // Implement actual logic here when service method is available
         var ingredient = ingredientService.GetIngredientByIdAsync(id);
         return Ok(new ApiResponse<object>

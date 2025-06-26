@@ -17,6 +17,18 @@ public class FoodController(IFoodService foodService) : ControllerBase
     {
         try
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponse<Food>
+                {
+                    Success = false,
+                    Message = "Invalid model state",
+                    Metadata = new Dictionary<string, List<string>?>
+                    {
+                        ["errors"] = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+                    }
+                });
+            }
             var food = await foodService.CreateFoodAsync(dataDto);
             return CreatedAtAction(
                 nameof(GetFood), 
@@ -55,6 +67,18 @@ public class FoodController(IFoodService foodService) : ControllerBase
     {
         try
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponse<Food>
+                {
+                    Success = false,
+                    Message = "Invalid model state",
+                    Metadata = new Dictionary<string, List<string>?>
+                    {
+                        ["errors"] = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+                    }
+                });
+            }
             var food = await foodService.UpdateFoodAsync(id, dto);
             return Ok(new ApiResponse<Food>
             {
@@ -98,6 +122,14 @@ public class FoodController(IFoodService foodService) : ControllerBase
     {
         try
         {
+            if (id <= 0)
+            {
+                return BadRequest(new ApiResponse<bool>
+                {
+                    Success = false,
+                    Message = "Invalid food ID"
+                });
+            }
             var result = await foodService.DeleteFoodAsync(id);
             if (result)
             {
@@ -136,6 +168,18 @@ public class FoodController(IFoodService foodService) : ControllerBase
     {
         try
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponse<List<FoodSuggestionDto>>
+                {
+                    Success = false,
+                    Message = "Invalid model state",
+                    Metadata = new Dictionary<string, List<string>?>
+                    {
+                        ["errors"] = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+                    }
+                });
+            }
             var suggestions = await foodService.GetSuggestionsAsync(requestDto);
             return Ok(new ApiResponse<List<FoodSuggestionDto>>
             {
@@ -179,6 +223,18 @@ public class FoodController(IFoodService foodService) : ControllerBase
     {
         try
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponse<FoodRecipeDto>
+                {
+                    Success = false,
+                    Message = "Invalid model state",
+                    Metadata = new Dictionary<string, List<string>?>
+                    {
+                        ["errors"] = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()
+                    }
+                });
+            }
             var recipe = await foodService.GetRecipeSuggestionsAsync(recipeRequest);
             return Ok(new ApiResponse<FoodRecipeDto>
             {
@@ -216,6 +272,14 @@ public class FoodController(IFoodService foodService) : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<ApiResponse<object>>> GetFood(int id)
     {
+        if (id <= 0)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Invalid food ID"
+            });
+        }
         // Implement actual logic here when service method is available
         var food = await foodService.GetFoodByIdAsync(id);
         return Ok(new ApiResponse<object>

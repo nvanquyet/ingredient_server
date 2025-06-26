@@ -16,6 +16,14 @@ public class MealController(IMealService mealService) : ControllerBase
     {
         try
         {
+            if (id <= 0)
+            {
+                return BadRequest(new ApiResponse<MealWithFoodsDto>
+                {
+                    Success = false,
+                    Message = "Invalid meal ID"
+                });
+            }
             var meal = await mealService.GetByIdAsync(id);
             return Ok(new ApiResponse<MealWithFoodsDto>
             {
@@ -43,6 +51,14 @@ public class MealController(IMealService mealService) : ControllerBase
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(date) || !DateTime.TryParse(date, out _))
+            {
+                return BadRequest(new ApiResponse<IEnumerable<MealWithFoodsDto>>
+                {
+                    Success = false,
+                    Message = "Invalid date format"
+                });
+            }
             var meals = await mealService.GetByDateAsync(date);
             var mealWithFoodsDtos = meals as MealWithFoodsDto[] ?? meals.ToArray();
             return Ok(new ApiResponse<IEnumerable<MealWithFoodsDto>>
