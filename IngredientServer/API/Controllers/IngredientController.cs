@@ -193,7 +193,7 @@ public class IngredientController(IIngredientService ingredientService) : Contro
     }
 
     [HttpGet("{id}")]
-    public ActionResult<ApiResponse<object>> GetIngredient(int id)
+    public async Task<ActionResult<ApiResponse<object>>> GetIngredient(int id)
     {
         if (id <= 0)
         {
@@ -204,7 +204,7 @@ public class IngredientController(IIngredientService ingredientService) : Contro
             });
         }
         // Implement actual logic here when service method is available
-        var ingredient = ingredientService.GetIngredientByIdAsync(id);
+        var ingredient = await ingredientService.GetIngredientByIdAsync(id);
         return Ok(new ApiResponse<object>
         {
             Success = true,
