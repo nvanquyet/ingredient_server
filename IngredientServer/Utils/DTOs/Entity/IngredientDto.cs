@@ -2,30 +2,39 @@
 using IngredientServer.Core.Entities;
 
 namespace IngredientServer.Utils.DTOs.Entity;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 public class IngredientDataDto
 {
     [Required]
     [StringLength(200)]
+    [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
-        
+    
     [StringLength(1000)]
+    [JsonPropertyName("description")]
     public string? Description { get; set; }
-        
+    
     [Required]
     [Range(0.1, double.MaxValue)]
+    [JsonPropertyName("quantity")]
     public decimal Quantity { get; set; }
-        
+    
     [Required]
+    [JsonPropertyName("unit")]
     public IngredientUnit Unit { get; set; }
-        
+    
     [Required]
+    [JsonPropertyName("category")]
     public IngredientCategory Category { get; set; }
-        
+    
     [Required]
+    [JsonPropertyName("expiryDate")]
     public DateTime ExpiryDate { get; set; }
-        
+    
     [StringLength(500)]
+    [JsonPropertyName("imageUrl")]
     public string? ImageUrl { get; set; }
 }
     
