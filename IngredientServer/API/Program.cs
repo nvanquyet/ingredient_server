@@ -28,7 +28,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         
         // Hỗ trợ chuyển đổi chuỗi thành enum
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
         
         // Giữ lại cấu hình xử lý vòng tham chiếu nếu cần
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
