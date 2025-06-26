@@ -12,7 +12,7 @@ public interface IAuthService
     Task<ResponseDto<bool>> LogoutAsync(int userId);
     
     Task<ResponseDto<UserProfileDto>> GetUserProfileAsync(int userId);
-    Task<ResponseDto<User>> UpdateUserProfileAsync(int userId, UserProfileDto? updateUserProfileDto);
+    Task<ResponseDto<UserProfileDto>> UpdateUserProfileAsync(int userId, UserProfileDto? updateUserProfileDto);
     
     Task<ResponseDto<bool>> ChangePasswordAsync(int userId, ChangePasswordDto? changePasswordDto);
 }

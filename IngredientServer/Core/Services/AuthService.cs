@@ -168,11 +168,11 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
         };
     }
 
-    public async Task<ResponseDto<User>> UpdateUserProfileAsync(int userId, UserProfileDto? updateUserProfileDto)
+    public async Task<ResponseDto<UserProfileDto>> UpdateUserProfileAsync(int userId, UserProfileDto? updateUserProfileDto)
     {
         if(updateUserProfileDto == null)
         {
-            return await Task.FromResult(new ResponseDto<User>
+            return await Task.FromResult(new ResponseDto<UserProfileDto>
             {
                 Success = false,
                 Message = "Invalid user profile data"
@@ -183,7 +183,7 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
         
         if (user == null)
         {
-            return await Task.FromResult(new ResponseDto<User>
+            return await Task.FromResult(new ResponseDto<UserProfileDto>
             {
                 Success = false,
                 Message = "User not found"
@@ -191,11 +191,11 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
         }
         user.UpdateUserProfile(updateUserProfileDto);
         await userRepository.UpdateAsync(user);
-        return await Task.FromResult(new ResponseDto<User>
+        return await Task.FromResult(new ResponseDto<UserProfileDto>
         {
             Success = true,
             Message = "User profile updated successfully",
-            Data = user
+            Data = user.ToDto()
         });
     }
 
