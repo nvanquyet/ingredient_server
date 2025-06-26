@@ -10,7 +10,7 @@ namespace IngredientServer.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController(IAuthService authService) : BaseController
+public class AuthController(IAuthService authService, IUserContextService userContextService) : BaseController
 {
     [HttpPost("login")]
     [AllowAnonymous]
@@ -54,14 +54,9 @@ public class AuthController(IAuthService authService) : BaseController
     [Authorize]
     public async Task<IActionResult> Logout()
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        
-        if (!int.TryParse(userIdClaim, out int userId))
-        {
-            return BadRequest("Invalid user ID");
-        }
-
-        var result = await authService.LogoutAsync(userId);
+        var userIdClaim = userContextService.GetAuthenticatedUserId();
+       
+        var result = await authService.LogoutAsync(userIdClaim);
 
         if (!result.Success)
         {
@@ -75,18 +70,8 @@ public class AuthController(IAuthService authService) : BaseController
     [Authorize]
     public async Task<IActionResult> GetUserProfile()
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-        {
-            return Unauthorized(new ResponseDto<object>
-            {
-                Success = false,
-                Message = "Invalid user ID or unauthorized access"
-            });
-        }
-
-        var user = await authService.GetUserProfileAsync(userId);
+        var userIdClaim = userContextService.GetAuthenticatedUserId();
+        var user = await authService.GetUserProfileAsync(userIdClaim);
         return Ok(user);
     }
     
@@ -100,18 +85,9 @@ public class AuthController(IAuthService authService) : BaseController
             return BadRequest(ModelState);
         }
 
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userIdClaim = userContextService.GetAuthenticatedUserId();
 
-        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-        {
-            return Unauthorized(new ResponseDto<object>
-            {
-                Success = false,
-                Message = "Invalid user ID or unauthorized access"
-            });
-        }
-
-        var user = await authService.UpdateUserProfileAsync(userId, userProfileDto);
+        var user = await authService.UpdateUserProfileAsync(userIdClaim, userProfileDto);
         return Ok(user);
     }
     
@@ -126,18 +102,9 @@ public class AuthController(IAuthService authService) : BaseController
             return BadRequest(ModelState);
         }
 
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userIdClaim = userContextService.GetAuthenticatedUserId();
 
-        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-        {
-            return Unauthorized(new ResponseDto<object>
-            {
-                Success = false,
-                Message = "Invalid user ID or unauthorized access"
-            });
-        }
-
-        var user = await authService.ChangePasswordAsync(userId, dto);
+        var user = await authService.ChangePasswordAsync(userIdClaim, dto);
         return Ok(user);
     }
 }
