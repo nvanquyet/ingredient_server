@@ -26,13 +26,19 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
             // Lọc theo IsExpired
             if (filter.IsExpired.HasValue)
             {
-                query = query.Where(i => i.IsExpired == filter.IsExpired.Value);
+                query = query.Where(i => filter.IsExpired.Value
+                    ? i.ExpiryDate.Date < DateTime.UtcNow.Date
+                    : i.ExpiryDate.Date >= DateTime.UtcNow.Date);
             }
 
             // Lọc theo IsExpiringSoon
             if (filter.IsExpiringSoon.HasValue)
             {
-                query = query.Where(i => i.IsExpiringSoon == filter.IsExpiringSoon.Value);
+                query = query.Where(i => filter.IsExpiringSoon.Value
+                    ? (i.ExpiryDate.Date - DateTime.UtcNow.Date).Days <= 7 &&
+                      (i.ExpiryDate.Date - DateTime.UtcNow.Date).Days >= 0
+                    : (i.ExpiryDate.Date - DateTime.UtcNow.Date).Days > 7 ||
+                      (i.ExpiryDate.Date - DateTime.UtcNow.Date).Days < 0);
             }
 
             // Lọc theo SearchTerm
@@ -103,7 +109,8 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
                 ExpiryDate = i.ExpiryDate,
                 DaysUntilExpiry = (i.ExpiryDate - DateTime.UtcNow).Days,
                 IsExpired = i.ExpiryDate < DateTime.UtcNow,
-                IsExpiringSoon = (i.ExpiryDate - DateTime.UtcNow).Days <= 7,
+                IsExpiringSoon = (i.ExpiryDate - DateTime.UtcNow).Days <= 7 &&
+                                 (i.ExpiryDate - DateTime.UtcNow).Days >= 0,
             }).ToList(),
             TotalCount = totalCount,
             PageNumber = pageNumber,
