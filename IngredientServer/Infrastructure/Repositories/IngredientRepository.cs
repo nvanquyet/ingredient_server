@@ -100,7 +100,7 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
                 Unit = i.Unit,
                 Category = i.Category,
                 Quantity = i.Quantity,
-                ExpiryDate = i.ExpiryDate,
+                ExpiryDate = DateTime.SpecifyKind(i.ExpiryDate, DateTimeKind.Utc),
                 DaysUntilExpiry = (i.ExpiryDate - DateTime.UtcNow).Days,
                 IsExpired = i.ExpiryDate < DateTime.UtcNow,
                 IsExpiringSoon = (i.ExpiryDate - DateTime.UtcNow).Days <= 7 &&

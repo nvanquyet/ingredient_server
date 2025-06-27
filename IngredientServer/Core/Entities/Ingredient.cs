@@ -66,6 +66,9 @@ namespace IngredientServer.Core.Entities
         public int DaysUntilExpiry => (ExpiryDate.Date - DateTime.Now.Date).Days;
         public bool IsExpired => DateTime.Now.Date > ExpiryDate.Date;
         public bool IsExpiringSoon => DaysUntilExpiry is <= 7 and >= 0;
+        
+        public string ExpiryDateUtc => DateTime.SpecifyKind(ExpiryDate, DateTimeKind.Utc)
+            .ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
 
         // Navigation properties
         [ForeignKey("UserId")]
