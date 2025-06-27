@@ -31,16 +31,6 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
                     : i.ExpiryDate.Date >= DateTime.UtcNow.Date);
             }
 
-            // Lọc theo IsExpiringSoon
-            if (filter.IsExpiringSoon.HasValue)
-            {
-                query = query.Where(i => filter.IsExpiringSoon.Value
-                    ? (i.ExpiryDate.Date - DateTime.UtcNow.Date).Days <= 7 &&
-                      (i.ExpiryDate.Date - DateTime.UtcNow.Date).Days >= 0
-                    : (i.ExpiryDate.Date - DateTime.UtcNow.Date).Days > 7 ||
-                      (i.ExpiryDate.Date - DateTime.UtcNow.Date).Days < 0);
-            }
-
             // Lọc theo SearchTerm
             if (!string.IsNullOrEmpty(filter.SearchTerm))
             {
@@ -83,16 +73,7 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
         // Tính tổng số bản ghi
         var totalCount = await query.CountAsync();
 
-        // Phân trang
-        var pageNumber = filter?.PageNumber ?? 1;
-        var pageSize = filter?.PageSize ?? 20;
-        if (pageNumber < 1) pageNumber = 1;
-        if (pageSize < 1) pageSize = 20;
-
-        var items = await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+        var items = await query.ToListAsync();
 
         // Trả về kết quả với phân trang
         return new IngredientSearchResultDto
@@ -112,12 +93,7 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
                 IsExpiringSoon = (i.ExpiryDate - DateTime.UtcNow).Days <= 7 &&
                                  (i.ExpiryDate - DateTime.UtcNow).Days >= 0,
             }).ToList(),
-            TotalCount = totalCount,
-            PageNumber = pageNumber,
-            TotalPages = (int)Math.Ceiling((double)totalCount / pageSize),
-            PageSize = pageSize,
-            HasNextPage = pageNumber < (int)Math.Ceiling((double)totalCount / pageSize),
-            HasPreviousPage = pageNumber > 1
+            TotalCount = totalCount
         };
     }
 }

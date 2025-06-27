@@ -60,11 +60,6 @@ public class IngredientSearchResultDto
 {
     public IEnumerable<IngredientDto> Ingredients { get; set; } = new List<IngredientDto>();
     public int TotalCount { get; set; }
-    public int PageNumber { get; set; }
-    public int PageSize { get; set; }
-    public int TotalPages { get; set; }
-    public bool HasNextPage { get; set; }
-    public bool HasPreviousPage { get; set; }
 }
     
 // Filtering DTOs
@@ -72,12 +67,7 @@ public class IngredientFilterDto
 {
     public IngredientCategory? Category { get; set; }
     public bool? IsExpired { get; set; }
-    public bool? IsExpiringSoon { get; set; }
     public string? SearchTerm { get; set; }
-        
-    // Pagination
-    public int PageNumber { get; set; } = 1;
-    public int PageSize { get; set; } = 20;
         
     // Sorting
     public string? SortBy { get; set; } // "name", "quantity", "expiryDate", "category", "createdAt"
