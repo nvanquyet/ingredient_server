@@ -36,10 +36,20 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 {
                     Success = false,
                     Message = "Account is deactivated"
-                };
+                }; 
             }
 
             await userRepository.UpdateForLoginAsync(user);
+            
+            //Check format create at 
+            if (user.CreatedAt == default(DateTime))
+            {
+                user.CreatedAt = DateTime.UtcNow;
+            }
+            else if (user.CreatedAt.Kind != DateTimeKind.Utc)
+            {
+                user.CreatedAt = DateTime.SpecifyKind(user.CreatedAt, DateTimeKind.Utc);
+            }
 
             var token = GenerateJwtToken(user);
             var response = new AuthResponseDto
@@ -257,9 +267,9 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
             Data = true
         };
     }
-    
 
-    public string GenerateJwtToken(User user)
+
+    private string GenerateJwtToken(User user)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.ASCII.GetBytes(configuration["Jwt:Secret"] ?? "");
