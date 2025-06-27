@@ -10,6 +10,15 @@ namespace IngredientServer.Infrastructure.Repositories;
 public class IngredientRepository(ApplicationDbContext context, IUserContextService userContextService)
     : BaseRepository<Ingredient>(context, userContextService), IIngredientRepository
 {
+    public override async Task<Ingredient> AddAsync(Ingredient entity)
+    {
+        if (entity == null)
+            throw new ArgumentNullException(nameof(entity));
+        var existingIngredient = await Context.Set<Ingredient>()
+            .FirstOrDefaultAsync(i => i.Name.ToLower() == entity.Name.ToLower() && i.UserId == userContextService.GetAuthenticatedUserId());
+        return await base.AddAsync(entity);
+    }
+
     public async Task<IngredientSearchResultDto> GetByFilterAsync(IngredientFilterDto? filter = null)
     {
         var query = Context.Set<Ingredient>()

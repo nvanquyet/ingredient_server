@@ -22,6 +22,11 @@ public class IngredientService(IIngredientRepository ingredientRepository, IUser
         };
 
         var savedIngredient = await ingredientRepository.AddAsync(ingredient);
+        if (savedIngredient == null)
+        {
+            throw new UnauthorizedAccessException("Failed to create ingredient or access denied.");
+        }
+        // Map the saved ingredient to DTO
         return new IngredientDto
         {
             Id = savedIngredient.Id,

@@ -169,13 +169,7 @@ public class IngredientController(IIngredientService ingredientService) : Contro
             {
                 Success = true,
                 Data = result,
-                Message = "Ingredients retrieved successfully",
-                Metadata = new Dictionary<string, List<string>?>
-                {
-                    ["totalCount"] = new List<string> { result.TotalCount.ToString() },
-                    ["pageNumber"] = new List<string> { result.PageNumber.ToString() },
-                    ["totalPages"] = new List<string> { result.TotalPages.ToString() }
-                }
+                Message = "Ingredients retrieved successfully"
             });
         }
         catch (Exception ex)
