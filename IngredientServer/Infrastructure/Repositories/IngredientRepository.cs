@@ -16,6 +16,10 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
             throw new ArgumentNullException(nameof(entity));
         var existingIngredient = await Context.Set<Ingredient>()
             .FirstOrDefaultAsync(i => i.Name.ToLower() == entity.Name.ToLower() && i.UserId == userContextService.GetAuthenticatedUserId());
+        if (existingIngredient != null)
+        {    
+            throw new InvalidOperationException("An ingredient with the same name already exists for this user.");
+        }
         return await base.AddAsync(entity);
     }
 
