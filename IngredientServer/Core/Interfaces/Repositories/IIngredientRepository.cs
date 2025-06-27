@@ -6,5 +6,5 @@ namespace IngredientServer.Core.Interfaces.Repositories;
 public interface IIngredientRepository : IBaseRepository<Ingredient>
 {
     // Support filtering and pagination for ingredients
-    Task<IEnumerable<Ingredient>> GetByFilterAsync(IngredientFilterDto? filter = null);
+    Task<IngredientSearchResultDto> GetByFilterAsync(IngredientFilterDto? filter = null);
 }

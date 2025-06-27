@@ -71,15 +71,9 @@ public class IngredientSearchResultDto
 public class IngredientFilterDto
 {
     public IngredientCategory? Category { get; set; }
-    public IngredientUnit? Unit { get; set; }
     public bool? IsExpired { get; set; }
     public bool? IsExpiringSoon { get; set; }
-    public bool? IsLowStock { get; set; }
     public string? SearchTerm { get; set; }
-    public DateTime? ExpiryDateFrom { get; set; }
-    public DateTime? ExpiryDateTo { get; set; }
-    public decimal? MinQuantity { get; set; }
-    public decimal? MaxQuantity { get; set; }
         
     // Pagination
     public int PageNumber { get; set; } = 1;

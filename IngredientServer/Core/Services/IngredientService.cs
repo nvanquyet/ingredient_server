@@ -70,25 +70,7 @@ public class IngredientService(IIngredientRepository ingredientRepository, IUser
     public async Task<IngredientSearchResultDto> GetAllAsync(IngredientFilterDto filter)
     {
         var ingredients = await ingredientRepository.GetByFilterAsync(filter);
-        var enumerable = ingredients as Ingredient[] ?? ingredients.ToArray();
-        return new IngredientSearchResultDto
-        {
-            Ingredients = enumerable.Select(i => new IngredientDto
-            {
-                Id = i.Id,
-                Name = i.Name,
-                Description = i.Description,
-                ImageUrl = i.ImageUrl,
-                Unit = i.Unit,
-                Category = i.Category,
-                Quantity = i.Quantity,
-                ExpiryDate = i.ExpiryDate,
-                DaysUntilExpiry = (i.ExpiryDate - DateTime.UtcNow).Days,
-                IsExpired = i.ExpiryDate < DateTime.UtcNow,
-                IsExpiringSoon = (i.ExpiryDate - DateTime.UtcNow).Days <= 7,
-            }).ToList(),
-            TotalCount = enumerable.Count()
-        };
+        return ingredients;
     }
 
     public async Task<IngredientDto> GetIngredientByIdAsync(int id)
