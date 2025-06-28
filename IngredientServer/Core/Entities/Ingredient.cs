@@ -20,20 +20,21 @@ namespace IngredientServer.Core.Entities
         Other = 12
     }
 
-    public enum IngredientCategory
+    public enum IngredientCategory 
     {
         Dairy = 0,
         Meat = 1,
         Vegetables = 2,
         Fruits = 3,
         Grains = 4,
-        Beverages = 5,
-        Condiments = 6,
-        Snacks = 7,
-        Frozen = 8,
-        Canned = 9,
-        Spices = 10,
-        Other = 11
+        Seafood = 5,     
+        Beverages = 6,   
+        Condiments = 7,  
+        Snacks = 8,      
+        Frozen = 9,      
+        Canned = 10,      
+        Spices = 11,    
+        Other = 12        
     }
 
     // Sửa từ abstract thành concrete class
