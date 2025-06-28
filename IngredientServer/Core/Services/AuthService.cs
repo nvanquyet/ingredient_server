@@ -115,16 +115,6 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 };
             }
 
-            // Kiểm tra user có bị disable/locked không
-            if (!user.IsActive)
-            {
-                return new ResponseDto<AuthResponseDto>
-                {
-                    Success = false,
-                    Message = "User account is disabled"
-                };
-            }
-
             // Fix DateTime format
             if (user.CreatedAt == default(DateTime))
             {
