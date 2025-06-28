@@ -15,33 +15,31 @@ public class FoodService(
     IIngredientRepository ingredientRepository,
     IFoodIngredientRepository foodIngredientRepository,
     HttpClient httpClient,
+    IAIService aiService,
     IUserContextService userContextService)
     : IFoodService
 {
     public async Task<Food> CreateFoodAsync(FoodDataDto dataDto)
     {
+        //Convert to Food
+        if (dataDto == null)
+        {
+            throw new ArgumentNullException(nameof(dataDto), "Food data cannot be null.");
+        }
+
         // Kiểm tra meal tồn tại
-        var meal = (await mealRepository.GetByDateAsync(dataDto.Date)).FirstOrDefault(m => m.MealType == dataDto.MealType) ??
+        var meal = (await mealRepository.GetByDateAsync(dataDto.MealDate)).FirstOrDefault(m =>
+                       m.MealType == dataDto.MealType) ??
                    await mealRepository.AddAsync(new Meal
-        {
-            MealType = dataDto.MealType,
-            MealDate = dataDto.Date,
-            UserId = userContextService.GetAuthenticatedUserId()
-        });
+                   {
+                       MealType = dataDto.MealType,
+                       MealDate = dataDto.MealDate,
+                       UserId = userContextService.GetAuthenticatedUserId()
+                   });
 
+        var food = dataDto.ToFood();
         // Tạo food
-        var food = new Food
-        {
-            Name = dataDto.Name,
-            Description = dataDto.Description,
-            Quantity = dataDto.Quantity,
-            Calories = dataDto.Calories,
-            Protein = dataDto.Protein,
-            Carbs = dataDto.Carbs,
-            Fat = dataDto.Fat,
-            UserId = userContextService.GetAuthenticatedUserId()
-        };
-
+        food.UserId = userContextService.GetAuthenticatedUserId();
         var savedFood = await foodRepository.AddAsync(food);
 
         // Liên kết food với meal
@@ -51,6 +49,7 @@ public class FoodService(
             FoodId = food.Id,
             UserId = userContextService.GetAuthenticatedUserId()
         };
+
         await mealFoodRepository.AddAsync(mealFood);
 
         // Trừ ingredients từ kho
@@ -86,7 +85,6 @@ public class FoodService(
             throw new UnauthorizedAccessException("Food not found or access denied.");
         }
 
-        // Hoàn trả ingredients cũ
         foreach (var foodIngredient in food.FoodIngredients)
         {
             var ingredient = await ingredientRepository.GetByIdAsync(foodIngredient.IngredientId);
@@ -94,32 +92,34 @@ public class FoodService(
             ingredient.Quantity += foodIngredient.Quantity;
             await ingredientRepository.UpdateAsync(ingredient);
         }
+
         await foodIngredientRepository.DeleteAsync(fi => fi.FoodId == foodId);
 
         // Cập nhật thông tin food
-        food.Name = dto.Name;
-        food.Calories = dto.Calories;
-        food.Protein = dto.Protein;
-        food.Carbs = dto.Carbs;
-        food.Fat = dto.Fat;
-        food.Quantity = dto.Quantity;
+        food.UpdateFromDto(dto);
+
         await foodRepository.UpdateAsync(food);
 
         // Cập nhật meal nếu thay đổi ngày/bữa ăn
-        var meal = (await mealRepository.GetByDateAsync(dto.Date))
+        var meal = (await mealRepository.GetByDateAsync(dto.MealDate))
             .FirstOrDefault(m => m.MealType == dto.MealType) ?? await mealRepository.AddAsync(new Meal
             {
                 MealType = dto.MealType,
-                MealDate = dto.Date,
+                MealDate = dto.MealDate,
                 UserId = userContextService.GetAuthenticatedUserId()
             });
 
-        var mealFood = (await mealFoodRepository.GetByMealIdAsync(foodId)).FirstOrDefault();
-        if (mealFood != null)
+        // XÓA tất cả liên kết cũ của food này
+        await mealFoodRepository.DeleteAsync(mf => mf.FoodId == foodId);
+
+        // TẠO liên kết mới
+        var newMealFood = new MealFood
         {
-            mealFood.MealId = meal.Id;
-            await mealFoodRepository.UpdateAsync(mealFood);
-        }
+            MealId = meal.Id,
+            FoodId = foodId,
+            UserId = userContextService.GetAuthenticatedUserId()
+        };
+        await mealFoodRepository.AddAsync(newMealFood);
 
         // Trừ ingredients mới
         foreach (var ingredient in dto.Ingredients)
@@ -170,19 +170,18 @@ public class FoodService(
     public async Task<List<FoodSuggestionDto>> GetSuggestionsAsync(FoodSuggestionRequestDto requestDto)
     {
         //Todo: Gọi API bên ngoài để lấy gợi ý thực phẩm
-        var response = await httpClient.GetFromJsonAsync<List<FoodSuggestionDto>>("https://api.example.com/food-suggestions");
+        var response = await aiService.GetSuggestionsAsync(requestDto);
         if (response == null || !response.Any())
         {
             throw new HttpRequestException("Failed to fetch food suggestions.");
         }
+
         return response;
     }
 
-    public async Task<FoodRecipeDto> GetRecipeSuggestionsAsync(FoodRecipeRequestDto recipeRequest)
+    public async Task<FoodDataDto> GetRecipeSuggestionsAsync(FoodRecipeRequestDto recipeRequest)
     {
-        //Todo: Gọi API bên ngoài để lấy gợi ý công thức nấu ăn
-        
-        var response = await httpClient.GetFromJsonAsync<FoodRecipeDto>("https://api.example.com/recipes");
+        var response = await aiService.GetRecipeSuggestionsAsync(recipeRequest);
         if (response == null)
         {
             throw new HttpRequestException("Failed to fetch recipe suggestions.");
@@ -190,23 +189,14 @@ public class FoodService(
         return response;
     }
 
-    public async Task<FoodDto> GetFoodByIdAsync(int id)
+    public async Task<FoodDataDto> GetFoodByIdAsync(int id)
     {
         var food = await foodRepository.GetByIdAsync(id);
         if (food == null)
         {
             throw new UnauthorizedAccessException("Food not found or access denied.");
         }
-        return new FoodDto
-        {
-            Id = food.Id,
-            Name = food.Name,
-            Description = food.Description,
-            Quantity = food.Quantity,
-            Calories = food.Calories,
-            Protein = food.Protein,
-            Carbs = food.Carbs,
-            Fat = food.Fat,
-        };
+
+        return FoodDataDto.FromFood(food);
     }
 }

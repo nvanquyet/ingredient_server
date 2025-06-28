@@ -13,7 +13,7 @@ namespace IngredientServer.API.Controllers;
 public class FoodController(IFoodService foodService) : ControllerBase
 {
     [HttpPost]
-    public async Task<ActionResult<ApiResponse<Food>>> CreateFood([FromBody] FoodDataDto dataDto)
+    public async Task<ActionResult<ApiResponse<FoodDataDto>>> CreateFood([FromBody] FoodDataDto dataDto)
     {
         try
         {
@@ -63,7 +63,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<ApiResponse<Food>>> UpdateFood(int id, [FromBody] FoodDataDto dto)
+    public async Task<ActionResult<ApiResponse<FoodDataDto>>> UpdateFood(int id, [FromBody] FoodDataDto dto)
     {
         try
         {
@@ -163,8 +163,8 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
     }
 
-    [HttpPost("suggestions")]
-    public async Task<ActionResult<ApiResponse<List<FoodSuggestionDto>>>> GetSuggestions([FromBody] FoodSuggestionRequestDto requestDto)
+    [HttpGet("suggestions")]
+    public async Task<ActionResult<ApiResponse<List<FoodSuggestionDto>>>> GetSuggestions([FromQuery] FoodSuggestionRequestDto requestDto)
     {
         try
         {
@@ -218,14 +218,14 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
     }
 
-    [HttpPost("recipes")]
-    public async Task<ActionResult<ApiResponse<FoodRecipeDto>>> GetRecipeSuggestions([FromBody] FoodRecipeRequestDto recipeRequest)
+    [HttpGet("recipes")]
+    public async Task<ActionResult<ApiResponse<FoodDataDto>>> GetRecipeSuggestions([FromQuery] FoodRecipeRequestDto recipeRequest)
     {
         try
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(new ApiResponse<FoodRecipeDto>
+                return BadRequest(new ApiResponse<FoodDataDto>
                 {
                     Success = false,
                     Message = "Invalid model state",
@@ -236,7 +236,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
                 });
             }
             var recipe = await foodService.GetRecipeSuggestionsAsync(recipeRequest);
-            return Ok(new ApiResponse<FoodRecipeDto>
+            return Ok(new ApiResponse<FoodDataDto>
             {
                 Success = true,
                 Data = recipe,
@@ -245,7 +245,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
         catch (HttpRequestException ex)
         {
-            return StatusCode(503, new ApiResponse<FoodRecipeDto>
+            return StatusCode(503, new ApiResponse<FoodDataDto>
             {
                 Success = false,
                 Message = "Service unavailable",
@@ -257,7 +257,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<FoodRecipeDto>
+            return StatusCode(500, new ApiResponse<FoodDataDto>
             {
                 Success = false,
                 Message = "Internal server error",
@@ -270,7 +270,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<ApiResponse<object>>> GetFood(int id)
+    public async Task<ActionResult<ApiResponse<FoodDataDto>>> GetFood(int id)
     {
         if (id <= 0)
         {

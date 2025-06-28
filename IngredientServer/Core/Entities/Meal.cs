@@ -35,6 +35,8 @@ namespace IngredientServer.Core.Entities
         
         [Range(0, double.MaxValue)]
         public double TotalFat { get; set; }
+        [Range(0, double.MaxValue)]
+        public double TotalFiber { get; set; }
         
         // Navigation properties (GIỮ NGUYÊN)
         public User User { get; set; } = null!;
@@ -42,8 +44,7 @@ namespace IngredientServer.Core.Entities
         
         // Computed properties
         public int FoodCount => MealFoods.Count;
-
-
+        
         public void UpdateMeal(MealDto target)
         {
             this.MealType = target.MealType;

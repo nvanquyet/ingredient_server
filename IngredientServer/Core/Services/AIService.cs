@@ -1,335 +1,360 @@
-﻿// using IngredientServer.Core.Interfaces.Services;
-// using IngredientServer.Core.Entities;
-// using OpenAI.Chat;
-// using Azure;
-// using Azure.AI.OpenAI;
-// using System.Text.Json;
-// using FoodSuggestion = IngredientServer.Core.Entities.FoodSuggestion;
-//
-// namespace IngredientServer.Core.Services
-// {
-//     public class AIService : IAIService
-//     {
-//         private readonly Uri endpoint = new Uri("https://nvanq-mbrhssqv-eastus2.cognitiveservices.azure.com/");
-//         private readonly string deploymentName = "gpt-4.1";
-//         private readonly string apiKey = "APIKEY";
-//         
-//         private readonly AzureOpenAIClient azureClient;
-//         private readonly ChatClient chatClient;
-//
-//         public AIService()
-//         {
-//             azureClient = new(endpoint, new AzureKeyCredential(apiKey));
-//             chatClient = azureClient.GetChatClient(deploymentName);
-//         }
-//
-//         private async Task<string> GetChatResponseAsync(string prompt, List<ChatMessage> messages = null)
-//         {
-//             var requestOptions = new ChatCompletionOptions()
-//             {
-//                 Temperature = 0.7f,
-//                 TopP = 0.9f,
-//                 FrequencyPenalty = 0.0f,
-//                 PresencePenalty = 0.0f,
-//             };
-//
-//             messages ??= new List<ChatMessage>()
-//             {
-//                 new SystemChatMessage("You are a helpful cooking and nutrition assistant."),
-//                 new UserChatMessage(prompt),
-//             };
-//
-//             var response = await chatClient.CompleteChatAsync(messages, requestOptions);
-//             return response.Value.Content[0].Text;
-//         }
-//
-//         public async Task<List<FoodSuggestion>> GetFoodSuggestionsAsync(
-//             List<Ingredient> availableIngredients, 
-//             NutritionGoal nutritionGoal = NutritionGoal.Balanced,
-//             int maxSuggestions = 5)
-//         {
-//             var ingredientsList = string.Join(", ", availableIngredients.Select(i => 
-//                 $"{i.Name} ({i.Quantity} {i.Unit})"));
-//
-//             var prompt = $@"Dựa trên các nguyên liệu sau: {ingredientsList}
-//                             Mục tiêu dinh dưỡng: {GetNutritionGoalDescription(nutritionGoal)}
-//
-//                             Hãy gợi ý {maxSuggestions} món ăn phù hợp nhất. Trả về kết quả dưới dạng JSON với format sau:
-//                             {{
-//                               ""suggestions"": [
-//                                 {{
-//                                   ""name"": ""Tên món ăn"",
-//                                   ""description"": ""Mô tả ngắn gọn"",
-//                                   ""category"": ""MainDish/SideDish/Soup/etc"",
-//                                   ""cookingMethod"": ""Fried/Boiled/Grilled/etc"",
-//                                   ""preparationTimeMinutes"": 30,
-//                                   ""requiredIngredients"": [""nguyên liệu bắt buộc""],
-//                                   ""optionalIngredients"": [""nguyên liệu tùy chọn""],
-//                                   ""shortRecipe"": ""Cách làm ngắn gọn"",
-//                                   ""estimatedNutrition"": {{
-//                                     ""calories"": 350,
-//                                     ""protein"": 25,
-//                                     ""carbs"": 30,
-//                                     ""fats"": 15,
-//                                     ""fiber"": 5,
-//                                     ""sugar"": 8,
-//                                     ""sodium"": 800
-//                                   }},
-//                                   ""matchScore"": 85,
-//                                   ""whyRecommended"": ""Lý do gợi ý""
-//                                 }}
-//                               ]
-//                             }}
-//
-//                             Ưu tiên các món ăn:
-//                             1. Sử dụng tối đa nguyên liệu hiện có
-//                             2. Phù hợp với mục tiêu dinh dưỡng
-//                             3. Dễ làm và ngon miệng
-//                             4. Cân bằng dinh dưỡng";
-//
-//             var messages = new List<ChatMessage>
-//             {
-//                 new SystemChatMessage("You are an expert chef and nutritionist. Always respond in valid JSON format as requested."),
-//                 new UserChatMessage(prompt)
-//             };
-//
-//             var response = await GetChatResponseAsync(prompt, messages);
-//             
-//             try
-//             {
-//                 var result = JsonSerializer.Deserialize<SuggestionResponse>(response);
-//                 return result?.Suggestions ?? new List<FoodSuggestion>();
-//             }
-//             catch (JsonException)
-//             {
-//                 // Fallback if JSON parsing fails
-//                 return new List<FoodSuggestion>();
-//             }
-//         }
-//
-//         public async Task<DetailedRecipe> GenerateRecipeAsync(
-//             string foodName, 
-//             List<Ingredient> ingredients,
-//             NutritionGoal nutritionGoal = NutritionGoal.Balanced)
-//         {
-//             var ingredientsList = string.Join(", ", ingredients.Select(i => 
-//                 $"{i.Name} ({i.Quantity} {i.Unit})"));
-//
-//             var prompt = $@"Tạo công thức nấu ăn chi tiết cho món: {foodName}
-//                         Nguyên liệu có sẵn: {ingredientsList}
-//                         Mục tiêu dinh dưỡng: {GetNutritionGoalDescription(nutritionGoal)}
-//
-//                         Trả về JSON với format:
-//                         {{
-//                           ""name"": ""{foodName}"",
-//                           ""description"": ""Mô tả món ăn"",
-//                           ""ingredients"": [
-//                             {{
-//                               ""name"": ""Tên nguyên liệu"",
-//                               ""quantity"": 200,
-//                               ""unit"": ""gram"",
-//                               ""isOptional"": false,
-//                               ""preparationNote"": ""cắt nhỏ""
-//                             }}
-//                           ],
-//                           ""steps"": [
-//                             {{
-//                               ""stepNumber"": 1,
-//                               ""instruction"": ""Hướng dẫn từng bước"",
-//                               ""timeMinutes"": 5,
-//                               ""temperature"": ""Lửa vừa"",
-//                               ""tips"": [""Mẹo nấu ăn""]
-//                             }}
-//                           ],
-//                           ""preparationTimeMinutes"": 15,
-//                           ""cookingTimeMinutes"": 20,
-//                           ""servings"": 2,
-//                           ""difficulty"": ""Easy"",
-//                           ""nutritionPerServing"": {{
-//                             ""calories"": 400,
-//                             ""protein"": 30,
-//                             ""carbs"": 35,
-//                             ""fats"": 18,
-//                             ""fiber"": 6,
-//                             ""sugar"": 10,
-//                             ""sodium"": 900
-//                           }},
-//                           ""tips"": [""Mẹo tổng quát""]
-//                         }}";
-//
-//             var messages = new List<ChatMessage>
-//             {
-//                 new SystemChatMessage("You are a professional chef. Provide detailed, accurate recipes in valid JSON format."),
-//                 new UserChatMessage(prompt)
-//             };
-//
-//             var response = await GetChatResponseAsync(prompt, messages);
-//             
-//             try
-//             {
-//                 return JsonSerializer.Deserialize<DetailedRecipe>(response) ?? new DetailedRecipe();
-//             }
-//             catch (JsonException)
-//             {
-//                 return new DetailedRecipe { Name = foodName };
-//             }
-//         }
-//
-//         public async Task<NutritionAnalysis> AnalyzeNutritionAsync(Food food)
-//         {
-//             var prompt = $@"Phân tích dinh dưỡng cho món ăn:
-//                         Tên: {food.Name}
-//                         Calories/100g: {food.CaloriesPer100G}
-//                         Protein/100g: {food.ProteinPer100G}g
-//                         Carbs/100g: {food.CarbsPer100G}g
-//                         Fats/100g: {food.FatsPer100G}g
-//                         Fiber/100g: {food.FiberPer100G}g
-//                         Sugar/100g: {food.SugarPer100G}g
-//                         Sodium/100g: {food.SodiumPer100G}mg
-//
-//                         Trả về phân tích dưới dạng JSON:
-//                         {{
-//                           ""nutrition"": {{
-//                             ""calories"": {food.CaloriesPerPortion},
-//                             ""protein"": {food.ProteinPerPortion},
-//                             ""carbs"": {food.CarbsPerPortion},
-//                             ""fats"": {food.FatsPerPortion},
-//                             ""fiber"": {food.FiberPer100G ?? 0},
-//                             ""sugar"": {food.SugarPer100G ?? 0},
-//                             ""sodium"": {food.SodiumPer100G ?? 0}
-//                           }},
-//                           ""healthScore"": ""Good/Excellent/Fair/Poor"",
-//                           ""healthBenefits"": [""Lợi ích sức khỏe""],
-//                           ""nutritionalConcerns"": [""Mối quan tâm dinh dưỡng""],
-//                           ""improvementSuggestions"": [""Gợi ý cải thiện""],
-//                           ""isAlignedWithGoal"": true,
-//                           ""goalAlignment"": ""Đánh giá phù hợp với mục tiêu""
-//                         }}";
-//
-//             var response = await GetChatResponseAsync(prompt);
-//             
-//             try
-//             {
-//                 return JsonSerializer.Deserialize<NutritionAnalysis>(response) ?? new NutritionAnalysis();
-//             }
-//             catch (JsonException)
-//             {
-//                 return new NutritionAnalysis();
-//             }
-//         }
-//
-//         public async Task<NutritionAnalysis> AnalyzeNutritionAsync(List<Meal> meals, NutritionGoal targetGoal = NutritionGoal.Balanced)
-//         {
-//             var analysisResult = new List<NutritionAnalysis>();
-//             foreach (var m in meals)
-//             {
-//                 foreach (var f in m.MealFoods)
-//                 {
-//                     var food = f.Food;
-//
-//                     var analysis = await AnalyzeNutritionAsync(food);
-//                     analysisResult.Add(analysis);
-//                 }
-//             }
-//             
-//             if(analysisResult == null || analysisResult.Count == 0)
-//             {
-//                 return new NutritionAnalysis();
-//             }
-//             
-//             var prompt = $@"Số lượng bữa ăn: {meals.Count} mục tiêu dinh dưỡng: {targetGoal} với thông số các món ăn như sau: ";
-//             foreach (var analysis in analysisResult)
-//             {
-//                 prompt += $@"{analysis.ToString()} \n";
-//             }
-//             prompt += $@"Tra ket qua duoi dang json: 
-//                         {{
-//                           ""totalCalories"": {analysisResult.Sum(a => a.Nutrition.Calories)},
-//                           ""totalProtein"": {analysisResult.Sum(a => a.Nutrition.Protein)},
-//                           ""totalCarbs"": {analysisResult.Sum(a => a.Nutrition.Carbs)},
-//                           ""totalFats"": {analysisResult.Sum(a => a.Nutrition.Fats)},
-//                           ""totalFiber"": {analysisResult.Sum(a => a.Nutrition.Fiber)},
-//                           ""totalSugar"": {analysisResult.Sum(a => a.Nutrition.Sugar)},
-//                           ""totalSodium"": {analysisResult.Sum(a => a.Nutrition.Sodium)},
-//                           ""isAlignedWithGoal"": true,
-//                           ""goalAlignment"": ""Đánh giá phù hợp với mục tiêu""
-//                         }}";
-//             
-//             await GetChatResponseAsync(prompt);
-//             try
-//             {
-//                 return JsonSerializer.Deserialize<NutritionAnalysis>(prompt) ?? new NutritionAnalysis();
-//             }
-//             catch (JsonException)
-//             {
-//                 return new NutritionAnalysis();
-//             }
-//         }
-//         
-//         public async Task<List<IngredientSubstitution>> GetIngredientSubstitutionsAsync(
-//             string originalIngredient, 
-//             NutritionGoal nutritionGoal)
-//         {
-//             var prompt = $@"
-// Tìm các nguyên liệu thay thế cho: {originalIngredient}
-// Mục tiêu dinh dưỡng: {GetNutritionGoalDescription(nutritionGoal)}
-//
-// Trả về JSON với 3-5 lựa chọn thay thế:
-// {{
-//   ""substitutions"": [
-//     {{
-//       ""originalIngredient"": ""{originalIngredient}"",
-//       ""substituteIngredient"": ""Nguyên liệu thay thế"",
-//       ""conversionRatio"": ""1:1"",
-//       ""reason"": ""Lý do thay thế"",
-//       ""tasteImpact"": ""Ảnh hưởng đến vị"",
-//       ""nutritionImpact"": ""Ảnh hưởng dinh dưỡng""
-//     }}
-//   ]
-// }}";
-//
-//             var response = await GetChatResponseAsync(prompt);
-//             
-//             try
-//             {
-//                 var result = JsonSerializer.Deserialize<SubstitutionResponse>(response);
-//                 return result?.Substitutions ?? new List<IngredientSubstitution>();
-//             }
-//             catch (JsonException)
-//             {
-//                 return new List<IngredientSubstitution>();
-//             }
-//         }
-//
-//         private string GetNutritionGoalDescription(NutritionGoal goal)
-//         {
-//             return goal switch
-//             {
-//                 NutritionGoal.Balanced => "Cân bằng dinh dưỡng",
-//                 NutritionGoal.WeightLoss => "Giảm cân (ít calories, nhiều protein, ít carb)",
-//                 NutritionGoal.WeightGain => "Tăng cân (nhiều calories, protein cao)",
-//                 NutritionGoal.MuscleGain => "Tăng cơ (protein cao, carb vừa phải)",
-//                 NutritionGoal.LowCarb => "Ít carb (dưới 50g carb/ngày)",
-//                 NutritionGoal.HighProtein => "Nhiều protein (trên 1.5g/kg thể trọng)",
-//                 NutritionGoal.Vegetarian => "Ăn chay (không thịt, có trứng sữa)",
-//                 NutritionGoal.Vegan => "Ăn thuần chay (hoàn toàn thực vật)",
-//                 NutritionGoal.Keto => "Keto (75% fat, 20% protein, 5% carb)",
-//                 NutritionGoal.LowSodium => "Ít muối (dưới 1500mg sodium/ngày)",
-//                 NutritionGoal.DiabeticFriendly => "Phù hợp tiểu đường (ít đường, carb phức)",
-//                 NutritionGoal.HeartHealthy => "Bảo vệ tim mạch (ít fat bão hòa, nhiều omega-3)",
-//                 _ => "Dinh dưỡng cân bằng"
-//             };
-//         }
-//     }
-//
-//     // Helper classes for JSON deserialization
-//     public class SuggestionResponse
-//     {
-//         public List<FoodSuggestion> Suggestions { get; set; } = new();
-//     }
-//
-//     public class SubstitutionResponse
-//     {
-//         public List<IngredientSubstitution> Substitutions { get; set; } = new();
-//     }
-// }
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
+using Azure;
+using Azure.AI.Inference;
+using Azure.Core.Pipeline;
+using IngredientServer.Core.Interfaces.Services;
+using IngredientServer.Utils.DTOs;
+using IngredientServer.Utils.DTOs.Entity;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+
+namespace IngredientServer.Core.Services
+{
+   public class AIService : IAIService, IDisposable
+{
+    private readonly ChatCompletionsClient _chatClient;
+    private readonly ILogger<AIService> _logger;
+    private readonly string _model;
+    private readonly SemaphoreSlim _semaphore;
+    private readonly JsonSerializerOptions _jsonOptions;
+    private bool _disposed;
+
+    public AIService(IConfiguration configuration, ILogger<AIService> logger)
+    {
+        _logger = logger;
+        
+        // Lấy config từ appsettings
+        var endpoint = new Uri(configuration["AzureOpenAI:Endpoint"]);
+        var apiKey = configuration["AzureOpenAI:ApiKey"];
+        _model = configuration["AzureOpenAI:Model"];
+        
+        var credential = new AzureKeyCredential(apiKey);
+        
+        _chatClient = new ChatCompletionsClient(
+            endpoint,
+            credential,
+            new AzureAIInferenceClientOptions()
+            {
+                // Tối ưu hóa connection pool
+                Transport = new HttpClientTransport(new HttpClient 
+                { 
+                    Timeout = TimeSpan.FromMinutes(2) 
+                })
+            }
+        );
+
+        // Giới hạn số request đồng thời để tránh rate limiting
+        _semaphore = new SemaphoreSlim(10, 10); // Tối đa 10 request cùng lúc
+        
+        // Cấu hình JSON serialization
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = false,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
+    }
+
+    public async Task<List<FoodSuggestionDto>> GetSuggestionsAsync(
+        FoodSuggestionRequestDto requestDto, 
+        CancellationToken cancellationToken = default)
+    {
+        await _semaphore.WaitAsync(cancellationToken);
+    
+        try
+        {
+            var systemPrompt = CreateFoodSuggestionSystemPrompt();
+            var userPrompt = CreateFoodSuggestionUserPrompt(requestDto);
+
+            var response = await CallOpenAIAsync(systemPrompt, userPrompt, cancellationToken);
+        
+            var suggestions = ParseFoodSuggestions(response, requestDto); // Truyền requestDto
+        
+            _logger.LogInformation("Successfully generated {Count} food suggestions", suggestions.Count);
+        
+            return suggestions;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating food suggestions");
+            throw new HttpRequestException("Failed to generate food suggestions from AI service", ex);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<FoodDataDto> GetRecipeSuggestionsAsync(
+        FoodRecipeRequestDto recipeRequest, 
+        CancellationToken cancellationToken = default)
+    {
+        await _semaphore.WaitAsync(cancellationToken);
+        
+        try
+        {
+            var systemPrompt = CreateRecipeSystemPrompt();
+            var userPrompt = CreateRecipeUserPrompt(recipeRequest);
+
+            var response = await CallOpenAIAsync(systemPrompt, userPrompt, cancellationToken);
+            
+            var recipe = ParseRecipeData(response);
+            
+            _logger.LogInformation("Successfully generated recipe for {FoodName}", recipeRequest.FoodName);
+            
+            return recipe;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating recipe for {FoodName}", recipeRequest.FoodName);
+            throw new HttpRequestException("Failed to generate recipe from AI service", ex);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public Task<List<int>> GetTargetDailyNutritionAsync(UserInformationDto userInformation, CancellationToken cancellationToken = default)
+    {
+        //Todo: Implement logic to calculate daily nutrition targets based on user information
+        throw new NotImplementedException();
+    }
+
+    public Task<List<int>> GetTargetWeeklyNutritionAsync(UserInformationDto userInformation, CancellationToken cancellationToken = default)
+    {
+        //Todo: Implement logic to calculate weekly nutrition targets based on user information
+        throw new NotImplementedException();
+    }
+
+    public Task<List<int>> GetTargetOverviewNutritionAsync(UserInformationDto userInformation, int dayAmount,
+        CancellationToken cancellationToken = default)
+    {
+        //Todo: Implement logic to calculate overview nutrition targets based on user information and day amount
+        throw new NotImplementedException();
+    }
+
+    private async Task<string> CallOpenAIAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken)
+    {
+        var options = new ChatCompletionsOptions
+        {
+            Model = _model,
+            Messages =
+            {
+                new ChatRequestSystemMessage(systemPrompt),
+                new ChatRequestUserMessage(userPrompt)
+            },
+            MaxTokens = 2000,
+            Temperature = 0.7f,
+            FrequencyPenalty = 0.1f,
+            PresencePenalty = 0.1f
+        };
+
+        var response = await _chatClient.CompleteAsync(options, cancellationToken);
+        
+        if (response?.Value?.Content == null)
+        {
+            throw new InvalidOperationException("Received empty response from OpenAI");
+        }
+
+        return response.Value.Content;
+    }
+
+    private string CreateFoodSuggestionSystemPrompt()
+    {
+        return @"Bạn là một chuyên gia dinh dưỡng và đầu bếp chuyên nghiệp. 
+Nhiệm vụ của bạn là đưa ra gợi ý món ăn phù hợp dựa trên thông tin người dùng và danh sách nguyên liệu được cung cấp.
+Nếu món ăn sử dụng nguyên liệu từ danh sách nguyên liệu của người dùng, hãy bao gồm ingredientId tương ứng và đảm bảo số lượng (quantity) không vượt quá số lượng tối đa được cung cấp. 
+Các nguyên liệu bổ sung không cần ingredientId.
+Trả về kết quả dưới dạng JSON array với format sau:
+[
+  {
+    ""name"": ""Tên món ăn"",
+    ""image"": ""URL hình ảnh (có thể để trống)"",
+    ""difficulty"": 5, // Độ khó từ 1 đến 5
+    ""prepTimeMinutes"": 15,
+    ""cookTimeMinutes"": 30,
+    ""ingredients"": [
+      {
+        ""ingredientId"": 123, // Bao gồm nếu nguyên liệu khớp với danh sách nguyên liệu của người dùng, nếu không để null
+        ""name"": ""Tên nguyên liệu"",
+        ""quantity"": ""Số lượng"", // Đảm bảo không vượt quá số lượng tối đa trong yêu cầu
+        ""unit"": ""Đơn vị""
+      }
+    ]
+  }
+]";
+    }
+
+    private string CreateFoodSuggestionUserPrompt(FoodSuggestionRequestDto requestDto)
+    {
+        var userInfo = requestDto.UserInformation;
+        var prompt = $"Gợi ý {requestDto.MaxSuggestions} món ăn phù hợp cho người dùng với thông tin sau:\n";
+
+        if (userInfo?.Gender.HasValue == true)
+            prompt += $"- Giới tính: {userInfo.Gender}\n";
+
+        if (userInfo?.DateOfBirth.HasValue == true)
+        {
+            var age = DateTime.Now.Year - userInfo.DateOfBirth.Value.Year;
+            prompt += $"- Tuổi: {age}\n";
+        }
+
+        if (userInfo?.Height.HasValue == true)
+            prompt += $"- Chiều cao: {userInfo.Height}cm\n";
+
+        if (userInfo?.Weight.HasValue == true)
+            prompt += $"- Cân nặng hiện tại: {userInfo.Weight}kg\n";
+
+        if (userInfo?.TargetWeight.HasValue == true)
+            prompt += $"- Cân nặng mục tiêu: {userInfo.TargetWeight}kg\n";
+
+        if (userInfo?.PrimaryNutritionGoal.HasValue == true)
+        prompt += $"- Mục tiêu dinh dưỡng: {userInfo.PrimaryNutritionGoal}\n";
+
+        if (userInfo?.ActivityLevel.HasValue == true)
+            prompt += $"- Mức độ hoạt động: {userInfo.ActivityLevel}\n";
+
+        if (requestDto.Ingredients?.Any() == true)
+        {
+            prompt += "\nSử dụng các nguyên liệu sau nếu có thể (không vượt quá số lượng tối đa):\n";
+            foreach (var ingredient in requestDto.Ingredients)
+            {
+                prompt += $"- {ingredient.IngredientName} (ID: {ingredient.IngredientId}, Tối đa: {ingredient.Quantity} {ingredient.Unit})\n";
+            }
+        }
+
+        prompt += "\nHãy đưa ra các món ăn phù hợp với mục tiêu sức khỏe, dinh dưỡng của người dùng và danh sách nguyên liệu được cung cấp. Đảm bảo bao gồm ingredientId trong kết quả nếu nguyên liệu khớp với danh sách nguyên liệu của người dùng.";
+    
+        return prompt;
+    }
+
+    private string CreateRecipeSystemPrompt()
+    {
+        return @"Bạn là một đầu bếp chuyên nghiệp. 
+Nhiệm vụ của bạn là cung cấp công thức nấu ăn chi tiết.
+Trả về kết quả dưới dạng JSON với format sau:
+{
+  ""name"": ""Tên món ăn"",
+  ""description"": ""Mô tả món ăn"",
+  ""prepTimeMinutes"": 15,
+  ""cookTimeMinutes"": 30,
+  ""servings"": 4,
+  ""difficulty"": ""Easy/Medium/Hard"",
+  ""ingredients"": [
+    {
+      ""name"": ""Tên nguyên liệu"",
+      ""quantity"": ""Số lượng"",
+      ""unit"": ""Đơn vị""
+    }
+  ],
+  ""instructions"": [
+    ""Bước 1: Mô tả chi tiết"",
+    ""Bước 2: Mô tả chi tiết""
+  ],
+  ""nutritionInfo"": {
+    ""calories"": 250,
+    ""protein"": 15,
+    ""carbs"": 30,
+    ""fat"": 8
+  }
+}";
+    }
+
+    private string CreateRecipeUserPrompt(FoodRecipeRequestDto recipeRequest)
+    {
+        var prompt = $"Cung cấp công thức nấu ăn chi tiết cho món: {recipeRequest.FoodName}\n";
+        
+        if (recipeRequest.Ingredients?.Any() == true)
+        {
+            prompt += "Sử dụng các nguyên liệu sau nếu có thể:\n";
+            foreach (var ingredient in recipeRequest.Ingredients)
+            {
+                prompt += $"- {ingredient.IngredientName} ({ingredient.Quantity} {ingredient.Unit})\n";
+            }
+        }
+        
+        prompt += "\nHãy cung cấp hướng dẫn nấu ăn từng bước một cách chi tiết và dễ hiểu.";
+        
+        return prompt;
+    }
+
+    private List<FoodSuggestionDto> ParseFoodSuggestions(string jsonResponse, FoodSuggestionRequestDto requestDto)
+    {
+        try
+        {
+            var jsonStart = jsonResponse.IndexOf('[');
+            var jsonEnd = jsonResponse.LastIndexOf(']');
+        
+            if (jsonStart >= 0 && jsonEnd > jsonStart)
+            {
+                var jsonContent = jsonResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
+                var suggestions = JsonSerializer.Deserialize<List<FoodSuggestionDto>>(jsonContent, _jsonOptions) ?? new();
+
+                // Kiểm tra số lượng nguyên liệu
+                foreach (var suggestion in suggestions)
+                {
+                    foreach (var ingredient in suggestion.Ingredients)
+                    {
+                        if (ingredient.IngredientId > 0) // Có IngredientId
+                        {
+                            var requestIngredient = requestDto.Ingredients.FirstOrDefault(i => i.IngredientId == ingredient.IngredientId);
+                            if (requestIngredient != null)
+                            {
+                                if (ingredient.Quantity > requestIngredient.Quantity)
+                                {
+                                    _logger.LogWarning("Ingredient {Name} (ID: {Id}) exceeds maximum quantity {MaxQuantity} {Unit}",
+                                        ingredient.IngredientName, ingredient.IngredientId, requestIngredient.Quantity, requestIngredient.Unit);
+                                    ingredient.Quantity = requestIngredient.Quantity; // Giới hạn số lượng
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return suggestions;
+            }
+        
+            return new List<FoodSuggestionDto>();
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse food suggestions JSON, returning empty list");
+            return new List<FoodSuggestionDto>();
+        }
+    }
+
+    private FoodDataDto ParseRecipeData(string jsonResponse)
+    {
+        try
+        {
+            // Trích xuất JSON từ response
+            var jsonStart = jsonResponse.IndexOf('{');
+            var jsonEnd = jsonResponse.LastIndexOf('}');
+            
+            if (jsonStart >= 0 && jsonEnd > jsonStart)
+            {
+                var jsonContent = jsonResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
+                return JsonSerializer.Deserialize<FoodDataDto>(jsonContent, _jsonOptions) ?? new FoodDataDto();
+            }
+            
+            return new FoodDataDto();
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse recipe JSON, returning empty recipe");
+            return new FoodDataDto();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _semaphore?.Dispose();
+            _disposed = true;
+        }
+    }
+}
+}

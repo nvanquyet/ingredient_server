@@ -5,9 +5,9 @@ namespace IngredientServer.Core.Interfaces.Services;
 
 public interface INutritionService
 {
-    Task<DailyNutritionSummaryDto> GetDailyNutritionSummaryAsync(int userId, DateTime date);
-    Task<WeeklyNutritionSummaryDto> GetWeeklyNutritionSummaryAsync(int userId, DateTime startDate, DateTime endDate);
-    Task<TotalNutritionSummaryDto> GetTotalNutritionSummaryAsync(int userId);
+    Task<DailyNutritionSummaryDto> GetDailyNutritionSummaryAsync(DateTime date, UserInformationDto userInformation, bool usingAIAssistant = false);
+    Task<WeeklyNutritionSummaryDto> GetWeeklyNutritionSummaryAsync(DateTime startDate, DateTime endDate, UserInformationDto userInformation);
+    Task<OverviewNutritionSummaryDto> GetOverviewNutritionSummaryAsync(UserInformationDto userInformation);
 }
 
 
@@ -17,8 +17,8 @@ public interface IFoodService
     Task<Food> UpdateFoodAsync(int foodId, FoodDataDto dto);
     Task<bool> DeleteFoodAsync(int foodId);
     Task<List<FoodSuggestionDto>> GetSuggestionsAsync(FoodSuggestionRequestDto requestDto);
-    Task<FoodRecipeDto> GetRecipeSuggestionsAsync(FoodRecipeRequestDto recipeRequest);
-    Task<FoodDto> GetFoodByIdAsync(int id);
+    Task<FoodDataDto> GetRecipeSuggestionsAsync(FoodRecipeRequestDto recipeRequest);
+    Task<FoodDataDto> GetFoodByIdAsync(int id);
 }
 
 public interface IIngredientService
@@ -33,8 +33,8 @@ public interface IIngredientService
 
 public interface IMealService
 {
-    Task<MealWithFoodsDto> GetByIdAsync(int mealId);
-    Task<IEnumerable<MealWithFoodsDto>> GetByDateAsync(string date);
+    Task<MealDto> GetByIdAsync(int mealId);
+    Task<IEnumerable<MealDto>> GetByDateAsync(string date);
     Task<MealDto> CreateMealAsync(MealType mealType, DateTime mealDate);
     Task<MealDto> UpdateMealAsync(int mealId, MealDto updateMealDto);
     Task<bool> DeleteMealAsync(int mealId);

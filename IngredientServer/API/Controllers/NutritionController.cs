@@ -16,7 +16,8 @@ public class NutritionController(INutritionService nutritionService, IUserContex
 {
     [HttpGet("daily")]
     public async Task<ActionResult<ApiResponse<DailyNutritionSummaryDto>>> GetDailyNutritionSummary(
-        [FromQuery] DateTime date)
+        [FromQuery] DateTime date,
+        [FromQuery] UserInformationDto userInformation)
     {
         try
         {
@@ -24,8 +25,7 @@ public class NutritionController(INutritionService nutritionService, IUserContex
             {
                 date = DateTime.UtcNow.Date; // Default to today if no date is provided
             }
-            var userId = userContextService.GetAuthenticatedUserId();
-            var summary = await nutritionService.GetDailyNutritionSummaryAsync(userId, date);
+            var summary = await nutritionService.GetDailyNutritionSummaryAsync(date, userInformation, true);
             return Ok(new ApiResponse<DailyNutritionSummaryDto>
             {
                 Success = true,
@@ -33,7 +33,6 @@ public class NutritionController(INutritionService nutritionService, IUserContex
                 Message = "Daily nutrition summary retrieved successfully",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["userId"] = new List<string> { userId.ToString() },
                     ["date"] = new List<string> { date.ToString("yyyy-MM-dd") }
                 }
             });
@@ -63,12 +62,13 @@ public class NutritionController(INutritionService nutritionService, IUserContex
     [HttpGet("weekly")]
     public async Task<ActionResult<ApiResponse<WeeklyNutritionSummaryDto>>> GetWeeklyNutritionSummary(
         [FromQuery] DateTime startDate,
-        [FromQuery] DateTime endDate)
+        [FromQuery] DateTime endDate, 
+        [FromQuery] UserInformationDto userInformation)
     {
         try
         {
             var userId = userContextService.GetAuthenticatedUserId();
-            var summary = await nutritionService.GetWeeklyNutritionSummaryAsync(userId, startDate, endDate);
+            var summary = await nutritionService.GetWeeklyNutritionSummaryAsync(startDate, endDate, userInformation);
             return Ok(new ApiResponse<WeeklyNutritionSummaryDto>
             {
                 Success = true,
@@ -104,14 +104,14 @@ public class NutritionController(INutritionService nutritionService, IUserContex
         }
     }
 
-    [HttpGet("total")]
-    public async Task<ActionResult<ApiResponse<TotalNutritionSummaryDto>>> GetTotalNutritionSummary()
+    [HttpGet("overview")]
+    public async Task<ActionResult<ApiResponse<OverviewNutritionSummaryDto>>> GetOverviewNutritionSummary([FromQuery] UserInformationDto userInformation)
     {
         try
         {
             var userId = userContextService.GetAuthenticatedUserId();
-            var summary = await nutritionService.GetTotalNutritionSummaryAsync(userId);
-            return Ok(new ApiResponse<TotalNutritionSummaryDto>
+            var summary = await nutritionService.GetOverviewNutritionSummaryAsync(userInformation);
+            return Ok(new ApiResponse<OverviewNutritionSummaryDto>
             {
                 Success = true,
                 Data = summary,
@@ -124,7 +124,7 @@ public class NutritionController(INutritionService nutritionService, IUserContex
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(new ApiResponse<TotalNutritionSummaryDto>
+            return Forbid(new ApiResponse<OverviewNutritionSummaryDto>
             {
                 Success = false,
                 Message = ex.Message
@@ -132,7 +132,7 @@ public class NutritionController(INutritionService nutritionService, IUserContex
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<TotalNutritionSummaryDto>
+            return StatusCode(500, new ApiResponse<OverviewNutritionSummaryDto>
             {
                 Success = false,
                 Message = "Internal server error",

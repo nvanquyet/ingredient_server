@@ -96,11 +96,15 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Description).HasMaxLength(1000);
-            entity.Property(e => e.Quantity).IsRequired();
-            entity.Property(e => e.Calories).IsRequired();
-            entity.Property(e => e.Protein).IsRequired();
-            entity.Property(e => e.Carbs).IsRequired();
-            entity.Property(e => e.Fat).IsRequired();
+            entity.Property(e => e.PreparationTimeMinutes).IsRequired();
+            entity.Property(e => e.CookingTimeMinutes).IsRequired();
+            entity.Property(e => e.Calories).HasColumnType("decimal(8,2)").IsRequired();
+            entity.Property(e => e.Protein).HasColumnType("decimal(8,2)").IsRequired();
+            entity.Property(e => e.Carbohydrates).HasColumnType("decimal(8,2)").IsRequired();
+            entity.Property(e => e.Fat).HasColumnType("decimal(8,2)").IsRequired();
+            entity.Property(e => e.Fiber).HasColumnType("decimal(8,2)").IsRequired();
+            entity.Property(e => e.Instructions).HasColumnType("json").IsRequired();
+            entity.Property(e => e.DifficultyLevel).HasDefaultValue(1);
             entity.Property(e => e.UserId).IsRequired();
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
@@ -123,6 +127,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             // Indexes
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.DifficultyLevel);
         });
 
         // Meal configuration
@@ -132,11 +137,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             
             entity.Property(e => e.MealType).HasConversion<string>().IsRequired();
             entity.Property(e => e.MealDate).IsRequired();
-            entity.Property(e => e.ConsumedAt).IsRequired(false); // Nullable theo model
-            entity.Property(e => e.TotalCalories);
-            entity.Property(e => e.TotalProtein);
-            entity.Property(e => e.TotalCarbs);
-            entity.Property(e => e.TotalFat);
+            entity.Property(e => e.ConsumedAt).IsRequired(false); // Nullable
+            entity.Property(e => e.TotalCalories).HasDefaultValue(0.0);
+            entity.Property(e => e.TotalProtein).HasDefaultValue(0.0);
+            entity.Property(e => e.TotalCarbs).HasDefaultValue(0.0);
+            entity.Property(e => e.TotalFat).HasDefaultValue(0.0);
+            entity.Property(e => e.TotalFiber).HasDefaultValue(0.0);
             entity.Property(e => e.UserId).IsRequired();
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
@@ -161,7 +167,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         // MealFood configuration (Junction table)
         modelBuilder.Entity<MealFood>(entity =>
         {
-            entity.HasKey(e => e.Id); // Sử dụng Id từ BaseEntity
+            entity.HasKey(e => e.Id);
             
             entity.Property(e => e.MealId).IsRequired();
             entity.Property(e => e.FoodId).IsRequired();
@@ -187,7 +193,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         // FoodIngredient configuration (Junction table)
         modelBuilder.Entity<FoodIngredient>(entity =>
         {
-            entity.HasKey(e => e.Id); // Sử dụng Id từ BaseEntity
+            entity.HasKey(e => e.Id);
             
             entity.Property(e => e.FoodId).IsRequired();
             entity.Property(e => e.IngredientId).IsRequired();
