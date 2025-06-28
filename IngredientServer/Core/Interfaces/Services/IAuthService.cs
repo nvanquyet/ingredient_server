@@ -8,6 +8,7 @@ namespace IngredientServer.Core.Interfaces.Services;
 public interface IAuthService
 {
     Task<ResponseDto<AuthResponseDto>> LoginAsync(LoginDto loginDto);
+    Task<ResponseDto<AuthResponseDto>> ValidateTokenAsync(string token);
     Task<ResponseDto<AuthResponseDto>> RegisterAsync(RegisterDto registerDto);
     Task<ResponseDto<bool>> LogoutAsync(int userId);
     

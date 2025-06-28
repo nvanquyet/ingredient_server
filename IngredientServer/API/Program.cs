@@ -54,6 +54,7 @@ builder.Services.AddScoped<IFoodIngredientRepository, FoodIngredientRepository>(
 
 // Services - từ Core.Services
 builder.Services.AddScoped<IUserContextService, UserContextService>();
+builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFoodService, FoodService>();
 builder.Services.AddScoped<IIngredientService, IngredientService>();

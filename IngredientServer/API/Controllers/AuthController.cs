@@ -30,6 +30,25 @@ public class AuthController(IAuthService authService, IUserContextService userCo
 
         return Ok(result);
     }
+    
+    [HttpGet("validateToken")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ValidateToken([FromQuery] string token)
+    {
+        if (string.IsNullOrEmpty(token))
+        {
+            return BadRequest(new { message = "Token is required" });
+        }
+
+        var result = await authService.ValidateTokenAsync(token);
+
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
 
     [HttpPost("register")]
     [AllowAnonymous]

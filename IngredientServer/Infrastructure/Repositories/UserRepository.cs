@@ -15,6 +15,18 @@ public class UserRepository(ApplicationDbContext context, IUserContextService us
         return await Context.Users
             .FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower());
     }
+    public async Task<User?> ValidateTokenAsync()
+    {
+        var userId = userContextService.GetAuthenticatedUserId();
+        if (userId <= 0)
+        {
+            return null; // Invalid user ID
+        }
+        // Fetch the user by ID to validate the token
+        Console.WriteLine($"ValidateTokenAsync - UserId: {userId}");
+        return await Context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId);
+    }
 
     public async Task<User?> GetByEmailAsync(string email)
     {

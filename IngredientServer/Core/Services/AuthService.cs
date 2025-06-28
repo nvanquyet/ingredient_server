@@ -12,7 +12,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace IngredientServer.Core.Services;
-public class AuthService(IUserRepository userRepository, IConfiguration configuration, ILogger<AuthService> logger)
+
+public class AuthService(IUserRepository userRepository, IJwtService jwtService, IConfiguration configuration, ILogger<AuthService> logger)
     : IAuthService
 {
     public async Task<ResponseDto<AuthResponseDto>> LoginAsync(LoginDto loginDto)
@@ -20,7 +21,7 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
         try
         {
             var user = await userRepository.GetByUsernameAsync(loginDto.Username);
-            
+
             if (user == null || !VerifyPassword(loginDto.Password, user.PasswordHash))
             {
                 return new ResponseDto<AuthResponseDto>
@@ -36,11 +37,11 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 {
                     Success = false,
                     Message = "Account is deactivated"
-                }; 
+                };
             }
 
             await userRepository.UpdateForLoginAsync(user);
-            
+
             //Check format create at 
             if (user.CreatedAt == default(DateTime))
             {
@@ -76,6 +77,97 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
             };
         }
     }
+
+    public async Task<ResponseDto<AuthResponseDto>> ValidateTokenAsync(string token)
+    {
+        try
+        {
+            // Parse và validate JWT token
+            var principal = jwtService.ValidateToken(token);
+            if (principal == null)
+            {
+                return new ResponseDto<AuthResponseDto>
+                {
+                    Success = false,
+                    Message = "Invalid or expired token"
+                };
+            }
+
+            // Lấy userId từ token đã được validate
+            var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdClaim, out int userId) || userId <= 0)
+            {
+                return new ResponseDto<AuthResponseDto>
+                {
+                    Success = false,
+                    Message = "Invalid user ID in token"
+                };
+            }
+
+            // Kiểm tra user có tồn tại trong database không
+            var user = await userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                return new ResponseDto<AuthResponseDto>
+                {
+                    Success = false,
+                    Message = "User not found"
+                };
+            }
+
+            // Kiểm tra user có bị disable/locked không
+            if (!user.IsActive)
+            {
+                return new ResponseDto<AuthResponseDto>
+                {
+                    Success = false,
+                    Message = "User account is disabled"
+                };
+            }
+
+            // Fix DateTime format
+            if (user.CreatedAt == default(DateTime))
+            {
+                user.CreatedAt = DateTime.UtcNow;
+            }
+            else if (user.CreatedAt.Kind != DateTimeKind.Utc)
+            {
+                user.CreatedAt = DateTime.SpecifyKind(user.CreatedAt, DateTimeKind.Utc);
+            }
+
+            var response = new AuthResponseDto
+            {
+                User = MapToUserDto(user),
+                Token = token // Trả lại token nếu cần
+            };
+
+            return new ResponseDto<AuthResponseDto>
+            {
+                Success = true,
+                Message = "Token is valid",
+                Data = response
+            };
+        }
+        catch (SecurityTokenException ex)
+        {
+            logger.LogWarning(ex, "Invalid token format");
+            return new ResponseDto<AuthResponseDto>
+            {
+                Success = false,
+                Message = "Invalid token format"
+            };
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error during token validation");
+            return new ResponseDto<AuthResponseDto>
+            {
+                Success = false,
+                Message = "An error occurred during token validation"
+            };
+        }
+    }
+
 
     public async Task<ResponseDto<AuthResponseDto>> RegisterAsync(RegisterDto registerDto)
     {
@@ -155,7 +247,7 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
             });
         }
     }
-    
+
     public async Task<ResponseDto<UserProfileDto>> GetUserProfileAsync(int userId)
     {
         var user = await userRepository.GetByIdAsync(userId);
@@ -178,9 +270,10 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
         };
     }
 
-    public async Task<ResponseDto<UserProfileDto>> UpdateUserProfileAsync(int userId, UserProfileDto? updateUserProfileDto)
+    public async Task<ResponseDto<UserProfileDto>> UpdateUserProfileAsync(int userId,
+        UserProfileDto? updateUserProfileDto)
     {
-        if(updateUserProfileDto == null)
+        if (updateUserProfileDto == null)
         {
             return await Task.FromResult(new ResponseDto<UserProfileDto>
             {
@@ -188,9 +281,9 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 Message = "Invalid user profile data"
             });
         }
-        
+
         var user = await userRepository.GetByIdAsync(userId);
-        
+
         if (user == null)
         {
             return await Task.FromResult(new ResponseDto<UserProfileDto>
@@ -199,6 +292,7 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 Message = "User not found"
             });
         }
+
         user.UpdateUserProfile(updateUserProfileDto);
         await userRepository.UpdateAsync(user);
         return await Task.FromResult(new ResponseDto<UserProfileDto>
@@ -220,6 +314,7 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 Message = "Invalid password change data"
             });
         }
+
         var user = await userRepository.GetByIdAsync(userId);
         if (user == null)
         {
@@ -229,6 +324,7 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 Message = "User not found"
             };
         }
+
         if (string.IsNullOrWhiteSpace(changePasswordDto.CurrentPassword) ||
             string.IsNullOrWhiteSpace(changePasswordDto.NewPassword) ||
             changePasswordDto.NewPassword.Length < 6)
@@ -239,7 +335,7 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 Message = "Invalid password change request"
             };
         }
-        
+
         if (changePasswordDto.NewPassword != changePasswordDto.ConfirmNewPassword)
         {
             return new ResponseDto<bool>
@@ -248,7 +344,7 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 Message = "New password and confirmation do not match"
             };
         }
-        
+
         if (!VerifyPassword(changePasswordDto.CurrentPassword, user.PasswordHash))
         {
             return new ResponseDto<bool>
@@ -257,7 +353,7 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 Message = "Old password is incorrect"
             };
         }
-        
+
         user.PasswordHash = HashPassword(changePasswordDto.NewPassword);
         await userRepository.UpdateAsync(user);
         return new ResponseDto<bool>
@@ -273,7 +369,7 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.ASCII.GetBytes(configuration["Jwt:Secret"] ?? "");
-        
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity([
@@ -282,7 +378,7 @@ public class AuthService(IUserRepository userRepository, IConfiguration configur
                 new Claim(ClaimTypes.Email, user.Email)
             ]),
             Expires = DateTime.UtcNow.AddHours(24),
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), 
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key),
                 SecurityAlgorithms.HmacSha256Signature)
         };
 
