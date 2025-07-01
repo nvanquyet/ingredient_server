@@ -166,27 +166,31 @@ namespace IngredientServer.Core.Services
         return @"Bạn là một chuyên gia dinh dưỡng và đầu bếp chuyên nghiệp. 
 Nhiệm vụ của bạn là đưa ra gợi ý món ăn phù hợp dựa trên thông tin người dùng và danh sách nguyên liệu được cung cấp.
 Nếu món ăn sử dụng nguyên liệu từ danh sách nguyên liệu của người dùng, hãy bao gồm ingredientId tương ứng và đảm bảo số lượng (quantity) không vượt quá số lượng tối đa được cung cấp. 
-Các nguyên liệu bổ sung không cần ingredientId.
+Các nguyên liệu bổ sung không cần ingredientId (để ingredientId = 0).
+
+⚠️ Nếu nguyên liệu có ingredientId khác 0, hãy đảm bảo trường ingredientName phải giống với tên nguyên liệu được cung cấp trong danh sách nguyên liệu của người dùng. Nếu ingredientId = 0, bạn có thể tự đặt tên nguyên liệu phù hợp.
+
 Trả về kết quả dưới dạng JSON array với format sau:
 [
   {
     ""name"": ""Tên món ăn"",
     ""image"": ""URL hình ảnh (có thể để trống)"",
     ""difficulty"": 5, // Độ khó từ 1 đến 5
-    ""kcal"": 15,  // Tổng số calo cho một phần ăn chuyển ra đơn vị kcal
-    ""prepTimeMinutes"": 15,
-    ""cookTimeMinutes"": 30,
+    ""kcal"": 250,  // Tổng calo cho một phần ăn
+    ""prepTimeMinutes"": 15, // Thời gian chuẩn bị
+    ""cookTimeMinutes"": 30, // Thời gian nấu
     ""ingredients"": [
       {
-        ""ingredientId"": 123, // Bao gồm nếu nguyên liệu khớp với danh sách nguyên liệu của người dùng, nếu không hãy để giá trị 0
-        ""name"": ""Tên nguyên liệu"", // Tên nguyên liệu là bắt buộc như các trường khác không được để null hay trống
-        ""quantity"": 1, // Đảm bảo không vượt quá số lượng tối đa trong yêu cầu
-        ""unit"": 0 // Hãy đảm bảo giá trị sẽ tương ứng với thứ tự các đơn vị từ 0-12 như sau: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, hoặc giá trị khác: Other. Đơn vị phải là số nguyên, không được trả về dạng string.
+        ""ingredientId"": 123, // ingredientId nếu là nguyên liệu có sẵn, nếu nguyên liệu bổ sung thì để 0
+        ""ingredientName"": ""Tên nguyên liệu"", // Không được để trống hoặc null
+        ""quantity"": 1, // Số lượng nguyên liệu (không vượt quá giới hạn đã cho)
+        ""unit"": 0 // Giá trị số nguyên từ 0-12 đại diện cho đơn vị: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, Other
       }
     ]
   }
 ]";
     }
+
 
     private string CreateFoodSuggestionUserPrompt(FoodSuggestionRequestDto requestDto)
     {
@@ -234,37 +238,38 @@ Trả về kết quả dưới dạng JSON array với format sau:
     private string CreateRecipeSystemPrompt()
     {
         return @"Bạn là một đầu bếp chuyên nghiệp. 
-Nhiệm vụ của bạn là  cung cấp công thức nấu ăn chi tiết dựa trên danh sách nguyên liệu được cung cấp.
+Nhiệm vụ của bạn là cung cấp công thức nấu ăn chi tiết dựa trên danh sách nguyên liệu được cung cấp.
 Nếu món ăn sử dụng nguyên liệu được cung cấp hãy bao gồm ingredientId tương ứng và đảm bảo số lượng (quantity) không vượt quá số lượng tối đa được cung cấp. 
-Các nguyên liệu bổ sung không cần ingredientId.
+Các nguyên liệu bổ sung không cần ingredientId (để ingredientId = 0).
 Trả về kết quả dưới dạng JSON với format sau:
 {
   ""name"": ""Tên món ăn"",
   ""description"": ""Mô tả món ăn"",
-  ""prepTimeMinutes"": 15,
-  ""cookTimeMinutes"": 30,
-  ""servings"": 4,
-  ""difficulty"": 5, // Độ khó từ 1 đến 5
-  ""ingredients"": [
-    {
-      ""ingredientId"": 123, // Bao gồm nếu nguyên liệu là nguyên liệu được cung cấp và = 0 nếu là nguyên liệu bổ sung
-      ""name"": ""Tên nguyên liệu"", // Tên nguyên liệu là bắt buộc như các trường khác không được để null hay trống
-      ""quantity"": 1 // Số lượng nguyên liệu , Đảm bảo không vượt quá số lượng tối đa trong yêu cầu
-      ""unit"": // Hãy đảm bảo giá trị sẽ tương ứng với thứ tự các đơn vị từ 0-12 như sau: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, hoặc giá trị khác: Other. Đơn vị phải là số nguyên, không được trả về dạng string.
-    }
-  ],
+  ""preparationTimeMinutes"": 15, // Thời gian chuẩn bị
+  ""cookingTimeMinutes"": 30, // Thời gian nấu
+  ""difficultyLevel"": 5, // Độ khó từ 1 đến 5
   ""instructions"": [
     ""Bước 1: Mô tả chi tiết"",
     ""Bước 2: Mô tả chi tiết""
   ],
-  ""nutritionInfo"": {
-    ""calories"": 250,
-    ""protein"": 15,
-    ""carbs"": 30,
-    ""fat"": 8
-  }
+  ""calories"": 250, // Tổng calo
+  ""protein"": 15, // Hàm lượng protein
+  ""carbohydrates"": 30, // Hàm lượng carbohydrate
+  ""fat"": 8, // Hàm lượng chất béo
+  ""fiber"": 3, // Hàm lượng chất xơ
+  ""mealType"": 0, // Giá trị số nguyên đại diện cho loại bữa ăn (Breakfast = 0, Lunch = 1, Dinner = 2, Snack = 3)
+  ""mealDate"": ""2024-07-01T00:00:00"", // Ngày thực hiện món ăn
+  ""ingredients"": [
+    {
+      ""ingredientId"": 123, // ingredientId nếu là nguyên liệu có sẵn, nếu nguyên liệu bổ sung thì để 0
+      ""ingredientName"": ""Tên nguyên liệu"", // Không được để trống hoặc null
+      ""quantity"": 1, // Số lượng nguyên liệu (không vượt quá giới hạn đã cho)
+      ""unit"": 0 // Giá trị số nguyên từ 0-12 đại diện cho đơn vị: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, Other
+    }
+  ]
 }";
     }
+
 
     private string CreateRecipeUserPrompt(FoodRecipeRequestDto recipeRequest)
     {
