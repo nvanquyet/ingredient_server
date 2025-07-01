@@ -180,7 +180,7 @@ Trả về kết quả dưới dạng JSON array với format sau:
       {
         ""ingredientId"": 123, // Bao gồm nếu nguyên liệu khớp với danh sách nguyên liệu của người dùng, nếu không để null
         ""name"": ""Tên nguyên liệu"",
-        ""quantity"": ""Số lượng"", // Đảm bảo không vượt quá số lượng tối đa trong yêu cầu
+        ""quantity"": 1, // Đảm bảo không vượt quá số lượng tối đa trong yêu cầu
         ""unit"": ""Đơn vị""
       }
     ]
@@ -234,7 +234,9 @@ Trả về kết quả dưới dạng JSON array với format sau:
     private string CreateRecipeSystemPrompt()
     {
         return @"Bạn là một đầu bếp chuyên nghiệp. 
-Nhiệm vụ của bạn là cung cấp công thức nấu ăn chi tiết.
+Nhiệm vụ của bạn là  cung cấp công thức nấu ăn chi tiết dựa trên danh sách nguyên liệu được cung cấp.
+Nếu món ăn sử dụng nguyên liệu được cung cấp hãy bao gồm ingredientId tương ứng và đảm bảo số lượng (quantity) không vượt quá số lượng tối đa được cung cấp. 
+Các nguyên liệu bổ sung không cần ingredientId.
 Trả về kết quả dưới dạng JSON với format sau:
 {
   ""name"": ""Tên món ăn"",
@@ -242,11 +244,13 @@ Trả về kết quả dưới dạng JSON với format sau:
   ""prepTimeMinutes"": 15,
   ""cookTimeMinutes"": 30,
   ""servings"": 4,
-  ""difficulty"": ""Easy/Medium/Hard"",
+  ""difficulty"": 5, // Độ khó từ 1 đến 5
   ""ingredients"": [
     {
+      ""ingredientId"": 123, // Bao gồm nếu nguyên liệu là nguyên liệu được cung cấp và = 0 nếu là nguyên liệu bổ sung
       ""name"": ""Tên nguyên liệu"",
-      ""quantity"": ""Số lượng"",
+      ""name"": ""Tên nguyên liệu"",
+      ""quantity"": 1 // Số lượng nguyên liệu , Đảm bảo không vượt quá số lượng tối đa trong yêu cầu
       ""unit"": ""Đơn vị""
     }
   ],
