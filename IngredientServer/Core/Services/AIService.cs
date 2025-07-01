@@ -178,7 +178,7 @@ Trả về kết quả dưới dạng JSON array với format sau:
     ""cookTimeMinutes"": 30,
     ""ingredients"": [
       {
-        ""ingredientId"": 123, // Bao gồm nếu nguyên liệu khớp với danh sách nguyên liệu của người dùng, nếu không để null
+        ""ingredientId"": 123, // Bao gồm nếu nguyên liệu khớp với danh sách nguyên liệu của người dùng, nếu không hãy để giá trị 0
         ""name"": ""Tên nguyên liệu"",
         ""quantity"": 1, // Đảm bảo không vượt quá số lượng tối đa trong yêu cầu
         ""unit"": ""Đơn vị""
