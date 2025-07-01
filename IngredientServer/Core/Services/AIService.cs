@@ -181,7 +181,7 @@ Trả về kết quả dưới dạng JSON array với format sau:
         ""ingredientId"": 123, // Bao gồm nếu nguyên liệu khớp với danh sách nguyên liệu của người dùng, nếu không hãy để giá trị 0
         ""name"": ""Tên nguyên liệu"",
         ""quantity"": 1, // Đảm bảo không vượt quá số lượng tối đa trong yêu cầu
-        ""unit"": ""Đơn vị"" // Hãy đảm bảo đơn vị sẽ được chuyển đổi về dạng chuẩn Kilogram ,Liter,Piece,Box,Gram,Milliliter,Can,Cup,Tablespoon,Teaspoon,Package,Bottle Hoăặc giá trị khác Other 
+        ""unit"": 0 // Hãy đảm bảo giá trị sẽ tương ứng với thứ tự các đơn vị từ 0-12 như sau: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, hoặc giá trị khác: Other. Đơn vị phải là số nguyên, không được trả về dạng string.
       }
     ]
   }
@@ -251,7 +251,7 @@ Trả về kết quả dưới dạng JSON với format sau:
       ""name"": ""Tên nguyên liệu"",
       ""name"": ""Tên nguyên liệu"",
       ""quantity"": 1 // Số lượng nguyên liệu , Đảm bảo không vượt quá số lượng tối đa trong yêu cầu
-      ""unit"": ""Đơn vị"" // Hãy đảm bảo đơn vị sẽ được chuyển đổi về dạng chuẩn Kilogram ,Liter,Piece,Box,Gram,Milliliter,Can,Cup,Tablespoon,Teaspoon,Package,Bottle Hoăặc giá trị khác Other 
+      ""unit"": // Hãy đảm bảo giá trị sẽ tương ứng với thứ tự các đơn vị từ 0-12 như sau: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, hoặc giá trị khác: Other. Đơn vị phải là số nguyên, không được trả về dạng string.
     }
   ],
   ""instructions"": [
