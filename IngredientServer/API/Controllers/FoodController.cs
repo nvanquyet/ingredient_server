@@ -218,8 +218,8 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
     }
 
-    [HttpGet("recipes")]
-    public async Task<ActionResult<ApiResponse<FoodDataDto>>> GetRecipeSuggestions([FromQuery] FoodRecipeRequestDto recipeRequest)
+    [HttpPost("recipes")]
+    public async Task<ActionResult<ApiResponse<FoodDataDto>>> GetRecipeSuggestions([FromBody] FoodRecipeRequestDto recipeRequest)
     {
         try
         {
