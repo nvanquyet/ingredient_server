@@ -170,6 +170,18 @@ public class FoodService(
     public async Task<List<FoodSuggestionDto>> GetSuggestionsAsync(FoodSuggestionRequestDto requestDto)
     {
         //Todo: Gọi API bên ngoài để lấy gợi ý thực phẩm
+        if(!requestDto.Ingredients.Any())
+        {
+            //Get all Ingredient if no ingredients provided
+            var ingredients = await ingredientRepository.GetAllAsync();
+            requestDto.Ingredients = ingredients.Select(i => new FoodIngredientDto
+            {
+                IngredientId = i.Id,
+                Quantity = 1, // Default quantity, can be adjusted based on requirements
+                Unit = i.Unit,
+                IngredientName = i.Name
+            });
+        }
         var response = await aiService.GetSuggestionsAsync(requestDto);
         if (response == null || !response.Any())
         {

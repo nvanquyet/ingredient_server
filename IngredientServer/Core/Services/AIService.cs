@@ -173,6 +173,7 @@ Trả về kết quả dưới dạng JSON array với format sau:
     ""name"": ""Tên món ăn"",
     ""image"": ""URL hình ảnh (có thể để trống)"",
     ""difficulty"": 5, // Độ khó từ 1 đến 5
+    ""kcal"": 15,  // Tổng số calo cho một phần ăn chuyển ra đơn vị kcal
     ""prepTimeMinutes"": 15,
     ""cookTimeMinutes"": 30,
     ""ingredients"": [

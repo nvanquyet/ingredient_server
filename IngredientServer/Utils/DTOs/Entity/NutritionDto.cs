@@ -1,7 +1,16 @@
 ﻿using IngredientServer.Core.Entities;
 
 namespace IngredientServer.Utils.DTOs.Entity;
-
+public class FoodNutritionDto
+{
+    public int FoodId { get; set; }
+    public string FoodName { get; set; } = string.Empty;
+    public decimal Calories { get; set; }
+    public decimal Protein { get; set; }
+    public decimal Carbs { get; set; }
+    public decimal Fat { get; set; }
+    public decimal Fiber { get; set; }
+}
 public class NutritionDto
 {
     public int MealId { get; set; }
@@ -13,7 +22,8 @@ public class NutritionDto
     public double TotalCarbs { get; set; }
     public double TotalFat { get; set; }
     public double TotalFiber { get; set; }
-    public int FoodCount { get; set; }
+    
+    public IEnumerable<FoodNutritionDto> Foods { get; set; } = new List<FoodNutritionDto>();
 }
 
 public class DailyNutritionSummaryDto

@@ -30,7 +30,7 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
             meal.TotalProtein = 0;
             meal.TotalCarbs = 0;
             meal.TotalFat = 0;
-            
+            var foodNutrition = new List<FoodNutritionDto>();
             foreach (var f in foodsInMeal)
             {
                 meal.TotalCalories += (double) f.Food.Calories;
@@ -38,12 +38,24 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
                 meal.TotalCarbs += (double) f.Food.Carbohydrates;
                 meal.TotalFat += (double) f.Food.Fat;
                 meal.TotalFiber += (double) f.Food.Fiber;
+                
+                foodNutrition.Add(new FoodNutritionDto()
+                {
+                    FoodId = f.Food.Id,
+                    FoodName = f.Food.Name,
+                    Calories = f.Food.Calories,
+                    Protein = f.Food.Protein,
+                    Carbs = f.Food.Carbohydrates,
+                    Fat = f.Food.Fat,
+                    Fiber = f.Food.Fiber
+                });
             }
             
             result.TotalCalories += meal.TotalCalories;
             result.TotalProtein += meal.TotalProtein;
             result.TotalCarbs += meal.TotalCarbs;
             result.TotalFat += meal.TotalFat;
+            
             mealBreakdown.Add(new NutritionDto()
             {
                 MealId = meal.Id,
@@ -54,7 +66,7 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
                 TotalCarbs = meal.TotalCarbs,
                 TotalFat = meal.TotalFat,
                 TotalFiber = meal.TotalFiber,
-                FoodCount = meal.MealFoods.Count        
+                Foods = foodNutrition
             });
         }
         

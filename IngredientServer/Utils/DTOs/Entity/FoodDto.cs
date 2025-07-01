@@ -133,6 +133,7 @@ namespace IngredientServer.Utils.DTOs.Entity
         public string Name { get; set; } = string.Empty;
         public string Image { get; set; } = string.Empty;
         public string Difficulty { get; set; } = string.Empty;
+        public decimal Kcal { get; set; }
         public int PrepTimeMinutes { get; set; }
         public int CookTimeMinutes { get; set; }
         public List<FoodIngredientDto> Ingredients { get; set; } = new();
