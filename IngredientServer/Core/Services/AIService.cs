@@ -260,7 +260,7 @@ Trả về kết quả dưới dạng JSON với format sau:
   ""mealDate"": ""2024-07-01T00:00:00"", // Ngày thực hiện món ăn
   ""ingredients"": [
     {
-      ""ingredientId"": 123, // ingredientId nếu là nguyên liệu có sẵn, nếu nguyên liệu bổ sung thì để 0, Lưu ý id của nguyên liệu có sẵn phải khớp với danh sách nguyên liệu của người dùng.
+      ""ingredientId"": 1, // ingredientId nếu là nguyên liệu có sẵn, nếu nguyên liệu bổ sung thì để 0, Lưu ý id của nguyên liệu có sẵn phải khớp với danh sách nguyên liệu của người dùng cung cấp không phải gen theo thứ tự gửi đi
       ""ingredientName"": ""Tên nguyên liệu"", // Không được để trống hoặc null
       ""quantity"": 1, // Số lượng nguyên liệu (không vượt quá giới hạn đã cho)
       ""unit"": 0 // Giá trị số nguyên từ 0-12 đại diện cho đơn vị: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, Other Phải khớp với người dùng cung cấp khong được khác vì còn dùng để tính toán số lượng cần dùng
