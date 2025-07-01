@@ -178,10 +178,10 @@ Trả về kết quả dưới dạng JSON array với format sau:
     ""cookTimeMinutes"": 30, // Thời gian nấu
     ""ingredients"": [
       {
-        ""ingredientId"": 123, 
-        ""ingredientName"": ""Tên nguyên liệu"", 
-        ""quantity"": 1, 
-        ""unit"": 0 // Giá trị số nguyên từ 0-12 đại diện cho đơn vị: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, Other. Giá trị này phải khớp với danh sách nguyên liệu của người dùng.
+        ""ingredientId"": 123,  // Lưu ý id của nguyên liệu có sẵn phải khớp với danh sách nguyên liệu của người dùng.
+        ""ingredientName"": ""Tên nguyên liệu"",  // Không được để trống hoặc null
+        ""quantity"": 1,  // Số lượng nguyên liệu (không vượt quá giới hạn đã cho). Giới hạn là số lượng người dùng đã cung cấp trong danh sách nguyên liệu
+        ""unit"": 0 // Giá trị số nguyên từ 0-12 đại diện cho đơn vị: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, Other. Giá trị này phải khớp với danh sách nguyên liệu của người dùng vì còn dùng để tính toán số lượng cần dùng
       }
     ]
   }
@@ -227,7 +227,7 @@ Trả về kết quả dưới dạng JSON array với format sau:
             }
         }
 
-        prompt += "\nHãy đưa ra các món ăn phù hợp với mục tiêu sức khỏe, dinh dưỡng của người dùng và danh sách nguyên liệu được cung cấp. Đảm bảo bao gồm ingredientId trong kết quả nếu nguyên liệu khớp với danh sách nguyên liệu của người dùng.";
+        prompt += "\nHãy đưa ra các món ăn phù hợp với mục tiêu sức khỏe, dinh dưỡng của người dùng và danh sách nguyên liệu được cung cấp. Đảm bảo bao gồm ingredientId,  ingredientName, unit trong kết quả nếu nguyên liệu khớp với danh sách nguyên liệu của người dùng.";
     
         return prompt;
     }
@@ -263,7 +263,7 @@ Trả về kết quả dưới dạng JSON với format sau:
       ""ingredientId"": 123, // ingredientId nếu là nguyên liệu có sẵn, nếu nguyên liệu bổ sung thì để 0, Lưu ý id của nguyên liệu có sẵn phải khớp với danh sách nguyên liệu của người dùng.
       ""ingredientName"": ""Tên nguyên liệu"", // Không được để trống hoặc null
       ""quantity"": 1, // Số lượng nguyên liệu (không vượt quá giới hạn đã cho)
-      ""unit"": 0 // Giá trị số nguyên từ 0-12 đại diện cho đơn vị: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, Other Phải khớp với người dùng cung cấp 
+      ""unit"": 0 // Giá trị số nguyên từ 0-12 đại diện cho đơn vị: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, Other Phải khớp với người dùng cung cấp khong được khác vì còn dùng để tính toán số lượng cần dùng
     }
   ]
 }";
