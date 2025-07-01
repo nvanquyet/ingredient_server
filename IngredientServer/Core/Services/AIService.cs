@@ -296,21 +296,19 @@ Trả về kết quả dưới dạng JSON với format sau:
                 // Kiểm tra số lượng nguyên liệu
                 foreach (var suggestion in suggestions)
                 {
+                    if (suggestion?.Ingredients == null) continue;
                     foreach (var ingredient in suggestion.Ingredients)
                     {
-                        if (ingredient.IngredientId > 0) // Có IngredientId
-                        {
-                            var requestIngredient = requestDto.Ingredients.FirstOrDefault(i => i.IngredientId == ingredient.IngredientId);
-                            if (requestIngredient != null)
-                            {
-                                if (ingredient.Quantity > requestIngredient.Quantity)
-                                {
-                                    _logger.LogWarning("Ingredient {Name} (ID: {Id}) exceeds maximum quantity {MaxQuantity} {Unit}",
-                                        ingredient.IngredientName, ingredient.IngredientId, requestIngredient.Quantity, requestIngredient.Unit);
-                                    ingredient.Quantity = requestIngredient.Quantity; // Giới hạn số lượng
-                                }
-                            }
-                        }
+                        if (ingredient.IngredientId <= 0) continue; // Có IngredientId
+                        var requestIngredient =
+                            requestDto.Ingredients.FirstOrDefault(
+                                i => i.IngredientId == ingredient.IngredientId);
+                        if (requestIngredient == null || ingredient.Quantity <= requestIngredient.Quantity) continue;
+                        _logger.LogWarning(
+                            "Ingredient {Name} (ID: {Id}) exceeds maximum quantity {MaxQuantity} {Unit}",
+                            ingredient.IngredientName, ingredient.IngredientId, requestIngredient.Quantity,
+                            requestIngredient.Unit);
+                        ingredient.Quantity = requestIngredient.Quantity; // Giới hạn số lượng
                     }
                 }
 
@@ -322,7 +320,7 @@ Trả về kết quả dưới dạng JSON với format sau:
         catch (JsonException ex)
         {
             _logger.LogWarning(ex, "Failed to parse food suggestions JSON, returning empty list");
-            return new List<FoodSuggestionDto>();
+            return [];
         }
     }
 

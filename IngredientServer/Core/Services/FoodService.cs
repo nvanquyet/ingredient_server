@@ -180,7 +180,7 @@ public class FoodService(
                 Quantity = 1, // Default quantity, can be adjusted based on requirements
                 Unit = i.Unit,
                 IngredientName = i.Name
-            });
+            }).ToList();
         }
         var response = await aiService.GetSuggestionsAsync(requestDto);
         if (response == null || !response.Any())
