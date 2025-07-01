@@ -14,35 +14,28 @@ namespace IngredientServer.Core.Entities
         public string? Description { get; set; }
 
         [Required]
-        [Range(0, int.MaxValue, ErrorMessage = "Preparation time must be non-negative")]
         public int PreparationTimeMinutes { get; set; }
 
         [Required]
-        [Range(0, int.MaxValue, ErrorMessage = "Cooking time must be non-negative")]
         public int CookingTimeMinutes { get; set; }
 
         [Required]
-        [Range(0, double.MaxValue, ErrorMessage = "Calories must be non-negative")]
         [Column(TypeName = "decimal(8,2)")]
         public decimal Calories { get; set; }
 
         [Required]
-        [Range(0, double.MaxValue, ErrorMessage = "Protein must be non-negative")]
         [Column(TypeName = "decimal(8,2)")]
         public decimal Protein { get; set; }
 
         [Required]
-        [Range(0, double.MaxValue, ErrorMessage = "Carbohydrates must be non-negative")]
         [Column(TypeName = "decimal(8,2)")]
         public decimal Carbohydrates { get; set; }
 
         [Required]
-        [Range(0, double.MaxValue, ErrorMessage = "Fat must be non-negative")]
         [Column(TypeName = "decimal(8,2)")]
         public decimal Fat { get; set; }
 
         [Required]
-        [Range(0, double.MaxValue, ErrorMessage = "Fiber must be non-negative")]
         [Column(TypeName = "decimal(8,2)")]
         public decimal Fiber { get; set; }
 

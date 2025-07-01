@@ -14,31 +14,24 @@ namespace IngredientServer.Utils.DTOs.Entity
         public string? Description { get; set; }
 
         [Required]
-        [Range(0, int.MaxValue, ErrorMessage = "Preparation time must be non-negative")]
         public int PreparationTimeMinutes { get; set; }
 
         [Required]
-        [Range(0, int.MaxValue, ErrorMessage = "Cooking time must be non-negative")]
         public int CookingTimeMinutes { get; set; }
 
         [Required]
-        [Range(0, double.MaxValue, ErrorMessage = "Calories must be non-negative")]
         public decimal Calories { get; set; }
 
         [Required]
-        [Range(0, double.MaxValue, ErrorMessage = "Protein must be non-negative")]
         public decimal Protein { get; set; }
 
         [Required]
-        [Range(0, double.MaxValue, ErrorMessage = "Carbohydrates must be non-negative")]
         public decimal Carbohydrates { get; set; }
 
         [Required]
-        [Range(0, double.MaxValue, ErrorMessage = "Fat must be non-negative")]
         public decimal Fat { get; set; }
 
         [Required]
-        [Range(0, double.MaxValue, ErrorMessage = "Fiber must be non-negative")]
         public decimal Fiber { get; set; }
 
         // Recipe instructions/steps - stored as JSON in database
@@ -109,7 +102,6 @@ namespace IngredientServer.Utils.DTOs.Entity
         public int IngredientId { get; set; }
         
         [Required]
-        [Range(0.1, double.MaxValue)]
         public decimal Quantity { get; set; }
         
         [Required]

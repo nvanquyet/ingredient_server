@@ -17,7 +17,7 @@ public class IngredientDataDto
     public string? Description { get; set; }
     
     [Required]
-    [Range(0.1, double.MaxValue)]
+    [Range(0, double.MaxValue)]
     [JsonPropertyName("quantity")]
     public decimal Quantity { get; set; }
     
