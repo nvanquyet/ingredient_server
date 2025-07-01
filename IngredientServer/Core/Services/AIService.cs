@@ -165,11 +165,8 @@ namespace IngredientServer.Core.Services
     {
         return @"Bạn là một chuyên gia dinh dưỡng và đầu bếp chuyên nghiệp. 
 Nhiệm vụ của bạn là đưa ra gợi ý món ăn phù hợp dựa trên thông tin người dùng và danh sách nguyên liệu được cung cấp.
-Nếu món ăn sử dụng nguyên liệu từ danh sách nguyên liệu của người dùng, hãy bao gồm ingredientId tương ứng và đảm bảo số lượng (quantity) không vượt quá số lượng tối đa được cung cấp. 
-Các nguyên liệu bổ sung không cần ingredientId (để ingredientId = 0).  Lưu ý id của nguyên liệu có sẵn phải khớp với danh sách nguyên liệu của người dùng.
-
-⚠️ Nếu nguyên liệu có ingredientId khác 0, hãy đảm bảo trường ingredientName phải giống với tên nguyên liệu được cung cấp trong danh sách nguyên liệu của người dùng. Nếu ingredientId = 0, bạn có thể tự đặt tên nguyên liệu phù hợp.
-
+Nếu món ăn sử dụng nguyên liệu từ danh sách nguyên liệu của người dùng, Lưu ý ở đây chưa cần tìm kiếm thêm nguyên liệu bên ngoài. Danh sách nguyên liệu này chỉ bao gồm các nguyên liệu có sẵn trong kho của người dùng.
+Lưu ý các giá trị của nguyên liệu bắt buộc phải khớp với giá trị đã cung cấp trong danh sách nguyên liệu của người dùng.
 Trả về kết quả dưới dạng JSON array với format sau:
 [
   {
@@ -181,10 +178,10 @@ Trả về kết quả dưới dạng JSON array với format sau:
     ""cookTimeMinutes"": 30, // Thời gian nấu
     ""ingredients"": [
       {
-        ""ingredientId"": 123, // ingredientId nếu là nguyên liệu có sẵn, nếu nguyên liệu bổ sung thì để 0  Lưu ý id của nguyên liệu có sẵn phải khớp với danh sách nguyên liệu của người dùng.
-        ""ingredientName"": ""Tên nguyên liệu"", // Không được để trống hoặc null
-        ""quantity"": 1, // Số lượng nguyên liệu (không vượt quá giới hạn đã cho)
-        ""unit"": 0 // Giá trị số nguyên từ 0-12 đại diện cho đơn vị: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, Other
+        ""ingredientId"": 123, 
+        ""ingredientName"": ""Tên nguyên liệu"", 
+        ""quantity"": 1, 
+        ""unit"": 0 // Giá trị số nguyên từ 0-12 đại diện cho đơn vị: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, Other. Giá trị này phải khớp với danh sách nguyên liệu của người dùng.
       }
     ]
   }
@@ -242,6 +239,7 @@ Nhiệm vụ của bạn là cung cấp công thức nấu ăn chi tiết dựa 
 Nếu món ăn sử dụng nguyên liệu được cung cấp hãy bao gồm ingredientId tương ứng và đảm bảo số lượng (quantity) không vượt quá số lượng tối đa được cung cấp. 
 Các nguyên liệu bổ sung không cần ingredientId (để ingredientId = 0).
 Lưu ý id của nguyên liệu phải khớp với danh sách nguyên liệu của người dùng.
+Với các nguyên liệu có sẵn hãy đảm bảo các giá trị trả về phải khớp với danh sách nguyên liệu cung cấp. Chỉ khác số lượng cần dùng để có thể tạo ra món ăn
 Trả về kết quả dưới dạng JSON với format sau:
 {
   ""name"": ""Tên món ăn"",
@@ -265,7 +263,7 @@ Trả về kết quả dưới dạng JSON với format sau:
       ""ingredientId"": 123, // ingredientId nếu là nguyên liệu có sẵn, nếu nguyên liệu bổ sung thì để 0, Lưu ý id của nguyên liệu có sẵn phải khớp với danh sách nguyên liệu của người dùng.
       ""ingredientName"": ""Tên nguyên liệu"", // Không được để trống hoặc null
       ""quantity"": 1, // Số lượng nguyên liệu (không vượt quá giới hạn đã cho)
-      ""unit"": 0 // Giá trị số nguyên từ 0-12 đại diện cho đơn vị: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, Other
+      ""unit"": 0 // Giá trị số nguyên từ 0-12 đại diện cho đơn vị: Kilogram, Liter, Piece, Box, Gram, Milliliter, Can, Cup, Tablespoon, Teaspoon, Package, Bottle, Other Phải khớp với người dùng cung cấp 
     }
   ]
 }";
