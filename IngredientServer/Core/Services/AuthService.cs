@@ -13,7 +13,11 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace IngredientServer.Core.Services;
 
-public class AuthService(IUserRepository userRepository, IJwtService jwtService, IConfiguration configuration, ILogger<AuthService> logger)
+public class AuthService(
+    IUserRepository userRepository,
+    IJwtService jwtService,
+    IConfiguration configuration,
+    ILogger<AuthService> logger)
     : IAuthService
 {
     public async Task<ResponseDto<AuthResponseDto>> LoginAsync(LoginDto loginDto)
@@ -82,10 +86,13 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
     {
         try
         {
+            logger.LogInformation("Starting token validation process");
+
             // Parse và validate JWT token
             var principal = jwtService.ValidateToken(token);
             if (principal == null)
             {
+                logger.LogWarning("JWT validation failed - token is null or invalid");
                 return new ResponseDto<AuthResponseDto>
                 {
                     Success = false,
@@ -95,8 +102,11 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
 
             // Lấy userId từ token đã được validate
             var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            logger.LogInformation("Extracted user ID claim: {UserIdClaim}", userIdClaim);
+
             if (!int.TryParse(userIdClaim, out int userId) || userId <= 0)
             {
+                logger.LogWarning("Invalid user ID in token: {UserIdClaim}", userIdClaim);
                 return new ResponseDto<AuthResponseDto>
                 {
                     Success = false,
@@ -104,10 +114,13 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 };
             }
 
+            logger.LogInformation("Parsed user ID: {UserId}", userId);
+
             // Kiểm tra user có tồn tại trong database không
             var user = await userRepository.GetByIdAsync(userId);
             if (user == null)
             {
+                logger.LogWarning("User not found in database: {UserId}", userId);
                 return new ResponseDto<AuthResponseDto>
                 {
                     Success = false,
@@ -115,10 +128,13 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 };
             }
 
+            logger.LogInformation("User found: {Username}", user.Username);
+
             // Fix DateTime format
             if (user.CreatedAt == default(DateTime))
             {
                 user.CreatedAt = DateTime.UtcNow;
+                logger.LogInformation("Set default CreatedAt for user {UserId}", userId);
             }
             else if (user.CreatedAt.Kind != DateTimeKind.Utc)
             {
@@ -131,6 +147,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 Token = token // Trả lại token nếu cần
             };
 
+            logger.LogInformation("Token validation successful for user {UserId}", userId);
             return new ResponseDto<AuthResponseDto>
             {
                 Success = true,
@@ -140,7 +157,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
         }
         catch (SecurityTokenException ex)
         {
-            logger.LogWarning(ex, "Invalid token format");
+            logger.LogWarning(ex, "Security token exception during validation");
             return new ResponseDto<AuthResponseDto>
             {
                 Success = false,
@@ -149,7 +166,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error during token validation");
+            logger.LogError(ex, "Unexpected error during token validation");
             return new ResponseDto<AuthResponseDto>
             {
                 Success = false,
@@ -157,7 +174,6 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
             };
         }
     }
-
 
     public async Task<ResponseDto<AuthResponseDto>> RegisterAsync(RegisterDto registerDto)
     {
@@ -353,7 +369,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
             Data = true
         };
     }
-    
+
     private bool VerifyPassword(string password, string hash)
     {
         return BCrypt.Net.BCrypt.Verify(password, hash);
