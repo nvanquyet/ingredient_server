@@ -91,7 +91,7 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
         // Trả về kết quả với phân trang
         return new IngredientSearchResultDto
         {
-            Ingredients = items.Select(i => new IngredientDto
+            Ingredients = items.Select(i => new IngredientDataResponseDto
             {
                 Id = i.Id,
                 Name = i.Name,
@@ -101,10 +101,6 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
                 Category = i.Category,
                 Quantity = i.Quantity,
                 ExpiryDate = DateTime.SpecifyKind(i.ExpiryDate, DateTimeKind.Utc),
-                DaysUntilExpiry = (i.ExpiryDate - DateTime.UtcNow).Days,
-                IsExpired = i.ExpiryDate < DateTime.UtcNow,
-                IsExpiringSoon = (i.ExpiryDate - DateTime.UtcNow).Days <= 7 &&
-                                 (i.ExpiryDate - DateTime.UtcNow).Days >= 0,
             }).ToList(),
             TotalCount = totalCount
         };

@@ -47,6 +47,7 @@ builder.Services.AddHttpContextAccessor();
 // Repositories - từ Infrastructure.Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IIngredientRepository, IngredientRepository>();
+builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<IAIService, AIService>();
 builder.Services.AddScoped<IFoodRepository, FoodRepository>();
 builder.Services.AddScoped<IMealRepository, MealRepository>();

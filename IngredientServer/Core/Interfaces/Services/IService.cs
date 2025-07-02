@@ -13,22 +13,22 @@ public interface INutritionService
 
 public interface IFoodService
 {
-    Task<Food> CreateFoodAsync(FoodDataDto dataDto);
-    Task<Food> UpdateFoodAsync(int foodId, FoodDataDto dto);
+    Task<FoodDataResponseDto> CreateFoodAsync(CreateFoodRequestDto dataDto);
+    Task<FoodDataResponseDto> UpdateFoodAsync(UpdateFoodRequestDto dto);
     Task<bool> DeleteFoodAsync(int foodId);
-    Task<List<FoodSuggestionDto>> GetSuggestionsAsync(FoodSuggestionRequestDto requestDto);
-    Task<FoodDataDto> GetRecipeSuggestionsAsync(FoodRecipeRequestDto recipeRequest);
-    Task<Food> GetFoodByIdAsync(int id);
+    Task<List<FoodSuggestionResponseDto>> GetSuggestionsAsync(FoodSuggestionRequestDto requestDto);
+    Task<FoodDataResponseDto> GetRecipeSuggestionsAsync(FoodRecipeRequestDto recipeRequest);
+    Task<FoodDataResponseDto> GetFoodByIdAsync(int id);
 }
 
 public interface IIngredientService
 {
-    Task<IngredientDto> CreateIngredientAsync(IngredientDataDto dataDto);
-    Task<IngredientDto> UpdateIngredientAsync(int ingredientId, IngredientDataDto dto);
+    Task<IngredientDataResponseDto> CreateIngredientAsync(CreateIngredientRequestDto dto);
+    Task<IngredientDataResponseDto> UpdateIngredientAsync(UpdateIngredientRequestDto dto);
     Task<bool> DeleteIngredientAsync(int ingredientId);
     
     Task<IngredientSearchResultDto> GetAllAsync(IngredientFilterDto filter);
-    Task<IngredientDto> GetIngredientByIdAsync(int id);
+    Task<IngredientDataResponseDto> GetIngredientByIdAsync(int id);
 }
 
 public interface IMealService

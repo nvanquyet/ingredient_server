@@ -1,5 +1,4 @@
-﻿using IngredientServer.Core.Entities;
-using IngredientServer.Core.Interfaces.Services;
+﻿using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Entity;
 using Microsoft.AspNetCore.Authorization;
@@ -13,13 +12,13 @@ namespace IngredientServer.API.Controllers;
 public class FoodController(IFoodService foodService) : ControllerBase
 {
     [HttpPost]
-    public async Task<ActionResult<ApiResponse<FoodDataDto>>> CreateFood([FromBody] FoodDataDto dataDto)
+    public async Task<ActionResult<ApiResponse<FoodDataResponseDto>>> CreateFood([FromBody] CreateFoodRequestDto dataDto)
     {
         try
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(new ApiResponse<Food>
+                return BadRequest(new ApiResponse<FoodDataResponseDto>
                 {
                     Success = false,
                     Message = "Invalid model state",
@@ -33,16 +32,16 @@ public class FoodController(IFoodService foodService) : ControllerBase
             return CreatedAtAction(
                 nameof(GetFood), 
                 new { id = food.Id }, 
-                new ApiResponse<FoodDataDto>
+                new ApiResponse<FoodDataResponseDto>
                 {
                     Success = true,
-                    Data = FoodDataDto.FromFood(food),
+                    Data = food,
                     Message = "Food created successfully"
                 });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new ApiResponse<Food>
+            return BadRequest(new ApiResponse<FoodDataResponseDto>
             {
                 Success = false,
                 Message = ex.Message
@@ -50,26 +49,26 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<Food>
+            return StatusCode(500, new ApiResponse<FoodDataResponseDto>
             {
                 Success = false,
                 Message = "Internal server error",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["details"] = new List<string> { ex.Message }
+                    ["details"] = [ex.Message]
                 }
             });
         }
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<ApiResponse<FoodDataDto>>> UpdateFood(int id, [FromBody] FoodDataDto dto)
+    public async Task<ActionResult<ApiResponse<FoodDataResponseDto>>> UpdateFood([FromBody] UpdateFoodRequestDto dto)
     {
         try
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(new ApiResponse<Food>
+                return BadRequest(new ApiResponse<FoodDataResponseDto>
                 {
                     Success = false,
                     Message = "Invalid model state",
@@ -79,8 +78,8 @@ public class FoodController(IFoodService foodService) : ControllerBase
                     }
                 });
             }
-            var food = await foodService.UpdateFoodAsync(id, dto);
-            return Ok(new ApiResponse<Food>
+            var food = await foodService.UpdateFoodAsync(dto);
+            return Ok(new ApiResponse<FoodDataResponseDto>
             {
                 Success = true,
                 Data = food,
@@ -89,7 +88,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return NotFound(new ApiResponse<Food>
+            return NotFound(new ApiResponse<FoodDataResponseDto>
             {
                 Success = false,
                 Message = ex.Message
@@ -97,7 +96,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new ApiResponse<Food>
+            return BadRequest(new ApiResponse<FoodDataResponseDto>
             {
                 Success = false,
                 Message = ex.Message
@@ -105,24 +104,24 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<Food>
+            return StatusCode(500, new ApiResponse<FoodDataResponseDto>
             {
                 Success = false,
                 Message = "Internal server error",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["details"] = new List<string> { ex.Message }
+                    ["details"] = [ex.Message]
                 }
             });
         }
     }
 
     [HttpDelete("{id}")]
-    public async Task<ActionResult<ApiResponse<bool>>> DeleteFood(int id)
+    public async Task<ActionResult<ApiResponse<bool>>> DeleteFood([FromBody] DeleteFoodRequestDto dto)
     {
         try
         {
-            if (id <= 0)
+            if (dto.Id <= 0)
             {
                 return BadRequest(new ApiResponse<bool>
                 {
@@ -130,7 +129,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
                     Message = "Invalid food ID"
                 });
             }
-            var result = await foodService.DeleteFoodAsync(id);
+            var result = await foodService.DeleteFoodAsync(dto.Id);
             if (result)
             {
                 return Ok(new ApiResponse<bool>
@@ -157,20 +156,20 @@ public class FoodController(IFoodService foodService) : ControllerBase
                 Message = "Internal server error",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["details"] = new List<string> { ex.Message }
+                    ["details"] = [ex.Message]
                 }
             });
         }
     }
 
     [HttpPost("suggestions")]
-    public async Task<ActionResult<ApiResponse<List<FoodSuggestionDto>>>> GetSuggestions([FromBody] FoodSuggestionRequestDto requestDto)
+    public async Task<ActionResult<ApiResponse<List<FoodSuggestionResponseDto>>>> GetSuggestions([FromBody] FoodSuggestionRequestDto requestDto)
     {
         try
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(new ApiResponse<List<FoodSuggestionDto>>
+                return BadRequest(new ApiResponse<List<FoodSuggestionResponseDto>>
                 {
                     Success = false,
                     Message = "Invalid model state",
@@ -181,51 +180,51 @@ public class FoodController(IFoodService foodService) : ControllerBase
                 });
             }
             var suggestions = await foodService.GetSuggestionsAsync(requestDto);
-            return Ok(new ApiResponse<List<FoodSuggestionDto>>
+            return Ok(new ApiResponse<List<FoodSuggestionResponseDto>>
             {
                 Success = true,
                 Data = suggestions,
                 Message = "Food suggestions retrieved successfully",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["count"] = new List<string> { suggestions.Count.ToString() }
+                    ["count"] = [suggestions.Count.ToString()]
                 }
             });
         }
         catch (HttpRequestException ex)
         {
-            return StatusCode(503, new ApiResponse<List<FoodSuggestionDto>>
+            return StatusCode(503, new ApiResponse<List<FoodSuggestionResponseDto>>
             {
                 Success = false,
                 Message = "Service unavailable",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["details"] = new List<string> { ex.Message }
+                    ["details"] = [ex.Message]
                 }
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<List<FoodSuggestionDto>>
+            return StatusCode(500, new ApiResponse<List<FoodSuggestionResponseDto>>
             {
                 Success = false,
                 Message = "Internal server error",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["details"] = new List<string> { ex.Message }
+                    ["details"] = [ex.Message]
                 }
             });
         }
     }
 
     [HttpPost("recipes")]
-    public async Task<ActionResult<ApiResponse<FoodDataDto>>> GetRecipeSuggestions([FromBody] FoodRecipeRequestDto recipeRequest)
+    public async Task<ActionResult<ApiResponse<FoodDataResponseDto>>> GetRecipeSuggestions([FromBody] FoodRecipeRequestDto recipeRequest)
     {
         try
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(new ApiResponse<FoodDataDto>
+                return BadRequest(new ApiResponse<FoodDataResponseDto>
                 {
                     Success = false,
                     Message = "Invalid model state",
@@ -236,7 +235,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
                 });
             }
             var recipe = await foodService.GetRecipeSuggestionsAsync(recipeRequest);
-            return Ok(new ApiResponse<FoodDataDto>
+            return Ok(new ApiResponse<FoodDataResponseDto>
             {
                 Success = true,
                 Data = recipe,
@@ -245,32 +244,32 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
         catch (HttpRequestException ex)
         {
-            return StatusCode(503, new ApiResponse<FoodDataDto>
+            return StatusCode(503, new ApiResponse<FoodDataResponseDto>
             {
                 Success = false,
                 Message = "Service unavailable",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["details"] = new List<string> { ex.Message }
+                    ["details"] = [ex.Message]
                 }
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<FoodDataDto>
+            return StatusCode(500, new ApiResponse<FoodDataResponseDto>
             {
                 Success = false,
                 Message = "Internal server error",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["details"] = new List<string> { ex.Message }
+                    ["details"] = [ex.Message]
                 }
             });
         }
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<ApiResponse<FoodDataDto>>> GetFood(int id)
+    public async Task<ActionResult<ApiResponse<FoodDataResponseDto>>> GetFood(int id)
     {
         if (id <= 0)
         {
@@ -282,10 +281,11 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
         // Implement actual logic here when service method is available
         var food = await foodService.GetFoodByIdAsync(id);
-        return Ok(new ApiResponse<FoodDataDto>
+        
+        return Ok(new ApiResponse<FoodDataResponseDto>
         {
             Success = true,
-            Data = FoodDataDto.FromFood(food),
+            Data = food,
             Message = "Food found"
         });
     }

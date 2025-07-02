@@ -104,6 +104,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(e => e.Fat).HasColumnType("decimal(8,2)").IsRequired();
             entity.Property(e => e.Fiber).HasColumnType("decimal(8,2)").IsRequired();
             entity.Property(e => e.Instructions).HasColumnType("json").IsRequired();
+            entity.Property(e => e.Tips).HasColumnType("json").IsRequired();
+            entity.Property(e => e.ImageUrl).HasMaxLength(500);
             entity.Property(e => e.DifficultyLevel).HasDefaultValue(1);
             entity.Property(e => e.UserId).IsRequired();
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");

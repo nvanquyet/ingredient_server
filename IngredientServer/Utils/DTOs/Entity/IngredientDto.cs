@@ -1,11 +1,12 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using IngredientServer.Core.Entities;
+using Microsoft.AspNetCore.Http;
 
 namespace IngredientServer.Utils.DTOs.Entity;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
-public class IngredientDataDto
+public class CreateIngredientRequestDto
 {
     [Required]
     [StringLength(200)]
@@ -32,33 +33,46 @@ public class IngredientDataDto
     [Required]
     [JsonPropertyName("expiryDate")]
     public DateTime ExpiryDate { get; set; }
-    
-    [StringLength(500)]
-    [JsonPropertyName("imageUrl")]
-    public string? ImageUrl { get; set; }
+
+    public IFormFile? Image { get; set; } 
 }
-    
-// Response DTOs
-public class IngredientDto
+
+public class UpdateIngredientRequestDto : CreateIngredientRequestDto
+{
+    [Required]
+    [JsonPropertyName("id")]
+    public int Id { get; set; }
+}
+
+public class DeleteIngredientRequestDto
+{
+    [Required]
+    [JsonPropertyName("id")]
+    public int Id { get; set; }
+}
+
+public class IngredientDataResponseDto
 {
     public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public decimal Quantity { get; set; }
-    public IngredientUnit Unit { get; set; }
-    public IngredientCategory Category { get; set; }
-    public DateTime ExpiryDate { get; set; }
-    public string? ImageUrl { get; set; }
-        
-    // Computed properties
-    public int DaysUntilExpiry { get; set; }
-    public bool IsExpired { get; set; }
-    public bool IsExpiringSoon { get; set; }
-}
     
+    public string Name { get; set; } = string.Empty;
+    
+    public string? Description { get; set; }
+    
+    public decimal Quantity { get; set; }
+    
+    public IngredientUnit Unit { get; set; }
+    
+    public IngredientCategory Category { get; set; }
+    
+    public DateTime ExpiryDate { get; set; }
+
+    public string? ImageUrl { get; set; } 
+}
+
 public class IngredientSearchResultDto
 {
-    public IEnumerable<IngredientDto> Ingredients { get; set; } = new List<IngredientDto>();
+    public IEnumerable<IngredientDataResponseDto> Ingredients { get; set; } = new List<IngredientDataResponseDto>();
     public int TotalCount { get; set; }
 }
     

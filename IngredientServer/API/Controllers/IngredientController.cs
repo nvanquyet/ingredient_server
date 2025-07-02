@@ -12,13 +12,13 @@ namespace IngredientServer.API.Controllers;
 public class IngredientController(IIngredientService ingredientService) : ControllerBase
 {
     [HttpPost]
-    public async Task<ActionResult<ApiResponse<IngredientDto>>> CreateIngredient([FromBody] IngredientDataDto dataDto)
+    public async Task<ActionResult<ApiResponse<IngredientDataResponseDto>>> CreateIngredient([FromBody] CreateIngredientRequestDto dataDto)
     {
         try
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(new ApiResponse<IngredientDto>
+                return BadRequest(new ApiResponse<IngredientDataResponseDto>
                 {
                     Success = false,
                     Message = "Invalid data",
@@ -32,7 +32,7 @@ public class IngredientController(IIngredientService ingredientService) : Contro
             return CreatedAtAction(
                 nameof(GetIngredient), 
                 new { id = ingredient.Id }, 
-                new ApiResponse<IngredientDto>
+                new ApiResponse<IngredientDataResponseDto>
                 {
                     Success = true,
                     Data = ingredient,
@@ -41,26 +41,26 @@ public class IngredientController(IIngredientService ingredientService) : Contro
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<IngredientDto>
+            return StatusCode(500, new ApiResponse<IngredientDataResponseDto>
             {
                 Success = false,
                 Message = "Internal server error",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["details"] = new List<string> { ex.Message }
+                    ["details"] = [ex.Message]
                 }
             });
         }
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<ApiResponse<IngredientDto>>> UpdateIngredient(int id, [FromBody] IngredientDataDto dto)
+    public async Task<ActionResult<ApiResponse<IngredientDataResponseDto>>> UpdateIngredient([FromBody] UpdateIngredientRequestDto dto)
     {
         try
         {
             if(ModelState.IsValid == false)
             {
-                return BadRequest(new ApiResponse<IngredientDto>
+                return BadRequest(new ApiResponse<IngredientDataResponseDto>
                 {
                     Success = false,
                     Message = "Invalid data",
@@ -70,8 +70,8 @@ public class IngredientController(IIngredientService ingredientService) : Contro
                     }
                 });
             }
-            var ingredient = await ingredientService.UpdateIngredientAsync(id, dto);
-            return Ok(new ApiResponse<IngredientDto>
+            var ingredient = await ingredientService.UpdateIngredientAsync(dto);
+            return Ok(new ApiResponse<IngredientDataResponseDto>
             {
                 Success = true,
                 Data = ingredient,
@@ -80,7 +80,7 @@ public class IngredientController(IIngredientService ingredientService) : Contro
         }
         catch (UnauthorizedAccessException ex)
         {
-            return NotFound(new ApiResponse<IngredientDto>
+            return NotFound(new ApiResponse<IngredientDataResponseDto>
             {
                 Success = false,
                 Message = ex.Message
@@ -88,24 +88,24 @@ public class IngredientController(IIngredientService ingredientService) : Contro
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<IngredientDto>
+            return StatusCode(500, new ApiResponse<IngredientDataResponseDto>
             {
                 Success = false,
                 Message = "Internal server error",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["details"] = new List<string> { ex.Message }
+                    ["details"] = [ex.Message]
                 }
             });
         }
     }
 
     [HttpDelete("{id}")]
-    public async Task<ActionResult<ApiResponse<bool>>> DeleteIngredient(int id)
+    public async Task<ActionResult<ApiResponse<bool>>> DeleteIngredient([FromBody] DeleteIngredientRequestDto dto)
     {
         try
         {
-            if (id <= 0)
+            if (dto.Id <= 0)
             {
                 return BadRequest(new ApiResponse<bool>
                 {
@@ -114,7 +114,7 @@ public class IngredientController(IIngredientService ingredientService) : Contro
                     Message = "Invalid ingredient ID"
                 });
             }
-            var result = await ingredientService.DeleteIngredientAsync(id);
+            var result = await ingredientService.DeleteIngredientAsync(dto.Id);
             if (result)
             {
                 return Ok(new ApiResponse<bool>
@@ -141,7 +141,7 @@ public class IngredientController(IIngredientService ingredientService) : Contro
                 Message = "Internal server error",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["details"] = new List<string> { ex.Message }
+                    ["details"] = [ex.Message]
                 }
             });
         }
@@ -180,18 +180,18 @@ public class IngredientController(IIngredientService ingredientService) : Contro
                 Message = "Internal server error",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["details"] = new List<string> { ex.Message }
+                    ["details"] = [ex.Message]
                 }
             });
         }
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<ApiResponse<object>>> GetIngredient(int id)
+    public async Task<ActionResult<ApiResponse<IngredientDataResponseDto>>> GetIngredient(int id)
     {
         if (id <= 0)
         {
-            return BadRequest(new ApiResponse<object>
+            return BadRequest(new ApiResponse<IngredientDataResponseDto>
             {
                 Success = false,
                 Message = "Invalid ingredient ID"
@@ -199,7 +199,7 @@ public class IngredientController(IIngredientService ingredientService) : Contro
         }
         // Implement actual logic here when service method is available
         var ingredient = await ingredientService.GetIngredientByIdAsync(id);
-        return Ok(new ApiResponse<object>
+        return Ok(new ApiResponse<IngredientDataResponseDto>
         {
             Success = true,
             Data = ingredient,

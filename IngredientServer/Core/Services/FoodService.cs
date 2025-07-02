@@ -4,6 +4,7 @@ using IngredientServer.Core.Entities;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs.Entity;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IngredientServer.Core.Services;
@@ -16,16 +17,42 @@ public class FoodService(
     IFoodIngredientRepository foodIngredientRepository,
     HttpClient httpClient,
     IAIService aiService,
-    IUserContextService userContextService)
+    IUserContextService userContextService,
+    IImageService imageService)
     : IFoodService
 {
-    public async Task<Food> CreateFoodAsync(FoodDataDto dataDto)
+    public async Task<FoodDataResponseDto> CreateFoodAsync(CreateFoodRequestDto dataDto)
     {
         //Convert to Food
         if (dataDto == null)
         {
             throw new ArgumentNullException(nameof(dataDto), "Food data cannot be null.");
         }
+        string? imageUrl = "";
+        if (dataDto.Image is { Length: > 0 })
+        {
+            // Lưu ảnh và lấy URL
+            imageUrl = await imageService.SaveImageAsync(dataDto.Image);
+        }
+        var food = new Food
+        {
+            UserId = userContextService.GetAuthenticatedUserId(),
+            Name = dataDto.Name,
+            Description = dataDto.Description,
+            ImageUrl = imageUrl,
+            PreparationTimeMinutes = dataDto.PreparationTimeMinutes,
+            CookingTimeMinutes = dataDto.CookingTimeMinutes,
+            Calories = dataDto.Calories,
+            Protein = dataDto.Protein,
+            Carbohydrates = dataDto.Carbohydrates,
+            Fat = dataDto.Fat,
+            Fiber = dataDto.Fiber,
+            Instructions = dataDto.Instructions,
+            Tips = dataDto.Tips,
+            DifficultyLevel = dataDto.DifficultyLevel
+        };
+
+        var savedFood = await foodRepository.AddAsync(food);
 
         // Kiểm tra meal tồn tại
         var meal = (await mealRepository.GetByDateAsync(dataDto.MealDate)).FirstOrDefault(m =>
@@ -36,17 +63,13 @@ public class FoodService(
                        MealDate = dataDto.MealDate,
                        UserId = userContextService.GetAuthenticatedUserId()
                    });
-
-        var food = dataDto.ToFood();
-        // Tạo food
-        food.UserId = userContextService.GetAuthenticatedUserId();
-        var savedFood = await foodRepository.AddAsync(food);
+        
 
         // Liên kết food với meal
         var mealFood = new MealFood
         {
             MealId = meal.Id,
-            FoodId = food.Id,
+            FoodId = savedFood.Id,
             UserId = userContextService.GetAuthenticatedUserId()
         };
 
@@ -74,12 +97,37 @@ public class FoodService(
             await foodIngredientRepository.AddAsync(foodIngredient);
         }
 
-        return savedFood;
+        return new FoodDataResponseDto
+        {
+            Id = savedFood.Id,
+            Name = savedFood.Name,
+            Description = savedFood.Description,
+            ImageUrl = savedFood.ImageUrl,
+            PreparationTimeMinutes = savedFood.PreparationTimeMinutes,
+            CookingTimeMinutes = savedFood.CookingTimeMinutes,
+            Calories = savedFood.Calories,
+            Protein = savedFood.Protein,
+            Carbohydrates = savedFood.Carbohydrates,
+            Fat = savedFood.Fat,
+            Fiber = savedFood.Fiber,
+            Instructions = savedFood.Instructions,
+            Tips = savedFood.Tips,
+            DifficultyLevel = savedFood.DifficultyLevel,
+            MealType = dataDto.MealType,
+            MealDate = dataDto.MealDate,
+            Ingredients = dataDto.Ingredients.Select(i => new FoodIngredientDto
+            {
+                IngredientId = i.IngredientId,
+                Quantity = i.Quantity,
+                Unit = i.Unit,
+                IngredientName = i.IngredientName
+            }).ToList()
+        };
     }
 
-    public async Task<Food> UpdateFoodAsync(int foodId, FoodDataDto dto)
+    public async Task<FoodDataResponseDto> UpdateFoodAsync(UpdateFoodRequestDto dto)
     {
-        var food = await foodRepository.GetByIdWithIngredientsAsync(foodId);
+        var food = await foodRepository.GetByIdWithIngredientsAsync(dto.Id);
         if (food == null)
         {
             throw new UnauthorizedAccessException("Food not found or access denied.");
@@ -93,11 +141,32 @@ public class FoodService(
             await ingredientRepository.UpdateAsync(ingredient);
         }
 
-        await foodIngredientRepository.DeleteAsync(fi => fi.FoodId == foodId);
+        await foodIngredientRepository.DeleteAsync(fi => fi.FoodId == dto.Id);
 
+        
         // Cập nhật thông tin food
-        food.UpdateFromDto(dto);
-
+        if (!string.IsNullOrEmpty(food.ImageUrl) && dto.Image is { Length: > 0 })
+        {
+            food.ImageUrl = await imageService.UpdateImageAsync(dto.Image, food.ImageUrl);
+        }
+        else
+        {
+            food.ImageUrl = await imageService.SaveImageAsync(dto.Image);
+        }
+        food.Name = dto.Name;
+        food.Description = dto.Description;
+        food.PreparationTimeMinutes = dto.PreparationTimeMinutes;
+        food.CookingTimeMinutes = dto.CookingTimeMinutes;
+        food.Calories = dto.Calories;
+        food.Protein = dto.Protein;
+        food.Carbohydrates = dto.Carbohydrates;
+        food.Fat = dto.Fat;
+        food.Fiber = dto.Fiber;
+        food.Instructions = dto.Instructions;
+        food.Tips = dto.Tips;
+        food.DifficultyLevel = dto.DifficultyLevel;
+        food.UserId = userContextService.GetAuthenticatedUserId();
+        
         await foodRepository.UpdateAsync(food);
 
         // Cập nhật meal nếu thay đổi ngày/bữa ăn
@@ -110,13 +179,13 @@ public class FoodService(
             });
 
         // XÓA tất cả liên kết cũ của food này
-        await mealFoodRepository.DeleteAsync(mf => mf.FoodId == foodId);
+        await mealFoodRepository.DeleteAsync(mf => mf.FoodId == food.Id);
 
         // TẠO liên kết mới
         var newMealFood = new MealFood
         {
             MealId = meal.Id,
-            FoodId = foodId,
+            FoodId = food.Id,
             UserId = userContextService.GetAuthenticatedUserId()
         };
         await mealFoodRepository.AddAsync(newMealFood);
@@ -143,7 +212,32 @@ public class FoodService(
             await foodIngredientRepository.AddAsync(foodIngredient);
         }
 
-        return food;
+        return new FoodDataResponseDto
+        {
+            Id = food.Id,
+            Name = food.Name,
+            Description = food.Description,
+            ImageUrl = food.ImageUrl,
+            PreparationTimeMinutes = food.PreparationTimeMinutes,
+            CookingTimeMinutes = food.CookingTimeMinutes,
+            Calories = food.Calories,
+            Protein = food.Protein,
+            Carbohydrates = food.Carbohydrates,
+            Fat = food.Fat,
+            Fiber = food.Fiber,
+            Instructions = food.Instructions,
+            Tips = food.Tips,
+            DifficultyLevel = food.DifficultyLevel,
+            MealType = dto.MealType,
+            MealDate = dto.MealDate,
+            Ingredients = dto.Ingredients.Select(i => new FoodIngredientDto
+            {
+                IngredientId = i.IngredientId,
+                Quantity = i.Quantity,
+                Unit = i.Unit,
+                IngredientName = i.IngredientName
+            }).ToList()
+        };
     }
 
     public async Task<bool> DeleteFoodAsync(int foodId)
@@ -162,27 +256,29 @@ public class FoodService(
         // Xóa liên kết meal-food và food-ingredient
         await mealFoodRepository.DeleteAsync(mf => mf.FoodId == foodId);
         await foodIngredientRepository.DeleteAsync(fi => fi.FoodId == foodId);
+        
+        //Delete food image
+        if (!string.IsNullOrEmpty(food.ImageUrl))
+        {
+            await imageService.DeleteImageAsync(food.ImageUrl);
+        }
 
         // Xóa food
         return await foodRepository.DeleteAsync(foodId);
     }
 
-    public async Task<List<FoodSuggestionDto>> GetSuggestionsAsync(FoodSuggestionRequestDto requestDto)
+    public async Task<List<FoodSuggestionResponseDto>> GetSuggestionsAsync(FoodSuggestionRequestDto requestDto)
     {
         //Todo: Gọi API bên ngoài để lấy gợi ý thực phẩm
-        if(!requestDto.Ingredients.Any())
+        var ingredients = await ingredientRepository.GetAllAsync();
+        var ingredientDto = ingredients.Select(i => new FoodIngredientDto
         {
-            //Get all Ingredient if no ingredients provided
-            var ingredients = await ingredientRepository.GetAllAsync();
-            requestDto.Ingredients = ingredients.Select(i => new FoodIngredientDto
-            {
-                IngredientId = i.Id,
-                Quantity = 1, // Default quantity, can be adjusted based on requirements
-                Unit = i.Unit,
-                IngredientName = i.Name
-            }).ToList();
-        }
-        var response = await aiService.GetSuggestionsAsync(requestDto);
+            IngredientId = i.Id,
+            Quantity = 1,
+            Unit = i.Unit,
+            IngredientName = i.Name
+        }).ToList();
+        var response = await aiService.GetSuggestionsAsync(requestDto, ingredientDto);
         if (response == null || !response.Any())
         {
             throw new HttpRequestException("Failed to fetch food suggestions.");
@@ -191,7 +287,7 @@ public class FoodService(
         return response;
     }
 
-    public async Task<FoodDataDto> GetRecipeSuggestionsAsync(FoodRecipeRequestDto recipeRequest)
+    public async Task<FoodDataResponseDto> GetRecipeSuggestionsAsync(FoodRecipeRequestDto recipeRequest)
     {
         var response = await aiService.GetRecipeSuggestionsAsync(recipeRequest);
         if (response == null)
@@ -201,14 +297,40 @@ public class FoodService(
         return response;
     }
 
-    public async Task<Food> GetFoodByIdAsync(int id)
+    public async Task<FoodDataResponseDto> GetFoodByIdAsync(int id)
     {
         var food = await foodRepository.GetByIdAsync(id);
         if (food == null)
         {
             throw new UnauthorizedAccessException("Food not found or access denied.");
         }
-
-        return food;
+        var mealFood = food.MealFoods.FirstOrDefault();
+        
+        return new FoodDataResponseDto
+        {
+            Id = food.Id,
+            Name = food.Name,
+            Description = food.Description,
+            ImageUrl = food.ImageUrl,
+            PreparationTimeMinutes = food.PreparationTimeMinutes,
+            CookingTimeMinutes = food.CookingTimeMinutes,
+            Calories = food.Calories,
+            Protein = food.Protein,
+            Carbohydrates = food.Carbohydrates,
+            Fat = food.Fat,
+            Fiber = food.Fiber,
+            Instructions = food.Instructions,
+            Tips = food.Tips,
+            DifficultyLevel = food.DifficultyLevel,
+            MealType = mealFood?.Meal.MealType ?? MealType.Breakfast,
+            MealDate = mealFood?.Meal.MealDate ?? DateTime.UtcNow,
+            Ingredients = food.FoodIngredients.Select(fi => new FoodIngredientDto
+            {
+                IngredientId = fi.IngredientId,
+                Quantity = fi.Quantity,
+                Unit = fi.Unit,
+                IngredientName = fi.Ingredient.Name
+            }).ToList()
+        };
     }
 }

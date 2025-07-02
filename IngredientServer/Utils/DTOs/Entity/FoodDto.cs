@@ -1,10 +1,26 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using IngredientServer.Core.Entities;
+using Microsoft.AspNetCore.Http;
 
 namespace IngredientServer.Utils.DTOs.Entity
 {
-     // Request DTOs
-    public class FoodDataDto
+    public class FoodIngredientDto
+    {
+        [Required]
+        public int IngredientId { get; set; }
+        
+        [Required]
+        public decimal Quantity { get; set; }
+        
+        [Required]
+        public IngredientUnit Unit { get; set; }
+        
+        // For response
+        public string? IngredientName { get; set; }
+    }
+    
+    public class CreateFoodRequestDto
     {
         [Required]
         [StringLength(200)]
@@ -12,6 +28,8 @@ namespace IngredientServer.Utils.DTOs.Entity
 
         [StringLength(1000)]
         public string? Description { get; set; }
+        
+        public IFormFile? Image { get; set; }
 
         [Required]
         public int PreparationTimeMinutes { get; set; }
@@ -34,93 +52,65 @@ namespace IngredientServer.Utils.DTOs.Entity
         [Required]
         public decimal Fiber { get; set; }
 
-        // Recipe instructions/steps - stored as JSON in database
         [Required]
         public List<string> Instructions { get; set; } = new List<string>();
+        
+        [Required]
+        public List<string> Tips { get; set; } = new List<string>();
 
         // Difficulty level (1-5 scale)
         [Range(1, 5, ErrorMessage = "Difficulty must be between 1 and 5")]
         public int DifficultyLevel { get; set; } = 1;
-         
-        [Required]
-        public MealType MealType { get; set; }
+
+        public DateTime MealDate { get; set; } = DateTime.UtcNow;
         
-        [Required]
-        public DateTime MealDate { get; set; }
+        public MealType MealType { get; set; } = MealType.Breakfast;
         
         public IEnumerable<FoodIngredientDto> Ingredients { get; set; } = new List<FoodIngredientDto>();
-
-
-        public Food ToFood()
-        {
-            var food = new Food
-            {
-                Name = this.Name,
-                Description = this.Description,
-                PreparationTimeMinutes = this.PreparationTimeMinutes,
-                CookingTimeMinutes = this.CookingTimeMinutes,
-                Calories = this.Calories,
-                Protein = this.Protein,
-                Carbohydrates = this.Carbohydrates,
-                Fat = this.Fat,
-                Fiber = this.Fiber,
-                Instructions = this.Instructions,
-                DifficultyLevel = this.DifficultyLevel
-            };
-            return food;
-        }
-
-        public static FoodDataDto FromFood(Food food)
-        {
-            return new FoodDataDto()
-            {
-                Name = food.Name,
-                Description = food.Description,
-                PreparationTimeMinutes = food.PreparationTimeMinutes,
-                CookingTimeMinutes = food.CookingTimeMinutes,
-                Calories = food.Calories,
-                Protein = food.Protein,
-                Carbohydrates = food.Carbohydrates,
-                Fat = food.Fat,
-                Fiber = food.Fiber,
-                Instructions = food.Instructions ?? new List<string>(),
-                DifficultyLevel = food.DifficultyLevel,
-                Ingredients = food.FoodIngredients.Select(i => new FoodIngredientDto
-                {
-                    IngredientId = i.IngredientId,
-                    Quantity = i.Quantity,
-                    Unit = i.Unit,
-                    IngredientName = i.Ingredient?.Name
-                }).ToList()
-            };
-        }
     }
-    
-    public class FoodIngredientDto
+
+    public class UpdateFoodRequestDto : CreateFoodRequestDto
     {
         [Required]
-        public int IngredientId { get; set; }
-        
-        [Required]
-        public decimal Quantity { get; set; }
-        
-        [Required]
-        public IngredientUnit Unit { get; set; }
-        
-        // For response
-        public string? IngredientName { get; set; }
+        [JsonPropertyName("id")]
+        public int Id { get; set; }
     }
-    
-  
+
+    public class DeleteFoodRequestDto
+    {
+        [Required]
+        [JsonPropertyName("id")]
+        public int Id { get; set; }
+    }
+
+    public class FoodDataResponseDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? ImageUrl { get; set; }
+        public int PreparationTimeMinutes { get; set; }
+        public int CookingTimeMinutes { get; set; }
+        public decimal Calories { get; set; }
+        public decimal Protein { get; set; }
+        public decimal Carbohydrates { get; set; }
+        public decimal Fat { get; set; }
+        public decimal Fiber { get; set; }
+        public List<string> Instructions { get; set; } = new List<string>();
+        public List<string> Tips { get; set; } = new List<string>();
+        public int DifficultyLevel { get; set; } = 1;
+        public MealType MealType { get; set; }
+        public DateTime MealDate { get; set; } = DateTime.UtcNow;
+        public IEnumerable<FoodIngredientDto> Ingredients { get; set; } = new List<FoodIngredientDto>();
+    }
     
     public class FoodSuggestionRequestDto
     {
         public int MaxSuggestions { get; set; } = 5;
-        public UserInformationDto UserInformation { get; set; }
-        public IEnumerable<FoodIngredientDto> Ingredients { get ; set; } = new List<FoodIngredientDto>();
+        public UserInformationDto UserInformation { get; set; } = new UserInformationDto();
     }
     
-    public class FoodSuggestionDto
+    public class FoodSuggestionResponseDto
     {
         public string Name { get; set; } = string.Empty;
         public string Image { get; set; } = string.Empty;
@@ -128,7 +118,7 @@ namespace IngredientServer.Utils.DTOs.Entity
         public decimal Kcal { get; set; }
         public int PrepTimeMinutes { get; set; }
         public int CookTimeMinutes { get; set; }
-        public List<FoodIngredientDto> Ingredients { get; set; } = new();
+        public List<FoodIngredientDto> Ingredients { get; set; } = [];
     }
     
     public class FoodRecipeRequestDto
