@@ -78,13 +78,20 @@ public class FoodService(
         // Trừ ingredients từ kho
         foreach (var ingredient in dataDto.Ingredients)
         {
-            var existingIngredient = await ingredientRepository.GetByIdAsync(ingredient.IngredientId);
-            if (existingIngredient == null || existingIngredient.Quantity < ingredient.Quantity)
+            if(ingredient is not { IngredientId: > 0 } || ingredient.Quantity <= 0)
             {
-                throw new InvalidOperationException($"Insufficient ingredient: {ingredient.IngredientName}");
+                continue;
             }
-
-            existingIngredient.Quantity -= ingredient.Quantity;
+            var existingIngredient = await ingredientRepository.GetByIdAsync(ingredient.IngredientId);
+            if (existingIngredient == null ) continue;
+            if(existingIngredient.Quantity < ingredient.Quantity)
+            {
+                existingIngredient.Quantity = 0;
+            }
+            else
+            {
+                existingIngredient.Quantity -= ingredient.Quantity;
+            }
             await ingredientRepository.UpdateAsync(existingIngredient);
 
             var foodIngredient = new FoodIngredient
@@ -193,13 +200,20 @@ public class FoodService(
         // Trừ ingredients mới
         foreach (var ingredient in dto.Ingredients)
         {
-            var existingIngredient = await ingredientRepository.GetByIdAsync(ingredient.IngredientId);
-            if (existingIngredient == null || existingIngredient.Quantity < ingredient.Quantity)
+            if(ingredient is not { IngredientId: > 0 } || ingredient.Quantity <= 0)
             {
-                throw new InvalidOperationException($"Insufficient ingredient: {ingredient.IngredientName}");
+                continue;
             }
-
-            existingIngredient.Quantity -= ingredient.Quantity;
+            var existingIngredient = await ingredientRepository.GetByIdAsync(ingredient.IngredientId);
+            if (existingIngredient == null) continue;
+            if (existingIngredient.Quantity < ingredient.Quantity)
+            {
+                existingIngredient.Quantity = 0;
+            }
+            else
+            {
+                existingIngredient.Quantity -= ingredient.Quantity;
+            }
             await ingredientRepository.UpdateAsync(existingIngredient);
 
             var foodIngredient = new FoodIngredient
