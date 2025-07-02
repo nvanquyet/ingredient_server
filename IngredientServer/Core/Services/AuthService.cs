@@ -52,7 +52,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 user.CreatedAt = DateTime.SpecifyKind(user.CreatedAt, DateTimeKind.Utc);
             }
 
-            var token = GenerateJwtToken(user);
+            var token = jwtService.GenerateToken(user);
             var response = new AuthResponseDto
             {
                 Token = token,
@@ -185,7 +185,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
             // Use AddForRegistrationAsync instead of AddAsync to avoid authentication context issues
             await userRepository.AddForRegistrationAsync(user);
 
-            var token = GenerateJwtToken(user);
+            var token = jwtService.GenerateToken(user);
             var response = new AuthResponseDto
             {
                 Token = token,
@@ -353,29 +353,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
             Data = true
         };
     }
-
-
-    private string GenerateJwtToken(User user)
-    {
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(configuration["Jwt:Secret"] ?? "");
-
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity([
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Email, user.Email)
-            ]),
-            Expires = DateTime.UtcNow.AddHours(24),
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key),
-                SecurityAlgorithms.HmacSha256Signature)
-        };
-
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
-    }
-
+    
     private bool VerifyPassword(string password, string hash)
     {
         return BCrypt.Net.BCrypt.Verify(password, hash);
