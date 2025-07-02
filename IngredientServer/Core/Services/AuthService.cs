@@ -57,7 +57,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
             {
                 Token = token,
                 ExpiresAt = DateTime.UtcNow.AddHours(24),
-                User = MapToUserDto(user)
+                User = UserProfileDto.FromUser(user)
             };
 
             return new ResponseDto<AuthResponseDto>
@@ -127,7 +127,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
 
             var response = new AuthResponseDto
             {
-                User = MapToUserDto(user),
+                User = UserProfileDto.FromUser(user),
                 Token = token // Trả lại token nếu cần
             };
 
@@ -190,7 +190,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
             {
                 Token = token,
                 ExpiresAt = DateTime.UtcNow.AddHours(24),
-                User = MapToUserDto(user)
+                User = UserProfileDto.FromUser(user)
             };
 
             return new ResponseDto<AuthResponseDto>
@@ -384,19 +384,5 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
     private string HashPassword(string password)
     {
         return BCrypt.Net.BCrypt.HashPassword(password);
-    }
-
-    private UserDto MapToUserDto(User user)
-    {
-        return new UserDto
-        {
-            Id = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            CreatedAt = user.CreatedAt,
-            UpdatedAt = user.UpdatedAt,
-        };
     }
 }

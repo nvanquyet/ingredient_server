@@ -113,6 +113,32 @@ public class UserProfileDto
     
     public bool? EnableNotifications { get; set; }
     public bool? EnableMealReminders { get; set; }
+
+    public static UserProfileDto FromUser(User user)
+    {
+        // Create a new UserProfileDto and map properties from the User entity
+        var result = new UserProfileDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Gender = user.gender,
+            DateOfBirth = user.DateOfBirth,
+            Height = user.Height,
+            Weight = user.Weight,
+            TargetWeight = user.TargetWeight,
+            PrimaryNutritionGoal = user.PrimaryNutritionGoal,
+            ActivityLevel = user.ActivityLevel,
+            HasFoodAllergies = user.HasFoodAllergies,
+            FoodAllergies = user.FoodAllergies,
+            FoodPreferences = user.FoodPreferences,
+            EnableNotifications = user.EnableNotifications,
+            EnableMealReminders = user.EnableMealReminders
+        };
+        return result;
+    }
 }
 
 public class ChangePasswordDto

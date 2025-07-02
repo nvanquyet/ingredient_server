@@ -61,6 +61,7 @@ public class UserRepository(ApplicationDbContext context, IUserContextService us
     
     public async Task<User?> GetByIdAsync(int id)
     {
+        id = userContextService.GetAuthenticatedUserId();
         var user = await Context.Users
             .FirstOrDefaultAsync(u => u.Id == id);
         Console.WriteLine($"GetByIdAsync - UserId: {id}, User: {(user == null ? "null" : user.Id)}");
