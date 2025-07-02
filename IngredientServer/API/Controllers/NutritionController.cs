@@ -14,18 +14,17 @@ namespace IngredientServer.API.Controllers;
 public class NutritionController(INutritionService nutritionService, IUserContextService userContextService)
     : ControllerBase
 {
-    [HttpGet("daily")]
+    [HttpPost("daily")]
     public async Task<ActionResult<ApiResponse<DailyNutritionSummaryDto>>> GetDailyNutritionSummary(
-        [FromQuery] DateTime date,
-        [FromQuery] UserInformationDto userInformation)
+        [FromBody] UserNutritionRequestDto userNutritionRequestDto)
     {
         try
         {
-            if (date == default)
+            if (userNutritionRequestDto.CurrentDate == default)
             {
-                date = DateTime.UtcNow.Date; // Default to today if no date is provided
+                userNutritionRequestDto.CurrentDate = DateTime.UtcNow.Date; // Default to today if no date is provided
             }
-            var summary = await nutritionService.GetDailyNutritionSummaryAsync(date, userInformation, true);
+            var summary = await nutritionService.GetDailyNutritionSummaryAsync(userNutritionRequestDto, true);
             return Ok(new ApiResponse<DailyNutritionSummaryDto>
             {
                 Success = true,
@@ -33,7 +32,7 @@ public class NutritionController(INutritionService nutritionService, IUserContex
                 Message = "Daily nutrition summary retrieved successfully",
                 Metadata = new Dictionary<string, List<string>?>
                 {
-                    ["date"] = new List<string> { date.ToString("yyyy-MM-dd") }
+                    ["date"] = new List<string> { userNutritionRequestDto.CurrentDate.ToString("yyyy-MM-dd") }
                 }
             });
         }
@@ -59,16 +58,14 @@ public class NutritionController(INutritionService nutritionService, IUserContex
         }
     }
 
-    [HttpGet("weekly")]
+    [HttpPost("weekly")]
     public async Task<ActionResult<ApiResponse<WeeklyNutritionSummaryDto>>> GetWeeklyNutritionSummary(
-        [FromQuery] DateTime startDate,
-        [FromQuery] DateTime endDate, 
-        [FromQuery] UserInformationDto userInformation)
+        [FromBody] UserNutritionRequestDto userNutritionRequestDto)
     {
         try
         {
             var userId = userContextService.GetAuthenticatedUserId();
-            var summary = await nutritionService.GetWeeklyNutritionSummaryAsync(startDate, endDate, userInformation);
+            var summary = await nutritionService.GetWeeklyNutritionSummaryAsync(userNutritionRequestDto);
             return Ok(new ApiResponse<WeeklyNutritionSummaryDto>
             {
                 Success = true,
@@ -77,8 +74,8 @@ public class NutritionController(INutritionService nutritionService, IUserContex
                 Metadata = new Dictionary<string, List<string>?>
                 {
                     ["userId"] = new List<string> { userId.ToString() },
-                    ["startDate"] = new List<string> { startDate.ToString("yyyy-MM-dd") },
-                    ["endDate"] = new List<string> { endDate.ToString("yyyy-MM-dd") }
+                    ["startDate"] = new List<string> { userNutritionRequestDto.StartDate.ToString("yyyy-MM-dd") },
+                    ["endDate"] = new List<string> { userNutritionRequestDto.EndDate.ToString("yyyy-MM-dd") }
                 }
             });
         }
@@ -104,8 +101,8 @@ public class NutritionController(INutritionService nutritionService, IUserContex
         }
     }
 
-    [HttpGet("overview")]
-    public async Task<ActionResult<ApiResponse<OverviewNutritionSummaryDto>>> GetOverviewNutritionSummary([FromQuery] UserInformationDto userInformation)
+    [HttpPost("overview")]
+    public async Task<ActionResult<ApiResponse<OverviewNutritionSummaryDto>>> GetOverviewNutritionSummary([FromBody] UserInformationDto userInformation)
     {
         try
         {

@@ -33,6 +33,14 @@ public class UserInformationDto
 }
 
 
+public class UserNutritionRequestDto
+{
+    public DateTime CurrentDate { get; set; } = DateTime.UtcNow;
+    public DateTime StartDate{ get; set; } = DateTime.UtcNow.AddDays(-7);
+    public DateTime EndDate { get; set; } = DateTime.UtcNow.AddDays(7);
+    public UserInformationDto UserInformationDto { get; set; } = new UserInformationDto();
+}
+
 public class LoginDto
 {
     [Required(ErrorMessage = "Username is required")]

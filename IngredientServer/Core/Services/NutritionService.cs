@@ -9,19 +9,19 @@ namespace IngredientServer.Core.Services;
 public class NutritionService(IAIService aiService,IMealRepository mealRepository, IMealFoodRepository mealFoodRepository, IFoodRepository foodRepository, IUserContextService userContextService)
     : INutritionService
 {
-    public async Task<DailyNutritionSummaryDto> GetDailyNutritionSummaryAsync(DateTime date, UserInformationDto userInformation, bool usingAIAssistant = false)
+    public async Task<DailyNutritionSummaryDto> GetDailyNutritionSummaryAsync(UserNutritionRequestDto userNutritionRequestDto, bool usingAIAssistant = false)
     {
         var mealBreakdown = new List<NutritionDto>();
         var result = new DailyNutritionSummaryDto()
         {
-            Date = date,
+            Date = userNutritionRequestDto.CurrentDate,
             TotalCalories = 0,
             TotalProtein = 0,
             TotalCarbs = 0,
             TotalFat = 0,
         };
         // Lấy meals theo ngày và bao gồm foods
-        var meals = await mealRepository.GetByDateAsync(date.ToString("yyyy-MM-dd"));
+        var meals = await mealRepository.GetByDateAsync(userNutritionRequestDto.CurrentDate.ToString("yyyy-MM-dd"));
         var mealArray = meals as Meal[] ?? meals.ToArray();
         foreach (var meal in mealArray)
         {
@@ -73,7 +73,7 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
         //Using AI to get Target Nutrition value 
         if (usingAIAssistant)
         {
-            var targetValue = await aiService.GetTargetDailyNutritionAsync(userInformation);
+            var targetValue = await aiService.GetTargetDailyNutritionAsync(userNutritionRequestDto.UserInformationDto);
             result.TargetCalories = targetValue[0];
             result.TargetProtein = targetValue[1];
             result.TargetCarbs = targetValue[2];
@@ -85,16 +85,17 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
         return result;
     }
 
-    public async Task<WeeklyNutritionSummaryDto> GetWeeklyNutritionSummaryAsync(DateTime startDate, DateTime endDate,UserInformationDto userInformation)
+    public async Task<WeeklyNutritionSummaryDto> GetWeeklyNutritionSummaryAsync(UserNutritionRequestDto userNutritionRequestDto)
     {
         var dailyBreakdown = new List<DailyNutritionSummaryDto>();
         double totalCalories = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0, totalFiber = 0;
-        int dayCount = (endDate - startDate).Days + 1;
-
+        int dayCount = (userNutritionRequestDto.EndDate - userNutritionRequestDto.StartDate).Days + 1;
+        var userInformation = userNutritionRequestDto.UserInformationDto;
         // Lặp qua từng ngày trong khoảng thời gian
-        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        for (var date = userNutritionRequestDto.StartDate; date <= userNutritionRequestDto.EndDate; date = date.AddDays(1))
         {
-            var dailySummary = await GetDailyNutritionSummaryAsync(date, userInformation);
+            userNutritionRequestDto.CurrentDate = date;
+            var dailySummary = await GetDailyNutritionSummaryAsync(userNutritionRequestDto);
             dailyBreakdown.Add(dailySummary);
 
             // Cộng dồn để tính tổng
@@ -107,8 +108,8 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
 
         var weeklySummary = new WeeklyNutritionSummaryDto
         {
-            WeekStart = startDate,
-            WeekEnd = endDate,
+            WeekStart = userNutritionRequestDto.StartDate,
+            WeekEnd = userNutritionRequestDto.EndDate,
             DailyBreakdown = dailyBreakdown,
             
             AverageCalories = dayCount > 0 ? totalCalories / dayCount : 0,
@@ -139,9 +140,14 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
 
         //Laays danh sach ngay ton tai
         var existingDays = sortedMeals.Select(m => m.MealDate.Date).Distinct().ToList();
+        var userRequest = new UserNutritionRequestDto
+        {
+            UserInformationDto = userInformation
+        };
         foreach (var existingDay in existingDays)
         {
-            var dailySummary = await GetDailyNutritionSummaryAsync(existingDay, userInformation);
+            userRequest.CurrentDate = existingDay;
+            var dailySummary = await GetDailyNutritionSummaryAsync(userRequest);
 
             // Cộng dồn để tính tổng
             totalCalories += dailySummary.TotalCalories;

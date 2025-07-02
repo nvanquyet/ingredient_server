@@ -201,7 +201,7 @@ public class FoodService(
         return response;
     }
 
-    public async Task<FoodDataDto> GetFoodByIdAsync(int id)
+    public async Task<Food> GetFoodByIdAsync(int id)
     {
         var food = await foodRepository.GetByIdAsync(id);
         if (food == null)
@@ -209,6 +209,6 @@ public class FoodService(
             throw new UnauthorizedAccessException("Food not found or access denied.");
         }
 
-        return FoodDataDto.FromFood(food);
+        return food;
     }
 }

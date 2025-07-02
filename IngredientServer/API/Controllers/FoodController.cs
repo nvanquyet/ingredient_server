@@ -33,10 +33,10 @@ public class FoodController(IFoodService foodService) : ControllerBase
             return CreatedAtAction(
                 nameof(GetFood), 
                 new { id = food.Id }, 
-                new ApiResponse<Food>
+                new ApiResponse<FoodDataDto>
                 {
                     Success = true,
-                    Data = food,
+                    Data = FoodDataDto.FromFood(food),
                     Message = "Food created successfully"
                 });
         }
@@ -282,10 +282,10 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
         // Implement actual logic here when service method is available
         var food = await foodService.GetFoodByIdAsync(id);
-        return Ok(new ApiResponse<object>
+        return Ok(new ApiResponse<FoodDataDto>
         {
             Success = true,
-            Data = food,
+            Data = FoodDataDto.FromFood(food),
             Message = "Food found"
         });
     }

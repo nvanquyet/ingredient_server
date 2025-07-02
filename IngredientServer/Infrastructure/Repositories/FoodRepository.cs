@@ -35,4 +35,25 @@ public class FoodRepository(ApplicationDbContext context, IUserContextService us
 
         return food;
     }
+
+    public override async Task<Food?> GetByIdAsync(int id)
+    {
+        if (id <= 0)
+        {
+            throw new ArgumentException("Invalid food ID", nameof(id));
+        }
+
+        var food = await Context.Set<Food>()
+            .Include(f => f.FoodIngredients)
+            .ThenInclude(fi => fi.Ingredient)
+            .FirstOrDefaultAsync(f => f.Id == id && f.UserId == AuthenticatedUserId);
+
+        if (food == null)
+        {
+            throw new UnauthorizedAccessException("Food not found or access denied.");
+        }
+
+        return food;
+    }
+
 }

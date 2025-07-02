@@ -5,8 +5,8 @@ namespace IngredientServer.Core.Interfaces.Services;
 
 public interface INutritionService
 {
-    Task<DailyNutritionSummaryDto> GetDailyNutritionSummaryAsync(DateTime date, UserInformationDto userInformation, bool usingAIAssistant = false);
-    Task<WeeklyNutritionSummaryDto> GetWeeklyNutritionSummaryAsync(DateTime startDate, DateTime endDate, UserInformationDto userInformation);
+    Task<DailyNutritionSummaryDto> GetDailyNutritionSummaryAsync(UserNutritionRequestDto userNutritionRequestDto, bool usingAIAssistant = false);
+    Task<WeeklyNutritionSummaryDto> GetWeeklyNutritionSummaryAsync(UserNutritionRequestDto userNutritionRequestDto);
     Task<OverviewNutritionSummaryDto> GetOverviewNutritionSummaryAsync(UserInformationDto userInformation);
 }
 
@@ -18,7 +18,7 @@ public interface IFoodService
     Task<bool> DeleteFoodAsync(int foodId);
     Task<List<FoodSuggestionDto>> GetSuggestionsAsync(FoodSuggestionRequestDto requestDto);
     Task<FoodDataDto> GetRecipeSuggestionsAsync(FoodRecipeRequestDto recipeRequest);
-    Task<FoodDataDto> GetFoodByIdAsync(int id);
+    Task<Food> GetFoodByIdAsync(int id);
 }
 
 public interface IIngredientService
