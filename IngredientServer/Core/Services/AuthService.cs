@@ -83,17 +83,16 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
         try
         {
             // Parse và validate JWT token
-            var principal = jwtService.ValidateToken(token);
+            var principal = ValidateToken(token);
+            // Lấy userId từ token đã được validate
             if (principal == null)
             {
                 return new ResponseDto<AuthResponseDto>
                 {
                     Success = false,
-                    Message = "Invalid or expired token"
+                    Message = "Invalid token"
                 };
             }
-
-            // Lấy userId từ token đã được validate
             var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(userIdClaim, out int userId) || userId <= 0)
             {
@@ -374,6 +373,30 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
 
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
+    }
+    
+    //Validate Token without service 
+    private ClaimsPrincipal? ValidateToken(string token)
+    {
+        try
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.ASCII.GetBytes(configuration["Jwt:Secret"] ?? "");
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                ClockSkew = TimeSpan.Zero // No clock skew for immediate expiration
+            };
+
+            return tokenHandler.ValidateToken(token, validationParameters, out _);
+        }
+        catch (Exception)
+        {
+            return null; // Token is invalid
+        }
     }
 
     private bool VerifyPassword(string password, string hash)
