@@ -179,6 +179,23 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 PasswordHash = HashPassword(registerDto.Password),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
+                LastName = registerDto.Username,
+                FirstName = registerDto.Username,
+               
+                
+                gender = Gender.Male,
+                DateOfBirth = DateTime.UtcNow, 
+                Height = 160,                 
+                Weight = 60,                 
+                TargetWeight = 50,           
+                PrimaryNutritionGoal = NutritionGoal.Balanced,
+                ActivityLevel = ActivityLevel.Sedentary,
+                HasFoodAllergies = false,
+                FoodAllergies = string.Empty,
+                FoodPreferences = string.Empty,
+                EnableNotifications = true,
+                EnableMealReminders = true
+                
             };
 
             // Use AddForRegistrationAsync instead of AddAsync to avoid authentication context issues

@@ -30,12 +30,3 @@ public interface IIngredientService
     Task<IngredientSearchResultDto> GetAllAsync(IngredientFilterDto filter);
     Task<IngredientDataResponseDto> GetIngredientByIdAsync(int id);
 }
-
-public interface IMealService
-{
-    Task<MealDto> GetByIdAsync(int mealId);
-    Task<IEnumerable<MealDto>> GetByDateAsync(string date);
-    Task<MealDto> CreateMealAsync(MealType mealType, DateTime mealDate);
-    Task<MealDto> UpdateMealAsync(int mealId, MealDto updateMealDto);
-    Task<bool> DeleteMealAsync(int mealId);
-}
