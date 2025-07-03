@@ -10,28 +10,22 @@ public class CreateIngredientRequestDto
 {
     [Required]
     [StringLength(200)]
-    [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
     
     [StringLength(1000)]
-    [JsonPropertyName("description")]
     public string? Description { get; set; }
     
     [Required]
     [Range(0, double.MaxValue)]
-    [JsonPropertyName("quantity")]
     public decimal Quantity { get; set; }
     
     [Required]
-    [JsonPropertyName("unit")]
     public IngredientUnit Unit { get; set; }
     
     [Required]
-    [JsonPropertyName("category")]
     public IngredientCategory Category { get; set; }
     
     [Required]
-    [JsonPropertyName("expiryDate")]
     public DateTime ExpiryDate { get; set; }
 
     public IFormFile? Image { get; set; } 
@@ -50,7 +44,6 @@ public class CreateIngredientRequestDto
 public class UpdateIngredientRequestDto : CreateIngredientRequestDto
 {
     [Required]
-    [JsonPropertyName("id")]
     public int Id { get; set; }
 }
 

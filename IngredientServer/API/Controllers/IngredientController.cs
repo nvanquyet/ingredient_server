@@ -12,7 +12,7 @@ namespace IngredientServer.API.Controllers;
 public class IngredientController(IIngredientService ingredientService) : ControllerBase
 {
     [HttpPost]
-    public async Task<ActionResult<ApiResponse<IngredientDataResponseDto>>> CreateIngredient([FromBody] CreateIngredientRequestDto dataDto)
+    public async Task<ActionResult<ApiResponse<IngredientDataResponseDto>>> CreateIngredient([FromForm] CreateIngredientRequestDto dataDto)
     {
         try
         {
@@ -56,7 +56,7 @@ public class IngredientController(IIngredientService ingredientService) : Contro
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<ApiResponse<IngredientDataResponseDto>>> UpdateIngredient([FromBody] UpdateIngredientRequestDto dto)
+    public async Task<ActionResult<ApiResponse<IngredientDataResponseDto>>> UpdateIngredient([FromForm] UpdateIngredientRequestDto dto)
     {
         try
         {
