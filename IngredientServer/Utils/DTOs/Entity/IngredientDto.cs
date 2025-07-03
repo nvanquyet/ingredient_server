@@ -35,6 +35,16 @@ public class CreateIngredientRequestDto
     public DateTime ExpiryDate { get; set; }
 
     public IFormFile? Image { get; set; } 
+    
+    
+    public void NormalizeExpiryDate()
+    {
+        // Nếu thời gian không có timezone, giả định là local và chuyển sang UTC
+        ExpiryDate = ExpiryDate.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(ExpiryDate, DateTimeKind.Local).ToUniversalTime() :
+            // Nếu đã có timezone (Local hoặc Utc), chuyển về UTC
+            ExpiryDate.ToUniversalTime();
+    }
+
 }
 
 public class UpdateIngredientRequestDto : CreateIngredientRequestDto
@@ -68,6 +78,16 @@ public class IngredientDataResponseDto
     public DateTime ExpiryDate { get; set; }
 
     public string? ImageUrl { get; set; } 
+    
+    
+    public void NormalizeExpiryDate()
+    {
+        // Nếu thời gian không có timezone, giả định là local và chuyển sang UTC
+        ExpiryDate = ExpiryDate.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(ExpiryDate, DateTimeKind.Local).ToUniversalTime() :
+            // Nếu đã có timezone (Local hoặc Utc), chuyển về UTC
+            ExpiryDate.ToUniversalTime();
+    }
+
 }
 
 public class IngredientSearchResultDto

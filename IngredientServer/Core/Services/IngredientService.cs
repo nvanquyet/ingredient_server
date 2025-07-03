@@ -37,7 +37,7 @@ public class IngredientService(IIngredientRepository ingredientRepository, IUser
             throw new UnauthorizedAccessException("Failed to create ingredient or access denied.");
         }
         // Map the saved ingredient to DTO
-        return new IngredientDataResponseDto
+        var response = new IngredientDataResponseDto
         {
             Id = savedIngredient.Id,
             Name = savedIngredient.Name,
@@ -48,6 +48,9 @@ public class IngredientService(IIngredientRepository ingredientRepository, IUser
             ExpiryDate = savedIngredient.ExpiryDate,
             ImageUrl = savedIngredient.ImageUrl
         };
+        response.NormalizeExpiryDate();
+        
+        return response;
     }
 
     public async Task<IngredientDataResponseDto> UpdateIngredientAsync(UpdateIngredientRequestDto dto)
@@ -84,7 +87,7 @@ public class IngredientService(IIngredientRepository ingredientRepository, IUser
         }
 
         var updatedIngredient = await ingredientRepository.UpdateAsync(ingredient);
-        return new IngredientDataResponseDto
+        var response = new IngredientDataResponseDto
         {
             Id = updatedIngredient.Id,
             Name = updatedIngredient.Name,
@@ -95,6 +98,9 @@ public class IngredientService(IIngredientRepository ingredientRepository, IUser
             ExpiryDate = updatedIngredient.ExpiryDate,
             ImageUrl = updatedIngredient.ImageUrl
         };
+        response.NormalizeExpiryDate();
+        
+        return response;
     }
 
     public async Task<bool> DeleteIngredientAsync(int ingredientId)

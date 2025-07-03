@@ -28,6 +28,8 @@ public class IngredientController(IIngredientService ingredientService) : Contro
                     }
                 });
             }
+
+            dataDto.NormalizeExpiryDate();
             var ingredient = await ingredientService.CreateIngredientAsync(dataDto);
             return CreatedAtAction(
                 nameof(GetIngredient), 
@@ -70,6 +72,8 @@ public class IngredientController(IIngredientService ingredientService) : Contro
                     }
                 });
             }
+
+            dto.NormalizeExpiryDate();
             var ingredient = await ingredientService.UpdateIngredientAsync(dto);
             return Ok(new ApiResponse<IngredientDataResponseDto>
             {
