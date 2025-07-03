@@ -39,18 +39,9 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                     Message = "Account is deactivated"
                 };
             }
-
+            
+            user.NormalizeDateTimes();
             await userRepository.UpdateForLoginAsync(user);
-
-            //Check format create at 
-            if (user.CreatedAt == default(DateTime))
-            {
-                user.CreatedAt = DateTime.UtcNow;
-            }
-            else if (user.CreatedAt.Kind != DateTimeKind.Utc)
-            {
-                user.CreatedAt = DateTime.SpecifyKind(user.CreatedAt, DateTimeKind.Utc);
-            }
 
             var token = GenerateJwtToken(user);
             var response = new AuthResponseDto
@@ -115,14 +106,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
             }
 
             // Fix DateTime format
-            if (user.CreatedAt == default(DateTime))
-            {
-                user.CreatedAt = DateTime.UtcNow;
-            }
-            else if (user.CreatedAt.Kind != DateTimeKind.Utc)
-            {
-                user.CreatedAt = DateTime.SpecifyKind(user.CreatedAt, DateTimeKind.Utc);
-            }
+           user.NormalizeDateTimes();
 
             var response = new AuthResponseDto
             {
@@ -197,6 +181,9 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 EnableMealReminders = true
                 
             };
+            
+            // Normalize DateTime properties
+            user.NormalizeDateTimes();
 
             // Use AddForRegistrationAsync instead of AddAsync to avoid authentication context issues
             await userRepository.AddForRegistrationAsync(user);
@@ -266,7 +253,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 Data = null
             };
         }
-
+        user.NormalizeDateTimes();
         var userProfileDto = user.ToDto();
         return new ResponseDto<UserProfileDto>
         {
@@ -300,6 +287,9 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
         }
 
         user.UpdateUserProfile(updateUserProfileDto);
+        // Normalize DateTime properties
+        user.NormalizeDateTimes();
+        
         await userRepository.UpdateAsync(user);
         return await Task.FromResult(new ResponseDto<UserProfileDto>
         {

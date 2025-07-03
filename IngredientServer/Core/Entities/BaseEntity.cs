@@ -13,4 +13,13 @@ public abstract class BaseEntity
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
+    
+    public virtual void NormalizeDateTimes()
+    {
+        if (CreatedAt.Kind != DateTimeKind.Utc)
+            CreatedAt = DateTime.SpecifyKind(CreatedAt, DateTimeKind.Utc);
+
+        if (UpdatedAt.Kind != DateTimeKind.Utc)
+            UpdatedAt = DateTime.SpecifyKind(UpdatedAt, DateTimeKind.Utc);
+    }
 }

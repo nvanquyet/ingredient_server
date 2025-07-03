@@ -201,6 +201,14 @@ namespace IngredientServer.Core.Entities
                 EnableMealReminders = this.EnableMealReminders,
             };
         }
-        
+
+        public override void NormalizeDateTimes()
+        {
+            base.NormalizeDateTimes();
+            if (DateOfBirth.HasValue && DateOfBirth.Value.Kind != DateTimeKind.Utc)
+            {
+                DateOfBirth = DateTime.SpecifyKind(DateOfBirth.Value, DateTimeKind.Utc);
+            }
+        }
     }
 }
