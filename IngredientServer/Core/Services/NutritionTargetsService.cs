@@ -2,10 +2,11 @@
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
+using Microsoft.Extensions.Logging;
 
 namespace IngredientServer.Core.Services;
 
-public class NutritionTargetsService(IAIService aiService, IUserNutritionRepository repository, IUserContextService userContextService) : INutritionTargetsService
+public class NutritionTargetsService(IAIService aiService, IUserNutritionRepository repository, IUserContextService userContextService, ILogger logger) : INutritionTargetsService
 {
     public async Task<UserNutritionTargets> GetUserNutritionTargetsAsync(UserInformationDto userInformation)
     {
@@ -47,13 +48,11 @@ public class NutritionTargetsService(IAIService aiService, IUserNutritionReposit
         var existingTargets = await repository.GetByUserIdAsync();
 
         //Log
-        Console.WriteLine(existingTargets != null
-            ? $"Existing targets found for user {userContextService.GetAuthenticatedUserId()}"
-            : $"No existing targets found for user {userContextService.GetAuthenticatedUserId()}, generating new targets.");
+        logger.LogInformation("Fetching nutrition targets for user {UserId} {Status}", userContextService.GetAuthenticatedUserId(), existingTargets != null);
         if (existingTargets != null) return existingTargets;
         //USing AI to get targets
         var dailyTargets = await aiService.GetTargetDailyNutritionAsync(userInformation, cancellationToken);
-
+        
         existingTargets = new UserNutritionTargets
         {
             UserId = userContextService.GetAuthenticatedUserId(),
