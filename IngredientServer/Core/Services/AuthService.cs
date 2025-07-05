@@ -13,7 +13,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace IngredientServer.Core.Services;
 
-public class AuthService(IUserRepository userRepository, IJwtService jwtService, IConfiguration configuration, ILogger<AuthService> logger)
+public class AuthService(IUserRepository userRepository, IJwtService jwtService, IConfiguration configuration, INutritionTargetsService nutritionTargetsService, ILogger<AuthService> logger)
     : IAuthService
 {
     public async Task<ResponseDto<AuthResponseDto>> LoginAsync(LoginDto loginDto)
@@ -187,6 +187,20 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
 
             // Use AddForRegistrationAsync instead of AddAsync to avoid authentication context issues
             await userRepository.AddForRegistrationAsync(user);
+            
+            // Update user nutrition targets after registration
+            var userInfor = new UserInformationDto
+            {
+                ActivityLevel = user.ActivityLevel,
+                PrimaryNutritionGoal = user.PrimaryNutritionGoal,
+                Height = user.Height,
+                Weight = user.Weight,
+                DateOfBirth = user.DateOfBirth,
+                Gender = user.gender,
+                TargetWeight = user.TargetWeight,
+            };
+            var userNutritionTargets = await nutritionTargetsService.UpdateNutritionTargetAsync(userInfor);
+            
 
             var token = GenerateJwtToken(user);
             var response = new AuthResponseDto
@@ -289,8 +303,22 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
         user.UpdateUserProfile(updateUserProfileDto);
         // Normalize DateTime properties
         user.NormalizeDateTimes();
-        
         await userRepository.UpdateAsync(user);
+        
+        //Update user nutrition targets
+        var userInfor = new UserInformationDto
+        {
+            ActivityLevel = user.ActivityLevel,
+            PrimaryNutritionGoal = user.PrimaryNutritionGoal,
+            Height = user.Height,
+            Weight = user.Weight,
+            DateOfBirth = user.DateOfBirth,
+            Gender = user.gender,
+            TargetWeight = user.TargetWeight,
+        };
+        
+        var userNutritionTargets = await nutritionTargetsService.UpdateNutritionTargetAsync(userInfor);
+        
         return await Task.FromResult(new ResponseDto<UserProfileDto>
         {
             Success = true,

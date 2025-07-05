@@ -14,6 +14,8 @@ public interface INutritionTargetsService
 {
     Task<UserNutritionTargets> GetUserNutritionTargetsAsync(UserInformationDto userInformation);
     
+    Task<UserNutritionTargets> UpdateNutritionTargetAsync(UserInformationDto userInformation);
+    
     Task<UserNutritionTargets> GetDailyUserNutritionTargetsAsync(UserInformationDto userInformation);
     Task<UserNutritionTargets> GetWeeklyUserNutritionTargetsAsync(UserInformationDto userInformation);
     Task<UserNutritionTargets> GetOverviewUserNutritionTargetsAsync(UserInformationDto userInformation, int dayAmount);

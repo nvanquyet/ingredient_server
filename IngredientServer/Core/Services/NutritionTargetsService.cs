@@ -14,6 +14,26 @@ public class NutritionTargetsService(IAIService aiService, IUserNutritionReposit
         return targets;
     }
 
+    public async Task<UserNutritionTargets> UpdateNutritionTargetAsync(UserInformationDto userInformation)
+    {
+        var dailyTargets = await aiService.GetTargetDailyNutritionAsync(userInformation, CancellationToken.None);
+        
+        var existingTargets = new UserNutritionTargets
+        {
+            UserId = userContextService.GetAuthenticatedUserId(),
+            TargetDailyCalories = dailyTargets[0],
+            TargetDailyProtein = dailyTargets[1],
+            TargetDailyCarbohydrates = dailyTargets[2],
+            TargetDailyFat = dailyTargets[3],
+            TargetDailyFiber = dailyTargets[4],
+        };
+
+        // Lưu vào repository
+        await repository.SaveNutrition(existingTargets);
+
+        return existingTargets;
+    }
+
     public async Task<UserNutritionTargets> GetDailyUserNutritionTargetsAsync(UserInformationDto userInformation)
     {
         return await GetUserNutritionTargetsAsync(userInformation);
