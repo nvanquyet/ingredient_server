@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace IngredientServer.Core.Services;
 
-public class NutritionTargetsService(IAIService aiService, IUserNutritionRepository repository, IUserContextService userContextService, ILogger logger) : INutritionTargetsService
+public class NutritionTargetsService(IAIService aiService, IUserNutritionRepository repository, IUserContextService userContextService) : INutritionTargetsService
 {
     public async Task<UserNutritionTargets> GetUserNutritionTargetsAsync(UserInformationDto userInformation)
     {
@@ -47,8 +47,6 @@ public class NutritionTargetsService(IAIService aiService, IUserNutritionReposit
         // Lấy existing targets
         var existingTargets = await repository.GetByUserIdAsync();
 
-        //Log
-        logger.LogInformation("Fetching nutrition targets for user {UserId} {Status}", userContextService.GetAuthenticatedUserId(), existingTargets != null);
         if (existingTargets != null) return existingTargets;
         //USing AI to get targets
         var dailyTargets = await aiService.GetTargetDailyNutritionAsync(userInformation, cancellationToken);
