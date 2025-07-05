@@ -8,12 +8,24 @@ namespace IngredientServer.Infrastructure.Repositories;
 
 public class UserNutritionRepository(ApplicationDbContext context, IUserContextService userContextService) : BaseRepository<UserNutritionTargets>(context, userContextService), IUserNutritionRepository
 {
-    public async Task<UserNutritionTargets?> GetByUserIdAsync(int userId)
+    public async Task<UserNutritionTargets?> GetByUserIdAsync()
     {
         return await Context.Set<UserNutritionTargets>()
             .AsNoTracking()
-            .Where(e => e.UserId == userId)
+            .Where(e => e.UserId == userContextService.GetAuthenticatedUserId())
             .FirstOrDefaultAsync();
     }
 
+    public async Task<UserNutritionTargets?> SaveNutrition(UserNutritionTargets targets)
+    {
+        var existingTargets = await GetByUserIdAsync();
+        if (existingTargets != null)
+        {
+            await AddAsync(targets);
+        }
+        else
+        {
+            await UpdateAsync(targets);
+        }
+    }
 }

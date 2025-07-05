@@ -44,8 +44,12 @@ public class NutritionTargetsService(IAIService aiService, IUserNutritionReposit
     private async Task<UserNutritionTargets> GetOrCreateNutritionTargetsAsync(UserInformationDto userInformation, CancellationToken cancellationToken)
     {
         // Lấy existing targets
-        var existingTargets = await repository.GetByUserIdAsync(userContextService.GetAuthenticatedUserId());
+        var existingTargets = await repository.GetByUserIdAsync();
 
+        //Log
+        Console.WriteLine(existingTargets != null
+            ? $"Existing targets found for user {userContextService.GetAuthenticatedUserId()}"
+            : $"No existing targets found for user {userContextService.GetAuthenticatedUserId()}, generating new targets.");
         if (existingTargets != null) return existingTargets;
         //USing AI to get targets
         var dailyTargets = await aiService.GetTargetDailyNutritionAsync(userInformation, cancellationToken);
@@ -61,7 +65,7 @@ public class NutritionTargetsService(IAIService aiService, IUserNutritionReposit
         };
 
         // Lưu vào repository
-        await repository.AddAsync(existingTargets);
+        await repository.SaveNutrition(existingTargets);
 
         return existingTargets;
     }

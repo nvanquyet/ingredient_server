@@ -4,5 +4,7 @@ namespace IngredientServer.Core.Interfaces.Repositories;
 
 public interface IUserNutritionRepository : IBaseRepository<UserNutritionTargets>
 {
-    Task<UserNutritionTargets?> GetByUserIdAsync(int userId);
+    Task<UserNutritionTargets?> GetByUserIdAsync();
+    
+    Task<UserNutritionTargets?> SaveNutrition(UserNutritionTargets targets);
 }
