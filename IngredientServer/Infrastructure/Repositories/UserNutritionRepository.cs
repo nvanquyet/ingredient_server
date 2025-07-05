@@ -26,13 +26,13 @@ public class UserNutritionRepository(ApplicationDbContext context, IUserContextS
         
         if (existingTargets != null)
         {
-            await UpdateAsync(targets);
             logger.LogInformation("Update existing nutrition targets for user {UserId}", _userContextService.GetAuthenticatedUserId());
+            return await UpdateAsync(targets);
         }
         else
         {
             logger.LogInformation("Add existing nutrition targets for user {UserId}", _userContextService.GetAuthenticatedUserId());
-            await AddAsync(targets);
+            return await AddAsync(targets);
         }
     }
 }
