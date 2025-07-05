@@ -44,7 +44,7 @@ public class NutritionTargetsService(IAIService aiService, IUserNutritionReposit
     private async Task<UserNutritionTargets> GetOrCreateNutritionTargetsAsync(UserInformationDto userInformation, CancellationToken cancellationToken)
     {
         // Lấy existing targets
-        var existingTargets = await repository.GetByIdAsync(userContextService.GetAuthenticatedUserId());
+        var existingTargets = await repository.GetByUserIdAsync(userContextService.GetAuthenticatedUserId());
 
         if (existingTargets != null) return existingTargets;
         //USing AI to get targets
