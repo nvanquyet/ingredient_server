@@ -187,20 +187,6 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
 
             // Use AddForRegistrationAsync instead of AddAsync to avoid authentication context issues
             await userRepository.AddForRegistrationAsync(user);
-            
-            // Update user nutrition targets after registration
-            var userInfor = new UserInformationDto
-            {
-                ActivityLevel = user.ActivityLevel,
-                PrimaryNutritionGoal = user.PrimaryNutritionGoal,
-                Height = user.Height,
-                Weight = user.Weight,
-                DateOfBirth = user.DateOfBirth,
-                Gender = user.gender,
-                TargetWeight = user.TargetWeight,
-            };
-            var userNutritionTargets = await nutritionTargetsService.UpdateNutritionTargetAsync(userInfor);
-            
 
             var token = GenerateJwtToken(user);
             var response = new AuthResponseDto
