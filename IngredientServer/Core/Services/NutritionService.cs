@@ -6,10 +6,16 @@ using IngredientServer.Utils.DTOs.Entity;
 
 namespace IngredientServer.Core.Services;
 
-public class NutritionService(IAIService aiService,IMealRepository mealRepository, IMealFoodRepository mealFoodRepository, IFoodRepository foodRepository, IUserContextService userContextService)
+public class NutritionService(
+    INutritionTargetsService nutritionTargetsService,
+    IMealRepository mealRepository,
+    IMealFoodRepository mealFoodRepository,
+    IFoodRepository foodRepository,
+    IUserContextService userContextService)
     : INutritionService
 {
-    public async Task<DailyNutritionSummaryDto> GetDailyNutritionSummaryAsync(UserNutritionRequestDto userNutritionRequestDto, bool usingAIAssistant = false)
+    public async Task<DailyNutritionSummaryDto> GetDailyNutritionSummaryAsync(
+        UserNutritionRequestDto userNutritionRequestDto, bool usingAIAssistant = false)
     {
         var mealBreakdown = new List<NutritionDto>();
         var result = new DailyNutritionSummaryDto()
@@ -33,12 +39,12 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
             var foodNutrition = new List<FoodNutritionDto>();
             foreach (var f in foodsInMeal)
             {
-                meal.TotalCalories += (double) f.Food.Calories;
-                meal.TotalProtein += (double) f.Food.Protein;
-                meal.TotalCarbs += (double) f.Food.Carbohydrates;
-                meal.TotalFat += (double) f.Food.Fat;
-                meal.TotalFiber += (double) f.Food.Fiber;
-                
+                meal.TotalCalories += (double)f.Food.Calories;
+                meal.TotalProtein += (double)f.Food.Protein;
+                meal.TotalCarbs += (double)f.Food.Carbohydrates;
+                meal.TotalFat += (double)f.Food.Fat;
+                meal.TotalFiber += (double)f.Food.Fiber;
+
                 foodNutrition.Add(new FoodNutritionDto()
                 {
                     FoodId = f.Food.Id,
@@ -50,12 +56,12 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
                     Fiber = f.Food.Fiber
                 });
             }
-            
+
             result.TotalCalories += meal.TotalCalories;
             result.TotalProtein += meal.TotalProtein;
             result.TotalCarbs += meal.TotalCarbs;
             result.TotalFat += meal.TotalFat;
-            
+
             mealBreakdown.Add(new NutritionDto()
             {
                 MealId = meal.Id,
@@ -69,30 +75,36 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
                 Foods = foodNutrition
             });
         }
-        
+
+
         //Using AI to get Target Nutrition value 
         if (usingAIAssistant)
         {
-            var targetValue = await aiService.GetTargetDailyNutritionAsync(userNutritionRequestDto.UserInformationDto);
-            result.TargetCalories = targetValue[0];
-            result.TargetProtein = targetValue[1];
-            result.TargetCarbs = targetValue[2];
-            result.TargetFat = targetValue[3];
-            result.TargetFiber = targetValue[4];
+            var targetValue =
+                await nutritionTargetsService.GetDailyUserNutritionTargetsAsync(userNutritionRequestDto
+                    .UserInformationDto);
+            result.TargetCalories = (double)targetValue.TargetDailyCalories;
+            result.TargetProtein = (double)targetValue.TargetDailyProtein;
+            result.TargetCarbs = (double)targetValue.TargetDailyCarbohydrates;
+            result.TargetFat = (double)targetValue.TargetDailyFat;
+            result.TargetFiber = (double)targetValue.TargetDailyFiber;
         }
-        
+
         result.MealBreakdown = mealBreakdown;
         return result;
     }
 
-    public async Task<WeeklyNutritionSummaryDto> GetWeeklyNutritionSummaryAsync(UserNutritionRequestDto userNutritionRequestDto)
+    public async Task<WeeklyNutritionSummaryDto> GetWeeklyNutritionSummaryAsync(
+        UserNutritionRequestDto userNutritionRequestDto)
     {
         var dailyBreakdown = new List<DailyNutritionSummaryDto>();
         double totalCalories = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0, totalFiber = 0;
         int dayCount = (userNutritionRequestDto.EndDate - userNutritionRequestDto.StartDate).Days + 1;
         var userInformation = userNutritionRequestDto.UserInformationDto;
         // Lặp qua từng ngày trong khoảng thời gian
-        for (var date = userNutritionRequestDto.StartDate; date <= userNutritionRequestDto.EndDate; date = date.AddDays(1))
+        for (var date = userNutritionRequestDto.StartDate;
+             date <= userNutritionRequestDto.EndDate;
+             date = date.AddDays(1))
         {
             userNutritionRequestDto.CurrentDate = date;
             var dailySummary = await GetDailyNutritionSummaryAsync(userNutritionRequestDto);
@@ -111,22 +123,24 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
             WeekStart = userNutritionRequestDto.StartDate,
             WeekEnd = userNutritionRequestDto.EndDate,
             DailyBreakdown = dailyBreakdown,
-            
+
             AverageCalories = dayCount > 0 ? totalCalories / dayCount : 0,
             AverageProtein = dayCount > 0 ? totalProtein / dayCount : 0,
             AverageCarbs = dayCount > 0 ? totalCarbs / dayCount : 0,
             AverageFat = dayCount > 0 ? totalFat / dayCount : 0,
             AverageFiber = dayCount > 0 ? totalFiber / dayCount : 0
         };
-        
+
         //Using AI to get Target Avg Nutrition value
-        var targetValue = await aiService.GetTargetWeeklyNutritionAsync(userInformation);
-        weeklySummary.TargetCalories = targetValue[0];
-        weeklySummary.TargetProtein = targetValue[1];
-        weeklySummary.TargetCarbs = targetValue[2];
-        weeklySummary.TargetFat = targetValue[3];
-        weeklySummary.TargetFiber = targetValue[4];
-        
+        var targetValue =
+            await nutritionTargetsService.GetWeeklyUserNutritionTargetsAsync(userNutritionRequestDto
+                .UserInformationDto);
+        weeklySummary.TargetCalories = (double)targetValue.TargetDailyCalories;
+        weeklySummary.TargetProtein = (double)targetValue.TargetDailyProtein;
+        weeklySummary.TargetCarbs = (double)targetValue.TargetDailyCarbohydrates;
+        weeklySummary.TargetFat = (double)targetValue.TargetDailyFat;
+        weeklySummary.TargetFiber = (double)targetValue.TargetDailyFiber;
+
         return weeklySummary;
     }
 
@@ -156,7 +170,7 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
             totalFat += dailySummary.TotalFat;
             totalFiber += dailySummary.TotalFiber;
         }
-        
+
         var result = new OverviewNutritionSummaryDto
         {
             AverageCalories = existingDays.Count > 0 ? totalCalories / existingDays.Count : 0,
@@ -166,13 +180,13 @@ public class NutritionService(IAIService aiService,IMealRepository mealRepositor
             AverageFiber = totalCalories > 0 ? totalFiber / existingDays.Count : 0,
         };
         
-        //Using AI to get Target Avg Nutrition value
-        var targetValue = await aiService.GetTargetOverviewNutritionAsync(userInformation, existingDays.Count);
-        result.TargetCalories = targetValue[0];
-        result.TargetProtein = targetValue[1];
-        result.TargetCarbs = targetValue[2];
-        result.TargetFat = targetValue[3];
-        result.TargetFiber = targetValue[4];
+        var targetValue =
+            await nutritionTargetsService.GetOverviewUserNutritionTargetsAsync(userInformation, existingDays.Count);
+        result.TargetCalories = (double)targetValue.TargetDailyCalories;
+        result.TargetProtein = (double)targetValue.TargetDailyProtein;
+        result.TargetCarbs = (double)targetValue.TargetDailyCarbohydrates;
+        result.TargetFat = (double)targetValue.TargetDailyFat;
+        result.TargetFiber = (double)targetValue.TargetDailyFiber;
         return result;
     }
 }

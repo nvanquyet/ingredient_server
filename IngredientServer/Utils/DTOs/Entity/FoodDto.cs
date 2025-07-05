@@ -121,6 +121,17 @@ namespace IngredientServer.Utils.DTOs.Entity
         public List<FoodIngredientDto> Ingredients { get; set; } = [];
     }
     
+    
+    public class FoodAnalysticResponseDto : FoodDataResponseDto
+    {
+        
+    }
+    
+    public class FoodAnalysticRequestDto
+    {
+        public IFormFile Image { get; set; } = null!;
+    }
+    
     public class FoodRecipeRequestDto
     {
         [Required]

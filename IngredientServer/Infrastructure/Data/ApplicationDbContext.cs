@@ -58,6 +58,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .WithOne(m => m.User)
                 .HasForeignKey(m => m.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasOne(u => u.NutritionTargets)
+                .WithOne() // Không có navigation property ngược lại
+                .HasForeignKey<UserNutritionTargets>(nt => nt.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Ingredient configuration
@@ -87,6 +92,28 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(e => e.Category);
             entity.HasIndex(e => new { e.UserId, e.ExpiryDate });
             entity.HasIndex(e => new { e.UserId, e.Category });
+        });
+        
+        // UserNutritionTargets configuration - DI CHUYỂN VÀO ĐÚNG VỊ TRÍ
+        modelBuilder.Entity<UserNutritionTargets>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            
+            // Index for performance
+            entity.HasIndex(e => e.UserId)
+                .IsUnique() // Mỗi user chỉ có một bản ghi nutrition targets
+                .HasDatabaseName("IX_UserNutritionTargets_UserId");
+            
+            // Decimal precision
+            entity.Property(e => e.TargetDailyCalories).HasPrecision(8, 2);
+            entity.Property(e => e.TargetDailyProtein).HasPrecision(8, 2);
+            entity.Property(e => e.TargetDailyCarbohydrates).HasPrecision(8, 2);
+            entity.Property(e => e.TargetDailyFat).HasPrecision(8, 2);
+            entity.Property(e => e.TargetDailyFiber).HasPrecision(8, 2);
+            
+            // Timestamps
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
 
         // Food configuration

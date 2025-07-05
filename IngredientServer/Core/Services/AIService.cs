@@ -148,66 +148,16 @@ namespace IngredientServer.Core.Services
             }
         }
 
-        public async Task<List<int>> GetTargetWeeklyNutritionAsync(UserInformationDto userInformation,
-            CancellationToken cancellationToken = default)
+        Task<FoodAnalysticResponseDto> IAIService.GetFoodAnalysticAsync(FoodAnalysticRequestDto request, CancellationToken cancellationToken)
         {
-            await _semaphore.WaitAsync(cancellationToken);
-
-            try
-            {
-                var systemPrompt = CreateNutritionTargetSystemPrompt();
-                var userPrompt = CreateWeeklyNutritionUserPrompt(userInformation);
-
-                var response = await CallOpenAIAsync(systemPrompt, userPrompt, cancellationToken);
-
-                var nutritionTargets = ParseNutritionTargets(response);
-
-                _logger.LogInformation("Successfully generated weekly nutrition targets: {Targets}",
-                    string.Join(", ", nutritionTargets));
-
-                return nutritionTargets;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error generating weekly nutrition targets");
-                return new List<int> { 2000, 150, 250, 65, 25 };
-            }
-            finally
-            {
-                _semaphore.Release();
-            }
+            throw new NotImplementedException();
         }
 
-        public async Task<List<int>> GetTargetOverviewNutritionAsync(UserInformationDto userInformation, int dayAmount,
-            CancellationToken cancellationToken = default)
+        public Task<IngredientAnalysticResponseDto> GetIngredientAnalysticAsync(IngredientAnalysticRequestDto request, CancellationToken cancellationToken = default)
         {
-            await _semaphore.WaitAsync(cancellationToken);
-
-            try
-            {
-                var systemPrompt = CreateNutritionTargetSystemPrompt();
-                var userPrompt = CreateOverviewNutritionUserPrompt(userInformation, dayAmount);
-
-                var response = await CallOpenAIAsync(systemPrompt, userPrompt, cancellationToken);
-
-                var nutritionTargets = ParseNutritionTargets(response);
-
-                _logger.LogInformation(
-                    "Successfully generated overview nutrition targets for {DayAmount} days: {Targets}",
-                    dayAmount, string.Join(", ", nutritionTargets));
-
-                return nutritionTargets;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error generating overview nutrition targets for {DayAmount} days", dayAmount);
-                return new List<int> { 2000, 150, 250, 65, 25 };
-            }
-            finally
-            {
-                _semaphore.Release();
-            }
+            throw new NotImplementedException();
         }
+        
 
         private string CreateNutritionTargetSystemPrompt()
         {
@@ -296,87 +246,7 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
 
             return prompt;
         }
-
-        private string CreateWeeklyNutritionUserPrompt(UserInformationDto userInfo)
-        {
-            var prompt = "Tính toán mục tiêu dinh dưỡng TRUNG BÌNH HÀNG NGÀY cho tuần (7 ngày) của người dùng:\n\n";
-
-            prompt += "=== THÔNG TIN NGƯỜI DÙNG ===\n";
-
-            if (userInfo.Gender.HasValue)
-                prompt += $"• Giới tính: {userInfo.Gender}\n";
-
-            if (userInfo.DateOfBirth.HasValue)
-            {
-                var age = DateTime.Now.Year - userInfo.DateOfBirth.Value.Year;
-                prompt += $"• Tuổi: {age}\n";
-            }
-
-            if (userInfo.Height.HasValue)
-                prompt += $"• Chiều cao: {userInfo.Height}cm\n";
-
-            if (userInfo.Weight.HasValue)
-                prompt += $"• Cân nặng hiện tại: {userInfo.Weight}kg\n";
-
-            if (userInfo.TargetWeight.HasValue)
-                prompt += $"• Cân nặng mục tiêu: {userInfo.TargetWeight}kg\n";
-
-            if (userInfo.PrimaryNutritionGoal.HasValue)
-                prompt += $"• Mục tiêu dinh dưỡng: {userInfo.PrimaryNutritionGoal}\n";
-
-            if (userInfo.ActivityLevel.HasValue)
-                prompt += $"• Mức độ hoạt động: {userInfo.ActivityLevel}\n";
-
-            prompt += "\n=== YÊU CẦU ===\n";
-            prompt += "Tính toán mục tiêu dinh dưỡng trung bình hàng ngày cho một tuần.\n";
-            prompt += "Kết quả sẽ được sử dụng để đánh giá nutrition trung bình hàng ngày trong tuần.\n";
-            prompt += "Áp dụng các công thức khoa học chính xác như đã hướng dẫn.\n";
-
-            return prompt;
-        }
-
-        private string CreateOverviewNutritionUserPrompt(UserInformationDto userInfo, int dayAmount)
-        {
-            var prompt =
-                $"Tính toán mục tiêu dinh dưỡng TRUNG BÌNH HÀNG NGÀY cho tổng quan {dayAmount} ngày của người dùng:\n\n";
-
-            prompt += "=== THÔNG TIN NGƯỜI DÙNG ===\n";
-
-            if (userInfo.Gender.HasValue)
-                prompt += $"• Giới tính: {userInfo.Gender}\n";
-
-            if (userInfo.DateOfBirth.HasValue)
-            {
-                var age = DateTime.Now.Year - userInfo.DateOfBirth.Value.Year;
-                prompt += $"• Tuổi: {age}\n";
-            }
-
-            if (userInfo.Height.HasValue)
-                prompt += $"• Chiều cao: {userInfo.Height}cm\n";
-
-            if (userInfo.Weight.HasValue)
-                prompt += $"• Cân nặng hiện tại: {userInfo.Weight}kg\n";
-
-            if (userInfo.TargetWeight.HasValue)
-                prompt += $"• Cân nặng mục tiêu: {userInfo.TargetWeight}kg\n";
-
-            if (userInfo.PrimaryNutritionGoal.HasValue)
-                prompt += $"• Mục tiêu dinh dưỡng: {userInfo.PrimaryNutritionGoal}\n";
-
-            if (userInfo.ActivityLevel.HasValue)
-                prompt += $"• Mức độ hoạt động: {userInfo.ActivityLevel}\n";
-
-            prompt += $"\n=== THÔNG TIN THỜI GIAN ===\n";
-            prompt += $"• Tổng số ngày: {dayAmount} ngày\n";
-
-            prompt += "\n=== YÊU CẦU ===\n";
-            prompt += "Tính toán mục tiêu dinh dưỡng trung bình hàng ngày cho tổng quan dinh dưỡng.\n";
-            prompt += "Kết quả sẽ được sử dụng để đánh giá nutrition trung bình hàng ngày trong toàn bộ thời gian.\n";
-            prompt += "Áp dụng các công thức khoa học chính xác như đã hướng dẫn.\n";
-
-            return prompt;
-        }
-
+        
         private List<int> ParseNutritionTargets(string jsonResponse)
         {
             try
@@ -764,8 +634,7 @@ CHỈ TRẢ VỀ JSON OBJECT, KHÔNG KÈM TEXT GIẢI THÍCH.";
                 return new FoodDataResponseDto();
             }
         }
-
-
+        
         public void Dispose()
         {
             if (!_disposed)

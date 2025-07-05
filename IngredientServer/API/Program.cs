@@ -53,6 +53,7 @@ builder.Services.AddScoped<IFoodRepository, FoodRepository>();
 builder.Services.AddScoped<IMealRepository, MealRepository>();
 builder.Services.AddScoped<IMealFoodRepository, MealFoodRepository>();
 builder.Services.AddScoped<IFoodIngredientRepository, FoodIngredientRepository>();
+builder.Services.AddScoped<IUserNutritionRepository, UserNutritionRepository>();
 
 // Services - từ Core.Services
 builder.Services.AddScoped<IUserContextService, UserContextService>();
@@ -60,7 +61,9 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFoodService, FoodService>();
 builder.Services.AddScoped<IIngredientService, IngredientService>();
+builder.Services.AddScoped<INutritionTargetsService, NutritionTargetsService>();
 builder.Services.AddScoped<INutritionService, NutritionService>();
+
 
 // HttpClient cho external API calls
 builder.Services.AddHttpClient();

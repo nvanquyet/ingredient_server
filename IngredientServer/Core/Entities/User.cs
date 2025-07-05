@@ -94,6 +94,9 @@ namespace IngredientServer.Core.Entities
         public ICollection<Ingredient> Ingredients { get; set; } = new List<Ingredient>();
         public ICollection<Food> Foods { get; set; } = new List<Food>();
         public ICollection<Meal> Meals { get; set; } = new List<Meal>();
+        
+        //Ràng buộc dinh dưỡng
+        public UserNutritionTargets? NutritionTargets { get; set; }
 
         // Computed properties
         public int? Age => DateOfBirth.HasValue 
