@@ -91,6 +91,7 @@ public class NutritionService(
         }
 
         result.MealBreakdown = mealBreakdown;
+        result.NormalizeDate();
         return result;
     }
 
@@ -140,7 +141,8 @@ public class NutritionService(
         weeklySummary.TargetCarbs = (double)targetValue.TargetDailyCarbohydrates;
         weeklySummary.TargetFat = (double)targetValue.TargetDailyFat;
         weeklySummary.TargetFiber = (double)targetValue.TargetDailyFiber;
-
+    
+        weeklySummary.NormalizeWeekDates();
         return weeklySummary;
     }
 

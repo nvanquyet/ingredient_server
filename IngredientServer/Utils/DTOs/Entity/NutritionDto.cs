@@ -43,6 +43,14 @@ public class DailyNutritionSummaryDto
     public double? TargetFiber { get; set; }
 
     public IEnumerable<NutritionDto> MealBreakdown { get; set; } = new List<NutritionDto>();
+    
+    //Normalize date to UTC
+    public void NormalizeDate()
+    {
+        Date = Date.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(Date, DateTimeKind.Local).ToUniversalTime()
+            : Date.ToUniversalTime();
+    }
 }
 
 public class WeeklyNutritionSummaryDto
@@ -62,6 +70,18 @@ public class WeeklyNutritionSummaryDto
     public double? TargetFiber { get; set; }
 
     public IEnumerable<DailyNutritionSummaryDto> DailyBreakdown { get; set; } = new List<DailyNutritionSummaryDto>();
+    
+    // Normalize week start and end dates to UTC
+    public void NormalizeWeekDates()
+    {
+        WeekStart = WeekStart.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(WeekStart, DateTimeKind.Local).ToUniversalTime()
+            : WeekStart.ToUniversalTime();
+        
+        WeekEnd = WeekEnd.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(WeekEnd, DateTimeKind.Local).ToUniversalTime()
+            : WeekEnd.ToUniversalTime();
+    }
 }
 
 public class OverviewNutritionSummaryDto
