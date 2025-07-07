@@ -1,4 +1,5 @@
-﻿using IngredientServer.Core.Interfaces.Services;
+﻿using System.Text.Json;
+using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Entity;
 using Microsoft.AspNetCore.Authorization;
@@ -12,7 +13,8 @@ namespace IngredientServer.API.Controllers;
 public class FoodController(IFoodService foodService) : ControllerBase
 {
     [HttpPost]
-    public async Task<ActionResult<ApiResponse<FoodDataResponseDto>>> CreateFood([FromForm] CreateFoodRequestDto dataDto)
+    public async Task<ActionResult<ApiResponse<FoodDataResponseDto>>> CreateFood(
+        [FromForm] CreateFoodRequestDto dataDto)
     {
         try
         {
@@ -28,10 +30,11 @@ public class FoodController(IFoodService foodService) : ControllerBase
                     }
                 });
             }
+
             var food = await foodService.CreateFoodAsync(dataDto);
             return CreatedAtAction(
-                nameof(GetFood), 
-                new { id = food.Id }, 
+                nameof(GetFood),
+                new { id = food.Id },
                 new ApiResponse<FoodDataResponseDto>
                 {
                     Success = true,
@@ -78,6 +81,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
                     }
                 });
             }
+
             var food = await foodService.UpdateFoodAsync(dto);
             return Ok(new ApiResponse<FoodDataResponseDto>
             {
@@ -129,6 +133,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
                     Message = "Invalid food ID"
                 });
             }
+
             var result = await foodService.DeleteFoodAsync(dto.Id);
             if (result)
             {
@@ -139,7 +144,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
                     Message = "Food deleted successfully"
                 });
             }
-            
+
             return NotFound(new ApiResponse<bool>
             {
                 Success = false,
@@ -163,7 +168,8 @@ public class FoodController(IFoodService foodService) : ControllerBase
     }
 
     [HttpPost("suggestions")]
-    public async Task<ActionResult<ApiResponse<List<FoodSuggestionResponseDto>>>> GetSuggestions([FromBody] FoodSuggestionRequestDto requestDto)
+    public async Task<ActionResult<ApiResponse<List<FoodSuggestionResponseDto>>>> GetSuggestions(
+        [FromBody] FoodSuggestionRequestDto requestDto)
     {
         try
         {
@@ -179,6 +185,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
                     }
                 });
             }
+
             var suggestions = await foodService.GetSuggestionsAsync(requestDto);
             return Ok(new ApiResponse<List<FoodSuggestionResponseDto>>
             {
@@ -218,7 +225,8 @@ public class FoodController(IFoodService foodService) : ControllerBase
     }
 
     [HttpPost("recipes")]
-    public async Task<ActionResult<ApiResponse<FoodDataResponseDto>>> GetRecipeSuggestions([FromBody] FoodRecipeRequestDto recipeRequest)
+    public async Task<ActionResult<ApiResponse<FoodDataResponseDto>>> GetRecipeSuggestions(
+        [FromBody] FoodRecipeRequestDto recipeRequest)
     {
         try
         {
@@ -234,6 +242,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
                     }
                 });
             }
+
             var recipe = await foodService.GetRecipeSuggestionsAsync(recipeRequest);
             return Ok(new ApiResponse<FoodDataResponseDto>
             {
@@ -279,9 +288,75 @@ public class FoodController(IFoodService foodService) : ControllerBase
                 Message = "Invalid food ID"
             });
         }
+
         // Implement actual logic here when service method is available
         var food = await foodService.GetFoodByIdAsync(id);
-        
+        food.NormalizeConsumedAt();
+        if (food.Instructions.Count > 0)
+        {
+            var processedInstructions = new List<string>();
+            foreach (var instruction in food.Instructions)
+            {
+                try
+                {
+                    // Nếu instruction là một chuỗi JSON, parse nó
+                    if (instruction.StartsWith("[") && instruction.EndsWith("]"))
+                    {
+                        var parsedInstructions = JsonSerializer.Deserialize<List<string>>(instruction);
+                        if (parsedInstructions != null)
+                        {
+                            processedInstructions.AddRange(parsedInstructions);
+                        }
+                    }
+                    else
+                    {
+                        // Nếu không phải JSON, giữ nguyên
+                        processedInstructions.Add(instruction);
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Nếu parse lỗi, giữ nguyên chuỗi gốc
+                    processedInstructions.Add(instruction);
+                }
+            }
+
+            food.Instructions = processedInstructions;
+        }
+
+        // Xử lý Tips - tương tự như Instructions
+        if (food.Tips.Count > 0)
+        {
+            var processedTips = new List<string>();
+            foreach (var tip in food.Tips)
+            {
+                try
+                {
+                    // Nếu tip là một chuỗi JSON, parse nó
+                    if (tip.StartsWith("[") && tip.EndsWith("]"))
+                    {
+                        var parsedTips = JsonSerializer.Deserialize<List<string>>(tip);
+                        if (parsedTips != null)
+                        {
+                            processedTips.AddRange(parsedTips);
+                        }
+                    }
+                    else
+                    {
+                        // Nếu không phải JSON, giữ nguyên
+                        processedTips.Add(tip);
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Nếu parse lỗi, giữ nguyên chuỗi gốc
+                    processedTips.Add(tip);
+                }
+            }
+
+            food.Tips = processedTips;
+        }
+
         return Ok(new ApiResponse<FoodDataResponseDto>
         {
             Success = true,

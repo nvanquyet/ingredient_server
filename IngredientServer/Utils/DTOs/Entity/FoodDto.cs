@@ -115,6 +115,14 @@ namespace IngredientServer.Utils.DTOs.Entity
         
         public DateTime? ConsumedAt { get; set; } = null;
         public IEnumerable<FoodIngredientDto> Ingredients { get; set; } = new List<FoodIngredientDto>();
+        
+        public void NormalizeConsumedAt()
+        {
+            if (ConsumedAt == null) return;
+
+            // Nếu thời gian không có Kind, giả sử là Local rồi chuyển sang UTC
+            ConsumedAt = ConsumedAt.Value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(ConsumedAt.Value, DateTimeKind.Local).ToUniversalTime() : ConsumedAt.Value.ToUniversalTime();
+        }
     }
     
     public class FoodSuggestionRequestDto
