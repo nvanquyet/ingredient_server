@@ -170,15 +170,10 @@ public class ImageService(
             throw new InvalidOperationException("Invalid file type. Only images are allowed.");
         }
 
-        if (!AllowedMimeTypes.Contains(image.ContentType.ToLowerInvariant()))
-        {
-            logger.LogError("Invalid MIME type: {MimeType}. Allowed: {AllowedMimeTypes}", 
-                image.ContentType, string.Join(", ", AllowedMimeTypes));
-            throw new InvalidOperationException("Invalid file format.");
-        }
-
+        // Bỏ kiểm MIME type (nếu muốn chấp nhận tất cả)
         logger.LogDebug("Image validation completed successfully");
     }
+
 
     private string GenerateImageUrl(string fileName)
     {
