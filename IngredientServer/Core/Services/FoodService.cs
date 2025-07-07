@@ -6,6 +6,7 @@ using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs.Entity;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace IngredientServer.Core.Services;
 
@@ -18,25 +19,61 @@ public class FoodService(
     HttpClient httpClient,
     IAIService aiService,
     IUserContextService userContextService,
-    IImageService imageService)
+    IImageService imageService,
+    ILogger<FoodService> logger)
     : IFoodService
 {
-    public async Task<FoodDataResponseDto> CreateFoodAsync(CreateFoodRequestDto dataDto)
+   public async Task<FoodDataResponseDto> CreateFoodAsync(CreateFoodRequestDto dataDto)
     {
-        //Convert to Food
+        var userId = userContextService.GetAuthenticatedUserId();
+        var operationId = Guid.NewGuid().ToString("N")[..8]; // Tạo ID để track operation
+        
+        logger.LogInformation("=== START CREATE FOOD OPERATION ===");
+        logger.LogInformation("Operation ID: {OperationId}, User ID: {UserId}", operationId, userId);
+        logger.LogInformation("Food Name: {FoodName}, MealType: {MealType}, MealDate: {MealDate}", 
+            dataDto.Name, dataDto.MealType, dataDto.MealDate);
+
         if (dataDto == null)
         {
+            logger.LogError("CreateFoodAsync called with null dataDto");
             throw new ArgumentNullException(nameof(dataDto), "Food data cannot be null.");
         }
+
+        // Log detailed input data
+        logger.LogInformation("Input Data - Calories: {Calories}, Protein: {Protein}g, Carbs: {Carbs}g, Fat: {Fat}g", 
+            dataDto.Calories, dataDto.Protein, dataDto.Carbohydrates, dataDto.Fat);
+        logger.LogInformation("Cooking Time: {CookingTime}min, Prep Time: {PrepTime}min, Difficulty: {Difficulty}", 
+            dataDto.CookingTimeMinutes, dataDto.PreparationTimeMinutes, dataDto.DifficultyLevel);
+        logger.LogInformation("Ingredients Count: {IngredientCount}", dataDto.Ingredients?.Count() ?? 0);
+
         string? imageUrl = "";
+        
+        // Image processing with logging
         if (dataDto.Image is { Length: > 0 })
         {
-            // Lưu ảnh và lấy URL
-            imageUrl = await imageService.SaveImageAsync(dataDto.Image);
+            logger.LogInformation("Processing image upload - Size: {ImageSize} bytes, ContentType: {ContentType}", 
+                dataDto.Image.Length, dataDto.Image.ContentType);
+            
+            try
+            {
+                imageUrl = await imageService.SaveImageAsync(dataDto.Image);
+                logger.LogInformation("Image saved successfully: {ImageUrl}", imageUrl);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to save image for food {FoodName}", dataDto.Name);
+                throw;
+            }
         }
+        else
+        {
+            logger.LogInformation("No image provided for food creation");
+        }
+
+        // Create Food entity
         var food = new Food
         {
-            UserId = userContextService.GetAuthenticatedUserId(),
+            UserId = userId,
             Name = dataDto.Name,
             Description = dataDto.Description,
             ImageUrl = imageUrl,
@@ -52,59 +89,116 @@ public class FoodService(
             DifficultyLevel = dataDto.DifficultyLevel
         };
 
+        logger.LogInformation("Saving food entity to database...");
         var savedFood = await foodRepository.AddAsync(food);
+        logger.LogInformation("Food saved with ID: {FoodId}", savedFood.Id);
 
-        // Kiểm tra meal tồn tại
-        var meal = (await mealRepository.GetByDateAsync(dataDto.MealDate)).FirstOrDefault(m =>
-                       m.MealType == dataDto.MealType) ??
-                   await mealRepository.AddAsync(new Meal
-                   {
-                       MealType = dataDto.MealType,
-                       MealDate = dataDto.MealDate,
-                       UserId = userContextService.GetAuthenticatedUserId()
-                   });
+        // Handle Meal logic
+        logger.LogInformation("Checking for existing meal - Date: {MealDate}, Type: {MealType}", 
+            dataDto.MealDate, dataDto.MealType);
         
+        var existingMeals = await mealRepository.GetByDateAsync(dataDto.MealDate);
+        var meal = existingMeals.FirstOrDefault(m => m.MealType == dataDto.MealType);
+        
+        if (meal == null)
+        {
+            logger.LogInformation("Creating new meal for {MealType} on {MealDate}", dataDto.MealType, dataDto.MealDate);
+            meal = await mealRepository.AddAsync(new Meal
+            {
+                MealType = dataDto.MealType,
+                MealDate = dataDto.MealDate,
+                UserId = userId
+            });
+            logger.LogInformation("New meal created with ID: {MealId}", meal.Id);
+        }
+        else
+        {
+            logger.LogInformation("Using existing meal with ID: {MealId}", meal.Id);
+        }
 
-        // Liên kết food với meal
+        // Link Food with Meal
+        logger.LogInformation("Linking food {FoodId} with meal {MealId}", savedFood.Id, meal.Id);
         var mealFood = new MealFood
         {
             MealId = meal.Id,
             FoodId = savedFood.Id,
-            UserId = userContextService.GetAuthenticatedUserId()
+            UserId = userId
         };
-
         await mealFoodRepository.AddAsync(mealFood);
+        logger.LogInformation("Food-Meal link created successfully");
 
-        // Trừ ingredients từ kho
-        foreach (var ingredient in dataDto.Ingredients)
+        // Process Ingredients
+        logger.LogInformation("Processing {IngredientCount} ingredients", dataDto.Ingredients?.Count() ?? 0);
+        var processedIngredients = 0;
+        var skippedIngredients = 0;
+        var insufficientIngredients = new List<string>();
+
+        foreach (var ingredient in dataDto.Ingredients ?? [])
         {
-            if(ingredient is not { IngredientId: > 0 } || ingredient.Quantity <= 0)
+            if (ingredient is not { IngredientId: > 0 } || ingredient.Quantity <= 0)
             {
+                logger.LogWarning("Skipping invalid ingredient - ID: {IngredientId}, Quantity: {Quantity}", 
+                    ingredient?.IngredientId, ingredient?.Quantity);
+                skippedIngredients++;
                 continue;
             }
+
+            logger.LogDebug("Processing ingredient ID: {IngredientId}, Required quantity: {Quantity}", 
+                ingredient.IngredientId, ingredient.Quantity);
+
             var existingIngredient = await ingredientRepository.GetByIdAsync(ingredient.IngredientId);
-            if (existingIngredient == null ) continue;
-            if(existingIngredient.Quantity < ingredient.Quantity)
+            if (existingIngredient == null)
             {
+                logger.LogWarning("Ingredient not found with ID: {IngredientId}", ingredient.IngredientId);
+                skippedIngredients++;
+                continue;
+            }
+
+            logger.LogDebug("Found ingredient: {IngredientName}, Available: {Available}, Required: {Required}", 
+                existingIngredient.Name, existingIngredient.Quantity, ingredient.Quantity);
+
+            // Update ingredient quantity
+            if (existingIngredient.Quantity < ingredient.Quantity)
+            {
+                logger.LogWarning("Insufficient ingredient {IngredientName} - Available: {Available}, Required: {Required}. Setting to 0.", 
+                    existingIngredient.Name, existingIngredient.Quantity, ingredient.Quantity);
+                insufficientIngredients.Add($"{existingIngredient.Name} (needed: {ingredient.Quantity}, available: {existingIngredient.Quantity})");
                 existingIngredient.Quantity = 0;
             }
             else
             {
+                logger.LogDebug("Deducting {Quantity} from {IngredientName}", ingredient.Quantity, existingIngredient.Name);
                 existingIngredient.Quantity -= ingredient.Quantity;
             }
+            
             await ingredientRepository.UpdateAsync(existingIngredient);
+            logger.LogDebug("Ingredient {IngredientName} updated, new quantity: {NewQuantity}", 
+                existingIngredient.Name, existingIngredient.Quantity);
 
+            // Create FoodIngredient relationship
             var foodIngredient = new FoodIngredient
             {
-                FoodId = food.Id,
+                FoodId = savedFood.Id,
                 IngredientId = ingredient.IngredientId,
                 Quantity = ingredient.Quantity,
-                UserId = userContextService.GetAuthenticatedUserId()
+                UserId = userId
             };
             await foodIngredientRepository.AddAsync(foodIngredient);
+            processedIngredients++;
         }
 
-        return new FoodDataResponseDto
+        // Log ingredient processing summary
+        logger.LogInformation("Ingredient processing complete - Processed: {Processed}, Skipped: {Skipped}", 
+            processedIngredients, skippedIngredients);
+        
+        if (insufficientIngredients.Count > 0)
+        {
+            logger.LogWarning("Some ingredients had insufficient quantities: {InsufficientIngredients}", 
+                string.Join(", ", insufficientIngredients));
+        }
+
+        // Create response
+        var response = new FoodDataResponseDto
         {
             Id = savedFood.Id,
             Name = savedFood.Name,
@@ -122,16 +216,28 @@ public class FoodService(
             DifficultyLevel = savedFood.DifficultyLevel,
             MealType = dataDto.MealType,
             MealDate = dataDto.MealDate,
-            Ingredients = dataDto.Ingredients.Select(i => new FoodIngredientDto
+            Ingredients = dataDto.Ingredients?.Select(i => new FoodIngredientDto
             {
                 IngredientId = i.IngredientId,
                 Quantity = i.Quantity,
                 Unit = i.Unit,
                 IngredientName = i.IngredientName
-            }).ToList()
+            }).ToList() ?? new List<FoodIngredientDto>()
         };
-    }
 
+        logger.LogInformation("=== FOOD CREATION COMPLETED SUCCESSFULLY ===");
+        logger.LogInformation("Operation ID: {OperationId}, Food ID: {FoodId}, Total time: {ElapsedTime}ms", 
+            operationId, savedFood.Id, DateTime.UtcNow.Subtract(DateTime.UtcNow).TotalMilliseconds);
+        
+        // Log potential warnings for client
+        if (insufficientIngredients.Count > 0)
+        {
+            logger.LogInformation("⚠️  Warning: Some ingredients had insufficient stock");
+        }
+
+        return response;
+    }
+   
     public async Task<FoodDataResponseDto> UpdateFoodAsync(UpdateFoodRequestDto dto)
     {
         var food = await foodRepository.GetByIdWithIngredientsAsync(dto.Id);

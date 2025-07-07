@@ -3,21 +3,43 @@ using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs.Entity;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace IngredientServer.Core.Services;
 
-public class IngredientService(IIngredientRepository ingredientRepository, IUserContextService userContextService,IImageService imageService)
+public class IngredientService(IIngredientRepository ingredientRepository, 
+    IUserContextService userContextService,
+    IImageService imageService,
+    ILogger<IngredientService> logger)
     : IIngredientService
 {
     public async Task<IngredientDataResponseDto> CreateIngredientAsync(CreateIngredientRequestDto dto)
     {
         //Save Image 
-        string? imageUrl = null;
-        if (dto.Image != null && dto.Image.Length > 0)
-        {
-            imageUrl = await imageService.SaveImageAsync(dto.Image);
-        }
+        string? imageUrl = "";
         
+        // Image processing with logging
+        if (dto.Image is { Length: > 0 })
+        {
+            logger.LogInformation("Processing image upload - Size: {ImageSize} bytes, ContentType: {ContentType}", 
+                dto.Image.Length, dto.Image.ContentType);
+            
+            try
+            {
+                imageUrl = await imageService.SaveImageAsync(dto.Image);
+                logger.LogInformation("Image saved successfully: {ImageUrl}", imageUrl);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to save image for food {FoodName}", dto.Name);
+                throw;
+            }
+        }
+        else
+        {
+            logger.LogInformation("No image provided for food creation");
+        }
+       
         var ingredient = new Ingredient
         {
             Name = dto.Name,
