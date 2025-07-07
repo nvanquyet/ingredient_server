@@ -1,4 +1,6 @@
-﻿services:
+﻿version: '3.8'
+
+services:
   mysql:
     image: mariadb:10.4
     container_name: ingredientserver-mariadb
@@ -28,6 +30,16 @@
       retries: 5
       start_period: 60s
 
+  # Init service để cấp quyền thư mục uploads
+  init-permissions:
+    image: alpine
+    container_name: init-permissions
+    volumes:
+      - ./uploads:/uploads
+    command: ["sh", "-c", "chmod -R 777 /uploads"]
+    networks:
+      - internal-network
+
   ingredientserver:
     image: ingredientserver:latest
     build:
@@ -42,6 +54,8 @@
     depends_on:
       mysql:
         condition: service_healthy
+      init-permissions:
+        condition: service_started
     networks:
       - internal-network
     restart: unless-stopped
