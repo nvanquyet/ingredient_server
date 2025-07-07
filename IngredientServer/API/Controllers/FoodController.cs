@@ -64,7 +64,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
     }
 
-    [HttpPut("{id}")]
+    [HttpPut]
     public async Task<ActionResult<ApiResponse<FoodDataResponseDto>>> UpdateFood([FromForm] UpdateFoodRequestDto dto)
     {
         try
@@ -120,7 +120,7 @@ public class FoodController(IFoodService foodService) : ControllerBase
         }
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete]
     public async Task<ActionResult<ApiResponse<bool>>> DeleteFood([FromBody] DeleteFoodRequestDto dto)
     {
         try
