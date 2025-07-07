@@ -24,6 +24,14 @@ public class NutritionDto
     public double TotalFiber { get; set; }
     
     public IEnumerable<FoodNutritionDto> Foods { get; set; } = new List<FoodNutritionDto>();
+    
+    // Normalize meal date to UTC
+    public void NormalizeMealDate()
+    {
+        MealDate = MealDate.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(MealDate, DateTimeKind.Local).ToUniversalTime()
+            : MealDate.ToUniversalTime();
+    }
 }
 
 public class DailyNutritionSummaryDto

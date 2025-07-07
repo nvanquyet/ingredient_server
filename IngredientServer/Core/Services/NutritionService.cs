@@ -61,8 +61,7 @@ public class NutritionService(
             result.TotalProtein += meal.TotalProtein;
             result.TotalCarbs += meal.TotalCarbs;
             result.TotalFat += meal.TotalFat;
-
-            mealBreakdown.Add(new NutritionDto()
+            var nutritionDto = new NutritionDto()
             {
                 MealId = meal.Id,
                 MealType = meal.MealType,
@@ -73,7 +72,9 @@ public class NutritionService(
                 TotalFat = meal.TotalFat,
                 TotalFiber = meal.TotalFiber,
                 Foods = foodNutrition
-            });
+            };
+            nutritionDto.NormalizeMealDate();
+            mealBreakdown.Add(nutritionDto);
         }
 
 
