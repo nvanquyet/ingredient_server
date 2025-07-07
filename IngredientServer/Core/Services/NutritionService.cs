@@ -126,11 +126,17 @@ public class NutritionService(
             WeekEnd = userNutritionRequestDto.EndDate,
             DailyBreakdown = dailyBreakdown,
 
-            AverageCalories = dayCount > 0 ? totalCalories / dayCount : 0,
-            AverageProtein = dayCount > 0 ? totalProtein / dayCount : 0,
-            AverageCarbs = dayCount > 0 ? totalCarbs / dayCount : 0,
-            AverageFat = dayCount > 0 ? totalFat / dayCount : 0,
-            AverageFiber = dayCount > 0 ? totalFiber / dayCount : 0
+            // AverageCalories = dayCount > 0 ? totalCalories / dayCount : 0,
+            // AverageProtein = dayCount > 0 ? totalProtein / dayCount : 0,
+            // AverageCarbs = dayCount > 0 ? totalCarbs / dayCount : 0,
+            // AverageFat = dayCount > 0 ? totalFat / dayCount : 0,
+            // AverageFiber = dayCount > 0 ? totalFiber / dayCount : 0
+            
+            AverageCalories = totalCalories,
+            AverageProtein = totalProtein,
+            AverageCarbs = totalCarbs,
+            AverageFat = totalFat,
+            AverageFiber = totalFiber
         };
 
         //Using AI to get Target Avg Nutrition value
@@ -184,7 +190,7 @@ public class NutritionService(
         };
         
         var targetValue =
-            await nutritionTargetsService.GetOverviewUserNutritionTargetsAsync(userInformation, existingDays.Count);
+            await nutritionTargetsService.GetOverviewUserNutritionTargetsAsync(userInformation, 1);
         result.TargetCalories = (double)targetValue.TargetDailyCalories;
         result.TargetProtein = (double)targetValue.TargetDailyProtein;
         result.TargetCarbs = (double)targetValue.TargetDailyCarbohydrates;

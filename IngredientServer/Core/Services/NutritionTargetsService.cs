@@ -54,11 +54,11 @@ public class NutritionTargetsService(IAIService aiService, IUserNutritionReposit
     {
         var target = await GetUserNutritionTargetsAsync(userInformation);
         dayAmount = dayAmount <= 0 ? 1 : dayAmount;
-        target.TargetDailyCalories = target.TargetDailyCalories * dayAmount;
-        target.TargetDailyProtein = target.TargetDailyProtein * dayAmount;
-        target.TargetDailyCarbohydrates = target.TargetDailyCarbohydrates * dayAmount;
-        target.TargetDailyFat = target.TargetDailyFat * dayAmount;
-        target.TargetDailyFiber = target.TargetDailyFiber * dayAmount;
+        target.TargetDailyCalories *= dayAmount;
+        target.TargetDailyProtein *= dayAmount;
+        target.TargetDailyCarbohydrates *= dayAmount;
+        target.TargetDailyFat *= dayAmount;
+        target.TargetDailyFiber *= dayAmount;
         return target;
     }
 
