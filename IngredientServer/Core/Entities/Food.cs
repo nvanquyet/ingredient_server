@@ -41,6 +41,8 @@ namespace IngredientServer.Core.Entities
         
         [StringLength(500)]
         public string? ImageUrl { get; set; }
+        
+        public DateTime? ConsumedAt { get; set; } = null;
 
 
         // Recipe instructions/steps - stored as JSON in database

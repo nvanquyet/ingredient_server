@@ -66,7 +66,18 @@ namespace IngredientServer.Utils.DTOs.Entity
         
         public MealType MealType { get; set; } = MealType.Breakfast;
         
+        public DateTime? ConsumedAt { get; set; } = null;
+        
         public IEnumerable<FoodIngredientDto> Ingredients { get; set; } = new List<FoodIngredientDto>();
+        
+        public void NormalizeConsumedAt()
+        {
+            if (ConsumedAt == null) return;
+
+            // Nếu thời gian không có Kind, giả sử là Local rồi chuyển sang UTC
+            ConsumedAt = ConsumedAt.Value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(ConsumedAt.Value, DateTimeKind.Local).ToUniversalTime() : ConsumedAt.Value.ToUniversalTime();
+        }
+
     }
 
     public class UpdateFoodRequestDto : CreateFoodRequestDto
@@ -101,6 +112,8 @@ namespace IngredientServer.Utils.DTOs.Entity
         public int DifficultyLevel { get; set; } = 1;
         public MealType MealType { get; set; }
         public DateTime MealDate { get; set; } = DateTime.UtcNow;
+        
+        public DateTime? ConsumedAt { get; set; } = null;
         public IEnumerable<FoodIngredientDto> Ingredients { get; set; } = new List<FoodIngredientDto>();
     }
     

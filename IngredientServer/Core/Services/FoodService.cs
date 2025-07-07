@@ -38,7 +38,7 @@ public class FoodService(
             logger.LogError("CreateFoodAsync called with null dataDto");
             throw new ArgumentNullException(nameof(dataDto), "Food data cannot be null.");
         }
-
+        dataDto.NormalizeConsumedAt();
         // Log detailed input data
         logger.LogInformation("Input Data - Calories: {Calories}, Protein: {Protein}g, Carbs: {Carbs}g, Fat: {Fat}g", 
             dataDto.Calories, dataDto.Protein, dataDto.Carbohydrates, dataDto.Fat);
@@ -86,6 +86,7 @@ public class FoodService(
             Fiber = dataDto.Fiber,
             Instructions = dataDto.Instructions,
             Tips = dataDto.Tips,
+            ConsumedAt = dataDto.ConsumedAt,
             DifficultyLevel = dataDto.DifficultyLevel
         };
 
@@ -216,6 +217,7 @@ public class FoodService(
             DifficultyLevel = savedFood.DifficultyLevel,
             MealType = dataDto.MealType,
             MealDate = dataDto.MealDate,
+            ConsumedAt = dataDto.ConsumedAt,
             Ingredients = dataDto.Ingredients?.Select(i => new FoodIngredientDto
             {
                 IngredientId = i.IngredientId,
@@ -240,6 +242,7 @@ public class FoodService(
    
     public async Task<FoodDataResponseDto> UpdateFoodAsync(UpdateFoodRequestDto dto)
     {
+        dto.NormalizeConsumedAt();
         var food = await foodRepository.GetByIdWithIngredientsAsync(dto.Id);
         if (food == null)
         {
@@ -274,6 +277,7 @@ public class FoodService(
         food.Protein = dto.Protein;
         food.Carbohydrates = dto.Carbohydrates;
         food.Fat = dto.Fat;
+        food.ConsumedAt = dto.ConsumedAt;
         food.Fiber = dto.Fiber;
         food.Instructions = dto.Instructions;
         food.Tips = dto.Tips;
@@ -348,6 +352,7 @@ public class FoodService(
             Instructions = food.Instructions,
             Tips = food.Tips,
             DifficultyLevel = food.DifficultyLevel,
+            ConsumedAt = food.ConsumedAt,
             MealType = dto.MealType,
             MealDate = dto.MealDate,
             Ingredients = dto.Ingredients.Select(i => new FoodIngredientDto
@@ -442,6 +447,7 @@ public class FoodService(
             Instructions = food.Instructions,
             Tips = food.Tips,
             DifficultyLevel = food.DifficultyLevel,
+            ConsumedAt = food.ConsumedAt,
             MealType = mealFood?.Meal.MealType ?? MealType.Breakfast,
             MealDate = mealFood?.Meal.MealDate ?? DateTime.UtcNow,
             Ingredients = food.FoodIngredients.Select(fi => new FoodIngredientDto
