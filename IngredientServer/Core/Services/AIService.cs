@@ -207,8 +207,8 @@ namespace IngredientServer.Core.Services
                 {
                     throw new ArgumentException("Hình ảnh không được rỗng", nameof(request.Image));
                 }
-                
-                
+
+
                 var imageUrl = await _imageService.SaveImageAsync(request.Image);
 
                 var systemPrompt = CreateIngredientAnalysisSystemPrompt();
@@ -245,7 +245,8 @@ namespace IngredientServer.Core.Services
                 {
                     new ChatRequestSystemMessage(systemPrompt),
                     new ChatRequestUserMessage(new ChatMessageTextContentItem(userPrompt)),
-                    new ChatRequestUserMessage(new ChatMessageImageContentItem(new Uri(imageUrl), ChatMessageImageDetailLevel.High))
+                    new ChatRequestUserMessage(new ChatMessageImageContentItem(new Uri(imageUrl),
+                        ChatMessageImageDetailLevel.High))
                 },
                 MaxTokens = 2000,
                 Temperature = 0.3f,
@@ -265,35 +266,42 @@ namespace IngredientServer.Core.Services
 
         private string CreateFoodAnalysisSystemPrompt()
         {
-            return @"Bạn là một chuyên gia dinh dưỡng và đầu bếp chuyên nghiệp với khả năng phân tích hình ảnh món ăn. Nhiệm vụ của bạn là phân tích hình ảnh và nhận diện món ăn một cách chính xác, chỉ tập trung vào các món ăn phổ biến, được biết đến rộng rãi (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta). KHÔNG tạo ra hoặc gợi ý món ăn không có thật hoặc không phổ biến.
+            return
+                @"Bạn là một chuyên gia dinh dưỡng và đầu bếp chuyên nghiệp với khả năng phân tích hình ảnh món ăn. Nhiệm vụ của bạn là nhận diện món ăn chính xác từ hình ảnh, chỉ tập trung vào các món ăn phổ biến, có thật (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta). KHÔNG tạo ra hoặc gợi ý món ăn không phổ biến hoặc không có thật.
 
 YÊU CẦU PHÂN TÍCH:
-1. Nhận diện chính xác tên món ăn (chỉ các món phổ biến, có thật).
+1. Nhận diện **chính xác tên món ăn** (chỉ các món ăn phổ biến).
 2. Mô tả chi tiết món ăn (nguyên liệu chính, cách trình bày).
 3. Ước tính thời gian chuẩn bị và nấu nướng.
-4. Tính toán thông tin dinh dưỡng (calories, protein, carbs, fat, fiber) với độ chính xác cao, dựa trên cơ sở khoa học.
-5. Tạo hướng dẫn nấu nướng từng bước chi tiết.
-6. Đưa ra tips hữu ích để nấu và bảo quản món ăn.
-7. Đánh giá độ khó (1-5, 1=dễ, 5=khó).
-8. Xác định loại bữa ăn phù hợp.
-9. Phân tích nguyên liệu chính có trong món ăn.
-10. Kiểm tra tính hợp lệ của hình ảnh: nếu hình ảnh không rõ, không chứa món ăn, hoặc có vấn đề (quá tối, mờ, không nhận diện được), trả về JSON với trường ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"".
+4. Tính toán thông tin dinh dưỡng: calories, protein, carbohydrates, fat, fiber (tất cả là số **decimal**).
+5. Cung cấp hướng dẫn nấu ăn từng bước chi tiết (mảng `instructions` dạng chuỗi).
+6. Gợi ý các mẹo nấu ăn và bảo quản (mảng `tips` dạng chuỗi).
+7. Đánh giá độ khó từ 1 đến 5 (1 = dễ, 5 = khó).
+8. Xác định loại bữa ăn (mealType): sử dụng giá trị số nguyên sau:
+   - 0 = Breakfast
+   - 1 = Lunch
+   - 2 = Dinner
+   - 3 = Snack
+   - 4 = Other
+9. Phân tích các nguyên liệu chính (`ingredients`) với các trường:
+   - `ingredientId`: int
+   - `name`: string
+   - `quantity`: decimal
+   - `unit`: số nguyên, tương ứng:
+     0=Kilogram, 1=Liter, 2=Piece, 3=Box, 4=Gram, 5=Milliliter, 6=Can, 7=Cup, 8=Tablespoon, 9=Teaspoon, 10=Package, 11=Bottle, 12=Other
+   - `category`: số nguyên, tương ứng:
+     0=Dairy, 1=Meat, 2=Vegetables, 3=Fruits, 4=Grains, 5=Seafood, 6=Beverages, 7=Condiments, 8=Snacks, 9=Frozen, 10=Canned, 11=Spices, 12=Other
+10. Nếu hình ảnh **không rõ**, **không có món ăn**, hoặc **không nhận diện được**, trả về JSON:
+```json
+{ ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"" }
+TRẢ VỀ DUY NHẤT 1 OBJECT JSON:
 
-LOẠI BỮA ĂN (MealType) - SỬ DỤNG SỐ NGUYÊN:
-0=Breakfast, 1=Lunch, 2=Dinner, 3=Snack
-
-ĐƠN VỊ NGUYÊN LIỆU (IngredientUnit) - SỬ DỤNG SỐ NGUYÊN:
-0=Kilogram, 1=Liter, 2=Piece, 3=Box, 4=Gram, 5=Milliliter,
-6=Can, 7=Cup, 8=Tablespoon, 9=Teaspoon, 10=Package, 11=Bottle, 12=Other
-
-DANH MỤC NGUYÊN LIỆU (IngredientCategory) - SỬ DỤNG SỐ NGUYÊN:
-0=Vegetables, 1=Fruits, 2=Meat, 3=Dairy, 4=Grains, 5=Spices, 6=Other
-
-Trả về kết quả dưới dạng JSON với format sau:
+json
+Copy
+Edit
 {
-  ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"", // Chỉ trả về nếu hình ảnh không hợp lệ
   ""name"": ""Tên món ăn"",
-  ""description"": ""Mô tả chi tiết món ăn"",
+  ""description"": ""Mô tả món ăn"",
   ""preparationTimeMinutes"": 15,
   ""cookingTimeMinutes"": 30,
   ""calories"": 350.0,
@@ -301,15 +309,8 @@ Trả về kết quả dưới dạng JSON với format sau:
   ""carbohydrates"": 45.0,
   ""fat"": 12.0,
   ""fiber"": 5.0,
-  ""instructions"": [
-    ""Bước 1: Chuẩn bị nguyên liệu"",
-    ""Bước 2: Xử lý nguyên liệu"",
-    ""Bước 3: Nấu nướng""
-  ],
-  ""tips"": [
-    ""Tip 1: Lưu ý về nhiệt độ"",
-    ""Tip 2: Cách bảo quản""
-  ],
+  ""instructions"": [""Bước 1..."", ""Bước 2..."", ""...""] ,
+  ""tips"": [""Mẹo 1..."", ""Mẹo 2...""] ,
   ""difficultyLevel"": 2,
   ""mealType"": 1,
   ""ingredients"": [
@@ -318,92 +319,84 @@ Trả về kết quả dưới dạng JSON với format sau:
       ""name"": ""Tên nguyên liệu"",
       ""quantity"": 100.0,
       ""unit"": 4,
-      ""category"": 0
+      ""category"": 2
     }
   ]
 }
-
-LƯU Ý:
-- Tất cả số liệu phải là số thập phân (decimal).
-- difficultyLevel: 1-5 (1=Dễ, 5=Khó).
-- instructions và tips phải là mảng string.
-- Chỉ trả về JSON object, KHÔNG kèm text giải thích.
-- Nếu không thể nhận diện món ăn, trả về JSON với trường ""error"" như trên.";
+KHÔNG được trả thêm mô tả hoặc giải thích ngoài JSON.";
         }
 
         private string CreateIngredientAnalysisSystemPrompt()
         {
-            return @"Bạn là một chuyên gia dinh dưỡng với khả năng phân tích hình ảnh nguyên liệu thực phẩm. Nhiệm vụ của bạn là nhận diện nguyên liệu chính trong hình ảnh một cách chính xác, chỉ tập trung vào các nguyên liệu phổ biến, có thật (ví dụ: cà chua, thịt bò, gạo, sữa). KHÔNG tạo ra hoặc nhận diện nguyên liệu không có thật hoặc không phổ biến.
+            return
+                @"Bạn là một chuyên gia dinh dưỡng với khả năng phân tích hình ảnh nguyên liệu thực phẩm. Nhiệm vụ của bạn là nhận diện **nguyên liệu chính** trong hình ảnh, chỉ tập trung vào các nguyên liệu phổ biến và có thật như: cà chua, thịt bò, gạo, sữa...
 
 YÊU CẦU PHÂN TÍCH:
-1. Nhận diện nguyên liệu chính trong hình ảnh.
-2. Mô tả chi tiết nguyên liệu (tình trạng, màu sắc, đặc điểm).
-3. Ước tính số lượng/khối lượng chính xác dựa trên hình ảnh.
-4. Xác định đơn vị tính và danh mục phù hợp.
-5. Ước tính hạn sử dụng dựa trên tình trạng hiện tại.
-6. Kiểm tra tính hợp lệ của hình ảnh: nếu hình ảnh không rõ, không chứa nguyên liệu, hoặc có vấn vấn đề (quá tối, mờ, không nhận diện được), trả về JSON với trường ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"".
+1. Nhận diện chính xác tên nguyên liệu chính.
+2. Mô tả chi tiết tình trạng nguyên liệu (màu sắc, độ tươi, đặc điểm).
+3. Ước tính khối lượng/số lượng dựa vào hình ảnh.
+4. Xác định đơn vị (`unit`) với các giá trị:
+   - 0=Kilogram, 1=Liter, 2=Piece, 3=Box, 4=Gram, 5=Milliliter,
+   - 6=Can, 7=Cup, 8=Tablespoon, 9=Teaspoon, 10=Package, 11=Bottle, 12=Other
+5. Xác định danh mục (`category`) theo các giá trị:
+   - 0=Dairy, 1=Meat, 2=Vegetables, 3=Fruits, 4=Grains, 5=Seafood, 6=Beverages, 7=Condiments, 8=Snacks, 9=Frozen, 10=Canned, 11=Spices, 12=Other
+6. Ước tính hạn sử dụng theo định dạng ISO 8601 UTC.
 
-ĐƠN VỊ NGUYÊN LIỆU (IngredientUnit) - SỬ DỤNG SỐ NGUYÊN:
-0=Kilogram, 1=Liter, 2=Piece, 3=Box, 4=Gram, 5=Milliliter,
-6=Can, 7=Cup, 8=Tablespoon, 9=Teaspoon, 10=Package, 11=Bottle, 12=Other
+Nếu hình ảnh **không rõ**, **không chứa nguyên liệu**, hoặc **quá mờ**, trả về JSON:
+```json
+{ ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"" }
+TRẢ VỀ DUY NHẤT 1 OBJECT JSON:
 
-DANH MỤC NGUYÊN LIỆU (IngredientCategory) - SỬ DỤNG SỐ NGUYÊN:
-0=Vegetables, 1=Fruits, 2=Meat, 3=Dairy, 4=Grains, 5=Spices, 6=Other
-
-Trả về kết quả dưới dạng JSON với format sau:
+json
+Copy
+Edit
 {
-  ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"", // Chỉ trả về nếu hình ảnh không hợp lệ
-  ""name"": ""Tên nguyên liệu chính"",
-  ""description"": ""Mô tả chi tiết nguyên liệu"",
+  ""name"": ""Tên nguyên liệu"",
+  ""description"": ""Chi tiết mô tả"",
   ""quantity"": 500.0,
   ""unit"": 4,
-  ""category"": 0,
-  ""expiryDate"": ""2024-12-31T23:59:59Z""
+  ""category"": 2,
+  ""expiryDate"": ""2025-01-01T00:00:00Z""
 }
-
-LƯU Ý:
-- Tất cả số liệu phải là số thập phân (decimal).
-- expiryDate phải ở format ISO 8601 (UTC).
-- Chỉ trả về JSON object, KHÔNG kèm text giải thích.
-- Nếu không thể nhận diện nguyên liệu, trả về JSON với trường ""error"" như trên.";
+KHÔNG được kèm theo mô tả hoặc văn bản ngoài JSON.";
         }
 
         private string CreateFoodAnalysisUserPrompt(string imageUrl)
         {
-            return $@"Hãy phân tích hình ảnh món ăn sau và cung cấp thông tin chi tiết:
+            return $@"Hãy phân tích hình ảnh món ăn sau và cung cấp dữ liệu dưới dạng JSON:
 
 IMAGE URL: {imageUrl}
 
-YÊU CẦU PHÂN TÍCH:
-1. Nhận diện tên món ăn (chỉ các món phổ biến, có thật như phở, bánh mì, salad gà, v.v.).
-2. Mô tả chi tiết món ăn (nguyên liệu chính, cách trình bày).
-3. Ước tính thời gian chuẩn bị và nấu nướng.
-4. Tính toán thông tin dinh dưỡng (calories, protein, carbs, fat, fiber) với độ chính xác cao.
-5. Tạo hướng dẫn nấu nướng từng bước chi tiết.
-6. Đưa ra tips hữu ích để nấu và bảo quản món ăn.
-7. Đánh giá độ khó của món ăn (1-5).
-8. Xác định loại bữa ăn phù hợp (0=Breakfast, 1=Lunch, 2=Dinner, 3=Snack).
-9. Phân tích nguyên liệu chính có trong món ăn.
-10. Nếu hình ảnh không rõ, không chứa món ăn, hoặc có vấn đề (quá tối, mờ), trả về JSON với trường ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"".
-
-Hãy quan sát kỹ hình ảnh và đưa ra phân tích chính xác nhất có thể.";
+YÊU CẦU:
+- Nhận diện món ăn phổ biến và có thật (yêu cầu chính xác nhất có thể)
+- Mô tả chi tiết món ăn, ước tính thời gian nấu.
+- Tính toán thông tin dinh dưỡng (calories, protein, carbohydrates, fat, fiber).
+- Gợi ý hướng dẫn nấu ăn, tips bảo quản.
+- Xác định độ khó (1-5), loại bữa ăn (0=Breakfast, 1=Lunch, 2=Dinner, 3=Snack, 4=Other).
+- Phân tích nguyên liệu: tên, lượng, đơn vị, danh mục (khớp với danh sách quy định).
+- Nếu hình ảnh không hợp lệ, trả về:
+```json
+{{ ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"" }}
+Chỉ trả về JSON object, không kèm mô tả thêm.";
         }
 
         private string CreateIngredientAnalysisUserPrompt(string imageUrl)
         {
-            return $@"Hãy phân tích hình ảnh nguyên liệu thực phẩm sau và cung cấp thông tin chi tiết:
+            return $@"Hãy phân tích hình ảnh nguyên liệu sau và cung cấp dữ liệu dưới dạng JSON:
 
 IMAGE URL: {imageUrl}
 
-YÊU CẦU PHÂN TÍCH:
-1. Nhận diện nguyên liệu chính (chỉ các nguyên liệu phổ biến, có thật như cà chua, thịt bò, gạo, v.v.).
-2. Mô tả chi tiết nguyên liệu (tình trạng, màu sắc, đặc điểm).
-3. Ước tính số lượng/khối lượng chính xác dựa trên hình ảnh.
-4. Xác định đơn vị tính và danh mục phù hợp.
-5. Ước tính hạn sử dụng dựa trên tình trạng hiện tại.
-6. Nếu hình ảnh không rõ, không chứa nguyên liệu, hoặc có vấn đề (quá tối, mờ), trả về JSON với trường ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"".
+YÊU CẦU:
+- Nhận diện chính xác tên nguyên liệu phổ biến (ví dụ: cà chua, thịt bò...). yêu cầu chính xác nhất có thể
+- Mô tả tình trạng nguyên liệu.
+- Ước tính lượng và đơn vị (xem quy định).
+- Phân loại đúng danh mục.
+- Ước tính hạn sử dụng ở định dạng ISO 8601 UTC.
 
-Hãy quan sát kỹ hình ảnh và đưa ra phân tích chính xác nhất có thể.";
+Nếu ảnh không rõ hoặc không có nguyên liệu, trả về:
+```json
+{{ ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"" }}
+Chỉ trả về JSON object, không kèm giải thích.";
         }
 
         private FoodAnalysticResponseDto ParseFoodAnalysisResponse(string jsonResponse)
@@ -648,7 +641,8 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
 
         private string CreateFoodSuggestionSystemPrompt()
         {
-            return @"Bạn là một chuyên gia dinh dưỡng và đầu bếp chuyên nghiệp. Nhiệm vụ của bạn là gợi ý các món ăn PHỔ BIẾN, được biết đến rộng rãi (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta) dựa trên thông tin người dùng và danh sách nguyên liệu được cung cấp. KHÔNG gợi ý món ăn không có thật hoặc không phổ biến.
+            return
+                @"Bạn là một chuyên gia dinh dưỡng và đầu bếp chuyên nghiệp. Nhiệm vụ của bạn là gợi ý các món ăn PHỔ BIẾN, được biết đến rộng rãi (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta) dựa trên thông tin người dùng và danh sách nguyên liệu được cung cấp. KHÔNG gợi ý món ăn không có thật hoặc không phổ biến.
 
 QUAN TRỌNG - QUY TẮC VỀ NGUYÊN LIỆU:
 1. NGUYÊN LIỆU CÓ SẴN: Nếu sử dụng nguyên liệu từ danh sách người dùng cung cấp:
@@ -699,7 +693,8 @@ LƯU Ý QUAN TRỌNG:
             List<FoodIngredientDto> ingredients)
         {
             var userInfo = requestDto.UserInformation;
-            var prompt = $"Gợi ý {requestDto.MaxSuggestions} món ăn PHỔ BIẾN, được biết đến rộng rãi (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta) phù hợp cho người dùng:\n\n";
+            var prompt =
+                $"Gợi ý {requestDto.MaxSuggestions} món ăn PHỔ BIẾN, được biết đến rộng rãi (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta) phù hợp cho người dùng:\n\n";
 
             prompt += "=== THÔNG TIN NGƯỜI DÙNG ===\n";
 
@@ -736,7 +731,8 @@ LƯU Ý QUAN TRỌNG:
             prompt += "\n⚠️ LƯU Ý QUAN TRỌNG:\n";
             prompt +=
                 "- Chỉ gợi ý món ăn phổ biến, được biết đến rộng rãi.\n";
-            prompt += "- Khi sử dụng nguyên liệu từ danh sách trên: PHẢI giữ CHÍNH XÁC ingredientId, ingredientName, unit\n";
+            prompt +=
+                "- Khi sử dụng nguyên liệu từ danh sách trên: PHẢI giữ CHÍNH XÁC ingredientId, ingredientName, unit\n";
             prompt += "- Quantity không được vượt quá số lượng tối đa đã cho\n";
             prompt += "- Nguyên liệu bổ sung (không có trong danh sách): ingredientId = 0\n";
 
@@ -750,7 +746,8 @@ LƯU Ý QUAN TRỌNG:
 
         private string CreateRecipeSystemPrompt()
         {
-            return @"Bạn là một đầu bếp chuyên nghiệp với nhiều năm kinh nghiệm. Nhiệm vụ của bạn là cung cấp công thức nấu ăn chi tiết và chính xác cho các món ăn PHỔ BIẾN, được biết đến rộng rãi (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta). KHÔNG tạo ra hoặc cung cấp công thức cho món ăn không có thật hoặc không phổ biến.
+            return
+                @"Bạn là một đầu bếp chuyên nghiệp với nhiều năm kinh nghiệm. Nhiệm vụ của bạn là cung cấp công thức nấu ăn chi tiết và chính xác cho các món ăn PHỔ BIẾN, được biết đến rộng rãi (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta). KHÔNG tạo ra hoặc cung cấp công thức cho món ăn không có thật hoặc không phổ biến.
 
 QUAN TRỌNG - QUY TẮC VỀ NGUYÊN LIỆU:
 1. NGUYÊN LIỆU CÓ SẴN: Nếu sử dụng nguyên liệu từ danh sách người dùng cung cấp:
@@ -817,7 +814,8 @@ LƯU Ý QUAN TRỌNG:
 
         private string CreateRecipeUserPrompt(FoodRecipeRequestDto recipeRequest)
         {
-            var prompt = $"Tạo công thức nấu ăn chi tiết cho món PHỔ BIẾN: \"{recipeRequest.FoodName}\" (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta). KHÔNG tạo công thức cho món không có thật hoặc không phổ biến.\n\n";
+            var prompt =
+                $"Tạo công thức nấu ăn chi tiết cho món PHỔ BIẾN: \"{recipeRequest.FoodName}\" (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta). KHÔNG tạo công thức cho món không có thật hoặc không phổ biến.\n\n";
 
             if (recipeRequest.Ingredients?.Any() == true)
             {
