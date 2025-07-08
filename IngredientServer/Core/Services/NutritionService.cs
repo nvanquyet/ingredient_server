@@ -248,14 +248,14 @@ public class NutritionService(
             totalFat += dailySummary.TotalFat;
             totalFiber += dailySummary.TotalFiber;
         }
-
+        
         var result = new OverviewNutritionSummaryDto
         {
             AverageCalories = existingDays.Count > 0 ? totalCalories / existingDays.Count : 0,
-            AverageProtein = totalCalories > 0 ? totalProtein / existingDays.Count : 0,
-            AverageCarbs = totalCalories > 0 ? totalCarbs / existingDays.Count : 0,
-            AverageFat = totalCalories > 0 ? totalFat / existingDays.Count : 0,
-            AverageFiber = totalCalories > 0 ? totalFiber / existingDays.Count : 0,
+            AverageProtein = existingDays.Count > 0 ? totalProtein / existingDays.Count : 0,
+            AverageCarbs = existingDays.Count > 0 ? totalCarbs / existingDays.Count : 0,
+            AverageFat = existingDays.Count > 0 ? totalFat / existingDays.Count : 0,
+            AverageFiber = existingDays.Count > 0 ? totalFiber / existingDays.Count : 0,
         };
 
         var targetValue =
