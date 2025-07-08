@@ -258,40 +258,7 @@ public class FoodService(
             logger.LogWarning("Food with ID {FoodId} not found or access denied", dto.Id);
             throw new UnauthorizedAccessException("Food not found or access denied.");
         }
-
-        logger.LogInformation("Restoring ingredients from previous food record...");
-        logger.LogInformation("Food has {Count} ingredients to restore", food.FoodIngredients?.Count ?? 0);
-
-        if (food.FoodIngredients != null && food.FoodIngredients.Any())
-        {
-            foreach (var foodIngredient in food.FoodIngredients)
-            {
-                logger.LogInformation("Processing ingredient ID: {IngredientId}", foodIngredient.IngredientId);
         
-                var ingredient = await ingredientRepository.GetByIdAsync(foodIngredient.IngredientId);
-                if (ingredient == null) 
-                {
-                    logger.LogWarning("Ingredient with ID {IngredientId} not found", foodIngredient.IngredientId);
-                    continue;
-                }
-
-                logger.LogInformation("Restoring {Quantity} to ingredient {IngredientName} (ID: {IngredientId})",
-                    foodIngredient.Quantity, ingredient.Name, ingredient.Id);
-                ingredient.Quantity += foodIngredient.Quantity;
-        
-                logger.LogInformation("About to update ingredient {IngredientId}", ingredient.Id);
-                await ingredientRepository.UpdateAsync(ingredient);
-                logger.LogInformation("Updated ingredient {IngredientId} successfully", ingredient.Id);
-            }
-        }
-        else
-        {
-            logger.LogInformation("No ingredients to restore");
-        }
-
-        logger.LogInformation("About to delete old food-ingredient links...");
-        await foodIngredientRepository.DeleteAsync(fi => fi.FoodId == dto.Id);
-        logger.LogInformation("Old food-ingredient links removed for Food ID: {FoodId}", dto.Id);
         // Image handling
         if (!string.IsNullOrEmpty(food.ImageUrl) && dto.Image is { Length: > 0 })
         {
@@ -320,7 +287,7 @@ public class FoodService(
         food.DifficultyLevel = dto.DifficultyLevel;
         food.ConsumedAt = dto.ConsumedAt;
         food.UserId = userContextService.GetAuthenticatedUserId();
-
+        //MealType and MealDate will be handled later
         await foodRepository.UpdateAsync(food);
         logger.LogInformation("Food with ID {FoodId} updated successfully.", food.Id);
 
@@ -346,47 +313,6 @@ public class FoodService(
             UserId = userContextService.GetAuthenticatedUserId()
         });
         logger.LogInformation("New meal-food link created successfully.");
-
-        // Update ingredients
-        foreach (var ingredient in dto.Ingredients)
-        {
-            if (ingredient is not { IngredientId: > 0 } || ingredient.Quantity <= 0)
-            {
-                logger.LogWarning("Skipping invalid ingredient with ID: {IngredientId}", ingredient?.IngredientId);
-                continue;
-            }
-
-            var existingIngredient = await ingredientRepository.GetByIdAsync(ingredient.IngredientId);
-            if (existingIngredient == null)
-            {
-                logger.LogWarning("Ingredient with ID {IngredientId} not found.", ingredient.IngredientId);
-                continue;
-            }
-
-            if (existingIngredient.Quantity < ingredient.Quantity)
-            {
-                logger.LogWarning(
-                    "Insufficient stock for ingredient {IngredientName}. Available: {Available}, Required: {Required}. Setting to zero.",
-                    existingIngredient.Name, existingIngredient.Quantity, ingredient.Quantity);
-                existingIngredient.Quantity = 0;
-            }
-            else
-            {
-                existingIngredient.Quantity -= ingredient.Quantity;
-            }
-
-            await ingredientRepository.UpdateAsync(existingIngredient);
-
-            await foodIngredientRepository.AddAsync(new FoodIngredient
-            {
-                FoodId = food.Id,
-                IngredientId = ingredient.IngredientId,
-                Quantity = ingredient.Quantity,
-                UserId = userContextService.GetAuthenticatedUserId()
-            });
-            logger.LogInformation("Ingredient {IngredientName} (ID: {IngredientId}) linked to food.",
-                existingIngredient.Name, existingIngredient.Id);
-        }
 
         logger.LogInformation("=== FOOD UPDATE COMPLETED SUCCESSFULLY ===");
         return new FoodDataResponseDto
