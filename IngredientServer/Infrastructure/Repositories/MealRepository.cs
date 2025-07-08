@@ -26,7 +26,6 @@ public class MealRepository(ApplicationDbContext context, IUserContextService us
     public async Task<IEnumerable<Meal>> GetByDateAsync(DateTime date)
     {
         return await Context.Set<Meal>()
-            .Include(m => m.MealFoods)
             .Where(m => m.UserId == AuthenticatedUserId && m.MealDate.Date == date)
             .ToListAsync();
     }
