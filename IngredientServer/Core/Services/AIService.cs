@@ -284,7 +284,7 @@ YÊU CẦU PHÂN TÍCH:
    - 3 = Snack
    - 4 = Other
 9. Phân tích các nguyên liệu chính (`ingredients`) với các trường:
-   - `ingredientId`: int
+   - `ingredientId`: int (giá trị mặc định là 0, không có giá trị khác.)
    - `name`: string
    - `quantity`: decimal
    - `unit`: số nguyên, tương ứng:
@@ -315,7 +315,7 @@ Edit
   ""mealType"": 1,
   ""ingredients"": [
     {
-      ""ingredientId"": 0,
+      ""ingredientId"": 0, // Mặc định là 0, không có giá trị khác
       ""name"": ""Tên nguyên liệu"",
       ""quantity"": 100.0,
       ""unit"": 4,
@@ -330,7 +330,6 @@ KHÔNG được trả thêm mô tả hoặc giải thích ngoài JSON.";
         {
             return
                 @"Bạn là một chuyên gia dinh dưỡng với khả năng phân tích hình ảnh nguyên liệu thực phẩm. Nhiệm vụ của bạn là nhận diện **nguyên liệu chính** trong hình ảnh, chỉ tập trung vào các nguyên liệu phổ biến và có thật như: cà chua, thịt bò, gạo, sữa...
-
 YÊU CẦU PHÂN TÍCH:
 1. Nhận diện chính xác tên nguyên liệu chính.
 2. Mô tả chi tiết tình trạng nguyên liệu (màu sắc, độ tươi, đặc điểm).
