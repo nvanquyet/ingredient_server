@@ -288,7 +288,7 @@ YÊU CẦU PHÂN TÍCH:
    - 4 = Other
 9. Phân tích các nguyên liệu chính (`ingredients`) với các trường:
    - `ingredientId`: int (giá trị mặc định là 0, không có giá trị khác.)
-   - `name`: string
+   - `ingredientName`: string
    - `quantity`: decimal
    - `unit`: số nguyên, tương ứng:
      0=Kilogram, 1=Liter, 2=Piece, 3=Box, 4=Gram, 5=Milliliter, 6=Can, 7=Cup, 8=Tablespoon, 9=Teaspoon, 10=Package, 11=Bottle, 12=Other
