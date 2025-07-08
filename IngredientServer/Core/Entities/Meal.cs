@@ -7,8 +7,8 @@ namespace IngredientServer.Core.Entities
     {
         Breakfast,
         Lunch,
-        Dinner,
         Snack,
+        Dinner,
         Other
     }
 
