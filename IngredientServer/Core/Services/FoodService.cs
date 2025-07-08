@@ -251,14 +251,14 @@ public class FoodService(
         logger.LogInformation($"dto = {dto.ToString()}");
 
         dto.NormalizeConsumedAt();
-        
+
         var food = await foodRepository.GetByIdWithIngredientsAsync(dto.Id);
         if (food == null)
         {
             logger.LogWarning("Food with ID {FoodId} not found or access denied", dto.Id);
             throw new UnauthorizedAccessException("Food not found or access denied.");
         }
-        
+
         // Image handling
         if (!string.IsNullOrEmpty(food.ImageUrl) && dto.Image is { Length: > 0 })
         {
@@ -350,6 +350,13 @@ public class FoodService(
         logger.LogInformation("=== START DELETE FOOD OPERATION ===");
         logger.LogInformation("Operation ID: {OperationId}, Food ID: {FoodId}", operationId, foodId);
 
+        // Validate input
+        if (foodId <= 0)
+        {
+            logger.LogWarning("Invalid food ID: {FoodId}", foodId);
+            throw new ArgumentException("Food ID must be greater than 0.", nameof(foodId));
+        }
+
         var food = await foodRepository.GetByIdWithIngredientsAsync(foodId);
         if (food == null)
         {
@@ -358,25 +365,98 @@ public class FoodService(
         }
 
         logger.LogInformation("Restoring ingredients from food {FoodId}...", foodId);
-        foreach (var foodIngredient in food.FoodIngredients)
-        {
-            var ingredient = await ingredientRepository.GetByIdAsync(foodIngredient.IngredientId);
-            if (ingredient == null) continue;
 
-            ingredient.Quantity += foodIngredient.Quantity;
-            await ingredientRepository.UpdateAsync(ingredient);
-            logger.LogInformation("Restored {Quantity} to ingredient {IngredientName} (ID: {IngredientId})",
-                foodIngredient.Quantity, ingredient.Name, ingredient.Id);
+        // Check if FoodIngredients collection exists and is not empty
+        if (food.FoodIngredients?.Any() == true)
+        {
+            logger.LogInformation("Found {Count} ingredients to restore for food {FoodId}",
+                food.FoodIngredients.Count, foodId);
+
+            foreach (var foodIngredient in food.FoodIngredients)
+            {
+                // Validate foodIngredient
+                if (foodIngredient == null)
+                {
+                    logger.LogWarning("Null food ingredient found for food {FoodId}, skipping", foodId);
+                    continue;
+                }
+
+                // Validate ingredient ID
+                if (foodIngredient.IngredientId <= 0)
+                {
+                    logger.LogWarning("Invalid ingredient ID {IngredientId} for food {FoodId}, skipping",
+                        foodIngredient.IngredientId, foodId);
+                    continue;
+                }
+
+                // Validate quantity
+                if (foodIngredient.Quantity <= 0)
+                {
+                    logger.LogWarning(
+                        "Invalid quantity {Quantity} for ingredient {IngredientId} in food {FoodId}, skipping",
+                        foodIngredient.Quantity, foodIngredient.IngredientId, foodId);
+                    continue;
+                }
+
+                var ingredient = await ingredientRepository.GetByIdAsync(foodIngredient.IngredientId);
+                if (ingredient == null)
+                {
+                    logger.LogWarning("Ingredient with ID {IngredientId} not found, cannot restore quantity",
+                        foodIngredient.IngredientId);
+                    continue;
+                }
+
+                // Check for potential overflow
+                if (ingredient.Quantity > decimal.MaxValue - foodIngredient.Quantity)
+                {
+                    logger.LogWarning(
+                        "Quantity overflow detected for ingredient {IngredientId}, setting to maximum value",
+                        ingredient.Id);
+                    ingredient.Quantity = decimal.MaxValue;
+                }
+                else
+                {
+                    ingredient.Quantity += foodIngredient.Quantity;
+                }
+
+                await ingredientRepository.UpdateAsync(ingredient);
+                logger.LogInformation("Restored {Quantity} to ingredient {IngredientName} (ID: {IngredientId})",
+                    foodIngredient.Quantity, ingredient.Name, ingredient.Id);
+            }
+        }
+        else
+        {
+            logger.LogInformation("No ingredients found to restore for food {FoodId}", foodId);
         }
 
         logger.LogInformation("Deleting meal-food and food-ingredient links for Food ID: {FoodId}", foodId);
-        await mealFoodRepository.DeleteAsync(mf => mf.FoodId == foodId);
-        await foodIngredientRepository.DeleteAsync(fi => fi.FoodId == foodId);
 
+        // Delete related entities - using DeleteSafeAsync to avoid exceptions when no entities found
+        try
+        {
+            await mealFoodRepository.DeleteSafeAsync(mf => mf.FoodId == foodId);
+            await foodIngredientRepository.DeleteSafeAsync(fi => fi.FoodId == foodId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error deleting meal-food or food-ingredient links for Food ID: {FoodId}", foodId);
+            throw;
+        }
+
+        // Handle image deletion
         if (!string.IsNullOrEmpty(food.ImageUrl))
         {
-            logger.LogInformation("Deleting image for food ID: {FoodId}", foodId);
-            await imageService.DeleteImageAsync(food.ImageUrl);
+            try
+            {
+                logger.LogInformation("Deleting image for food ID: {FoodId}", foodId);
+                await imageService.DeleteImageAsync(food.ImageUrl);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to delete image {ImageUrl} for food {FoodId}, continuing with deletion",
+                    food.ImageUrl, foodId);
+                // Don't throw - image deletion failure shouldn't stop food deletion
+            }
         }
 
         logger.LogInformation("Deleting food record with ID: {FoodId}", foodId);

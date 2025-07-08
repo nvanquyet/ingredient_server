@@ -93,6 +93,23 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
         await Context.SaveChangesAsync();
         return true;
     }
+    
+    public virtual async Task<bool> DeleteSafeAsync(Expression<Func<T, bool>> predicate)
+    {
+        var entities = await Context.Set<T>()
+            .Where(predicate)
+            .ToListAsync();
+
+        if (!entities.Any())
+        {
+            return true; // Không có gì để xóa = thành công
+        }
+
+        Context.Set<T>().RemoveRange(entities);
+        await Context.SaveChangesAsync();
+        return true;
+    }
+
 
     public virtual async Task<bool> ExistsAsync(int id)
     {
