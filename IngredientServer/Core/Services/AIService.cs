@@ -268,7 +268,10 @@ namespace IngredientServer.Core.Services
         {
             return
                 @"Bạn là một chuyên gia dinh dưỡng và đầu bếp chuyên nghiệp với khả năng phân tích hình ảnh món ăn. Nhiệm vụ của bạn là nhận diện món ăn chính xác từ hình ảnh, chỉ tập trung vào các món ăn phổ biến, có thật (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta). KHÔNG tạo ra hoặc gợi ý món ăn không phổ biến hoặc không có thật.
-
+⚠️ YÊU CẦU BẮT BUỘC:
+- **Không bao giờ để trống hoặc null trường `name` trong nguyên liệu và tên món ăn.**
+- Nếu không nhận diện được tên nguyên liệu, **bỏ qua** nguyên liệu đó.
+- Tất cả giá trị phải hợp lệ và không được null, trừ khi có lỗi hình ảnh
 YÊU CẦU PHÂN TÍCH:
 1. Nhận diện **chính xác tên món ăn** (chỉ các món ăn phổ biến).
 2. Mô tả chi tiết món ăn (nguyên liệu chính, cách trình bày).
