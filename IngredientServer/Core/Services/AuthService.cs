@@ -13,7 +13,12 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace IngredientServer.Core.Services;
 
-public class AuthService(IUserRepository userRepository, IJwtService jwtService, IConfiguration configuration, INutritionTargetsService nutritionTargetsService, ILogger<AuthService> logger)
+public class AuthService(
+    IUserRepository userRepository,
+    IJwtService jwtService,
+    IConfiguration configuration,
+    INutritionTargetsService nutritionTargetsService,
+    ILogger<AuthService> logger)
     : IAuthService
 {
     public async Task<ResponseDto<AuthResponseDto>> LoginAsync(LoginDto loginDto)
@@ -39,7 +44,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                     Message = "Account is deactivated"
                 };
             }
-            
+
             user.NormalizeDateTimes();
             await userRepository.UpdateForLoginAsync(user);
 
@@ -84,6 +89,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                     Message = "Invalid token"
                 };
             }
+
             var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(userIdClaim, out int userId) || userId <= 0)
             {
@@ -106,7 +112,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
             }
 
             // Fix DateTime format
-           user.NormalizeDateTimes();
+            user.NormalizeDateTimes();
 
             var response = new AuthResponseDto
             {
@@ -165,13 +171,13 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 UpdatedAt = DateTime.UtcNow,
                 LastName = registerDto.Username,
                 FirstName = registerDto.Username,
-               
-                
+
+
                 gender = Gender.Male,
-                DateOfBirth = DateTime.UtcNow, 
-                Height = 160,                 
-                Weight = 60,                 
-                TargetWeight = 50,           
+                DateOfBirth = DateTime.UtcNow,
+                Height = 160,
+                Weight = 60,
+                TargetWeight = 50,
                 PrimaryNutritionGoal = NutritionGoal.Balanced,
                 ActivityLevel = ActivityLevel.Sedentary,
                 HasFoodAllergies = false,
@@ -179,9 +185,8 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 FoodPreferences = string.Empty,
                 EnableNotifications = true,
                 EnableMealReminders = true
-                
             };
-            
+
             // Normalize DateTime properties
             user.NormalizeDateTimes();
 
@@ -253,6 +258,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 Data = null
             };
         }
+
         user.NormalizeDateTimes();
         var userProfileDto = user.ToDto();
         return new ResponseDto<UserProfileDto>
@@ -266,17 +272,22 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
     public async Task<ResponseDto<UserProfileDto>> UpdateUserProfileAsync(int userId,
         UserProfileDto? updateUserProfileDto)
     {
+        logger.LogInformation("Start updating user profile for UserId: {UserId}", userId);
+
         if (updateUserProfileDto == null)
         {
+            logger.LogWarning("Update failed: updateUserProfileDto is null for UserId: {UserId}", userId);
             return await Task.FromResult(new ResponseDto<UserProfileDto>
             {
                 Success = false,
                 Message = "Invalid user profile data"
             });
         }
+
         var user = await userRepository.GetByIdAsync(userId);
         if (user == null)
         {
+            logger.LogWarning("Update failed: User not found with UserId: {UserId}", userId);
             return await Task.FromResult(new ResponseDto<UserProfileDto>
             {
                 Success = false,
@@ -287,9 +298,12 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
         if (!string.IsNullOrEmpty(updateUserProfileDto.Username) &&
             updateUserProfileDto.Username != user.Username)
         {
+            logger.LogInformation("Checking if username '{Username}' already exists", updateUserProfileDto.Username);
+
             var existingUser = await userRepository.GetByUsernameAsync(updateUserProfileDto.Username);
             if (existingUser != null)
             {
+                logger.LogWarning("Username already exists: {Username}", updateUserProfileDto.Username);
                 return new ResponseDto<UserProfileDto>
                 {
                     Success = false,
@@ -297,14 +311,16 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 };
             }
         }
-        var originalUsername = user.Username;
+
+        logger.LogInformation("Updating user profile for UserId: {UserId}", userId);
+
         user.UpdateUserProfile(updateUserProfileDto);
-        user.Username = originalUsername;
-        // Normalize DateTime properties
         user.NormalizeDateTimes();
+
         await userRepository.UpdateAsync(user);
-        
-        //Update user nutrition targets
+
+        logger.LogInformation("Updating nutrition targets for UserId: {UserId}", userId);
+
         var userInfor = new UserInformationDto
         {
             ActivityLevel = user.ActivityLevel,
@@ -315,9 +331,11 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
             Gender = user.gender,
             TargetWeight = user.TargetWeight,
         };
-        
+
         await nutritionTargetsService.UpdateNutritionTargetAsync(userInfor);
-        
+
+        logger.LogInformation("User profile updated successfully for UserId: {UserId}", userId);
+
         return await Task.FromResult(new ResponseDto<UserProfileDto>
         {
             Success = true,
@@ -408,7 +426,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
     }
-    
+
     //Validate Token without service 
     private ClaimsPrincipal? ValidateToken(string token)
     {
