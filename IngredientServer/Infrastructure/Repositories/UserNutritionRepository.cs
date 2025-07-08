@@ -13,7 +13,6 @@ public class UserNutritionRepository(ApplicationDbContext context, IUserContextS
     public async Task<UserNutritionTargets?> GetByUserIdAsync()
     {
         return await Context.Set<UserNutritionTargets>()
-            .AsNoTracking()
             .Where(e => e.UserId == userContextService.GetAuthenticatedUserId())
             .FirstOrDefaultAsync();
     }
