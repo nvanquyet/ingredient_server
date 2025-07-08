@@ -251,7 +251,7 @@ public class FoodService(
         logger.LogInformation($"dto = {dto.ToString()}");
 
         dto.NormalizeConsumedAt();
-
+        
         var food = await foodRepository.GetByIdWithIngredientsAsync(dto.Id);
         if (food == null)
         {
@@ -260,20 +260,38 @@ public class FoodService(
         }
 
         logger.LogInformation("Restoring ingredients from previous food record...");
-        foreach (var foodIngredient in food.FoodIngredients)
-        {
-            var ingredient = await ingredientRepository.GetByIdAsync(foodIngredient.IngredientId);
-            if (ingredient == null) continue;
+        logger.LogInformation("Food has {Count} ingredients to restore", food.FoodIngredients?.Count ?? 0);
 
-            logger.LogInformation("Restoring {Quantity} to ingredient {IngredientName} (ID: {IngredientId})",
-                foodIngredient.Quantity, ingredient.Name, ingredient.Id);
-            ingredient.Quantity += foodIngredient.Quantity;
-            await ingredientRepository.UpdateAsync(ingredient);
+        if (food.FoodIngredients != null && food.FoodIngredients.Any())
+        {
+            foreach (var foodIngredient in food.FoodIngredients)
+            {
+                logger.LogInformation("Processing ingredient ID: {IngredientId}", foodIngredient.IngredientId);
+        
+                var ingredient = await ingredientRepository.GetByIdAsync(foodIngredient.IngredientId);
+                if (ingredient == null) 
+                {
+                    logger.LogWarning("Ingredient with ID {IngredientId} not found", foodIngredient.IngredientId);
+                    continue;
+                }
+
+                logger.LogInformation("Restoring {Quantity} to ingredient {IngredientName} (ID: {IngredientId})",
+                    foodIngredient.Quantity, ingredient.Name, ingredient.Id);
+                ingredient.Quantity += foodIngredient.Quantity;
+        
+                logger.LogInformation("About to update ingredient {IngredientId}", ingredient.Id);
+                await ingredientRepository.UpdateAsync(ingredient);
+                logger.LogInformation("Updated ingredient {IngredientId} successfully", ingredient.Id);
+            }
+        }
+        else
+        {
+            logger.LogInformation("No ingredients to restore");
         }
 
+        logger.LogInformation("About to delete old food-ingredient links...");
         await foodIngredientRepository.DeleteAsync(fi => fi.FoodId == dto.Id);
         logger.LogInformation("Old food-ingredient links removed for Food ID: {FoodId}", dto.Id);
-
         // Image handling
         if (!string.IsNullOrEmpty(food.ImageUrl) && dto.Image is { Length: > 0 })
         {
