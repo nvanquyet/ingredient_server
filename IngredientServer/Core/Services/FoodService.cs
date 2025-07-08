@@ -252,7 +252,7 @@ public class FoodService(
 
         dto.NormalizeConsumedAt();
 
-        var food = await foodRepository.GetByIdWithIngredientsAsync(dto.Id);
+        var food = await foodRepository.GetByIdAsync(dto.Id);
         if (food == null)
         {
             logger.LogWarning("Food with ID {FoodId} not found or access denied", dto.Id);
@@ -305,15 +305,14 @@ public class FoodService(
 
         await mealFoodRepository.DeleteAsync(mf => mf.FoodId == food.Id);
         logger.LogInformation("Old meal-food links deleted for Food ID: {FoodId}", food.Id);
-
+        logger.LogInformation("Tạo liên kết MealFood với MealId: {MealId}, FoodId: {FoodId}", meal.Id, food.Id);
         await mealFoodRepository.AddAsync(new MealFood
         {
             MealId = meal.Id,
             FoodId = food.Id,
             UserId = userContextService.GetAuthenticatedUserId()
         });
-        logger.LogInformation("New meal-food link created successfully.");
-
+        logger.LogInformation("New meal-food link created successfully for Food ID: {FoodId} meal Id {MealID}", food.Id, meal.Id);
         logger.LogInformation("=== FOOD UPDATE COMPLETED SUCCESSFULLY ===");
         return new FoodDataResponseDto
         {
