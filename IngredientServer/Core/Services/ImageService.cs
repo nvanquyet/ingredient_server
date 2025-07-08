@@ -10,7 +10,7 @@ public class ImageService(
 {
     private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
     private static readonly string[] AllowedMimeTypes = { "image/jpeg", "image/png", "image/gif", "image/webp" };
-    private const long MaxFileSize = 5 * 1024 * 1024; // 5MB
+    private const long MaxFileSize = 25 * 1024 * 1024; // 5MB
 
     public async Task<string?> SaveImageAsync(IFormFile? image)
     {
