@@ -255,13 +255,9 @@ namespace IngredientServer.Core.Services
                 Messages =
                 {
                     new ChatRequestSystemMessage(systemPrompt),
-                    new ChatRequestUserMessage(
-                        new ChatMessageContentItem[]
-                        {
-                            new TextChatMessageContentItem(userPrompt),
-                            new ImageChatMessageContentItem(imageUrl)
-                        }
-                    )
+                    new ChatRequestSystemMessage(systemPrompt),
+                    new ChatRequestUserMessage(new TextChatMessageContentItem(userPrompt)),
+                    new ChatRequestUserMessage(new ImageChatMessageContentItem(imageUrl))
                 },
                 MaxTokens = 2000,
                 Temperature = 0.3f,
