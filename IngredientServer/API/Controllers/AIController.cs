@@ -62,7 +62,7 @@ namespace IngredientServer.API.Controllers
         /// </summary>
         [HttpPost("detect_ingredient")]
         public async Task<ActionResult<ApiResponse<IngredientAnalysticResponseDto>>> OnDetectIngredient(
-            [FromBody] IngredientAnalysticRequestDto? request)
+            [FromForm] IngredientAnalysticRequestDto? request)
         {
             if (!ModelState.IsValid)
             {
