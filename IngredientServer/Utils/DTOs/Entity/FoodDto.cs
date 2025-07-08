@@ -171,7 +171,7 @@ namespace IngredientServer.Utils.DTOs.Entity
     
     public class FoodAnalysticRequestDto
     {
-        public IFormFile Image { get; set; } = null!;
+        public IFormFile? Image { get; set; } = null!;
     }
     
     public class FoodRecipeRequestDto

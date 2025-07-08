@@ -3,11 +3,13 @@ using System.Text.Json.Serialization;
 using Azure;
 using Azure.AI.Inference;
 using Azure.Core.Pipeline;
+using IngredientServer.Core.Entities;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Entity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using OpenAI.Chat;
 
 namespace IngredientServer.Core.Services
 {
@@ -15,16 +17,17 @@ namespace IngredientServer.Core.Services
     {
         private readonly ChatCompletionsClient _chatClient;
         private readonly ILogger<AIService> _logger;
+        private readonly IImageService _imageService;
         private readonly string _model;
         private readonly SemaphoreSlim _semaphore;
         private readonly JsonSerializerOptions _jsonOptions;
         private bool _disposed;
 
-        public AIService(IConfiguration configuration, ILogger<AIService> logger)
+        public AIService(IConfiguration configuration, IImageService _imageService, ILogger<AIService> logger)
         {
             _logger = logger;
+            this._imageService = _imageService;
 
-            // Lấy config từ appsettings
             var endpoint = new Uri(configuration["AzureOpenAI:Endpoint"]);
             var apiKey = configuration["AzureOpenAI:ApiKey"];
             _model = configuration["AzureOpenAI:Model"];
@@ -36,7 +39,6 @@ namespace IngredientServer.Core.Services
                 credential,
                 new AzureAIInferenceClientOptions()
                 {
-                    // Tối ưu hóa connection pool
                     Transport = new HttpClientTransport(new HttpClient
                     {
                         Timeout = TimeSpan.FromMinutes(2)
@@ -44,10 +46,8 @@ namespace IngredientServer.Core.Services
                 }
             );
 
-            // Giới hạn số request đồng thời để tránh rate limiting
-            _semaphore = new SemaphoreSlim(10, 10); // Tối đa 10 request cùng lúc
+            _semaphore = new SemaphoreSlim(10, 10);
 
-            // Cấu hình JSON serialization
             _jsonOptions = new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -70,7 +70,7 @@ namespace IngredientServer.Core.Services
 
                 var response = await CallOpenAIAsync(systemPrompt, userPrompt, cancellationToken);
 
-                var suggestions = ParseFoodSuggestions(response, requestDto, ingredients); // Truyền requestDto
+                var suggestions = ParseFoodSuggestions(response, requestDto, ingredients);
 
                 _logger.LogInformation("Successfully generated {Count} food suggestions", suggestions.Count);
 
@@ -139,7 +139,6 @@ namespace IngredientServer.Core.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating daily nutrition targets");
-                // Return safe default values
                 return new List<int> { 2000, 150, 250, 65, 25 };
             }
             finally
@@ -148,16 +147,364 @@ namespace IngredientServer.Core.Services
             }
         }
 
-        Task<FoodAnalysticResponseDto> IAIService.GetFoodAnalysticAsync(FoodAnalysticRequestDto request, CancellationToken cancellationToken)
+        public async Task<FoodAnalysticResponseDto> GetFoodAnalysticAsync(FoodAnalysticRequestDto? request,
+            CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            await _semaphore.WaitAsync(cancellationToken);
+
+            try
+            {
+                if (request?.Image == null)
+                {
+                    throw new ArgumentNullException(nameof(request.Image), "Hình ảnh không được để trống");
+                }
+
+                if (request.Image.Length == 0)
+                {
+                    throw new ArgumentException("Hình ảnh không được rỗng", nameof(request.Image));
+                }
+
+
+                var imageUrl = await _imageService.SaveImageAsync(request.Image);
+
+                var systemPrompt = CreateFoodAnalysisSystemPrompt();
+                var userPrompt = CreateFoodAnalysisUserPrompt(imageUrl);
+
+                var response = await CallOpenAIWithImageAsync(systemPrompt, userPrompt, imageUrl, cancellationToken);
+
+                var foodAnalysis = ParseFoodAnalysisResponse(response);
+
+                foodAnalysis.ImageUrl = imageUrl;
+
+                _logger.LogInformation("Successfully analyzed food image: {ImageUrl}", imageUrl);
+
+                return foodAnalysis;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error analyzing food image");
+                throw new HttpRequestException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác", ex);
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
         }
 
-        public Task<IngredientAnalysticResponseDto> GetIngredientAnalysticAsync(IngredientAnalysticRequestDto request, CancellationToken cancellationToken = default)
+        public async Task<IngredientAnalysticResponseDto> GetIngredientAnalysticAsync(
+            IngredientAnalysticRequestDto? request, CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            await _semaphore.WaitAsync(cancellationToken);
+
+            try
+            {
+                if (request?.Image == null)
+                {
+                    throw new ArgumentNullException(nameof(request.Image), "Hình ảnh không được để trống");
+                }
+
+                if (request.Image.Length == 0)
+                {
+                    throw new ArgumentException("Hình ảnh không được rỗng", nameof(request.Image));
+                }
+                
+                
+                var imageUrl = await _imageService.SaveImageAsync(request.Image);
+
+                var systemPrompt = CreateIngredientAnalysisSystemPrompt();
+                var userPrompt = CreateIngredientAnalysisUserPrompt(imageUrl);
+
+                var response = await CallOpenAIWithImageAsync(systemPrompt, userPrompt, imageUrl, cancellationToken);
+
+                var ingredientAnalysis = ParseIngredientAnalysisResponse(response);
+
+                ingredientAnalysis.ImageUrl = imageUrl;
+
+                _logger.LogInformation("Successfully analyzed ingredient image: {ImageUrl}", imageUrl);
+
+                return ingredientAnalysis;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error analyzing ingredient image");
+                throw new HttpRequestException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác", ex);
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+        private class TextChatMessageContentItem(string content) : ChatMessageContentItem
+        {
+            public string Type { get; } = "text";
+            public string Content { get; } = content;
+        }
+
+        private class ImageChatMessageContentItem(string content) : ChatMessageContentItem
+        {
+            public string Type { get; } = "image";
+            public string Content { get; } = content;
+        }
+
+        private async Task<string> CallOpenAIWithImageAsync(string systemPrompt, string userPrompt, string imageUrl,
+            CancellationToken cancellationToken)
+        {
+            var options = new ChatCompletionsOptions
+            {
+                Model = _model,
+                Messages =
+                {
+                    new ChatRequestSystemMessage(systemPrompt),
+                    new ChatRequestUserMessage(
+                        new ChatMessageContentItem[]
+                        {
+                            new TextChatMessageContentItem(userPrompt),
+                            new ImageChatMessageContentItem(imageUrl)
+                        }
+                    )
+                },
+                MaxTokens = 2000,
+                Temperature = 0.3f,
+                FrequencyPenalty = 0.1f,
+                PresencePenalty = 0.1f
+            };
+
+            var response = await _chatClient.CompleteAsync(options, cancellationToken);
+
+            if (response?.Value?.Content == null)
+            {
+                throw new InvalidOperationException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác");
+            }
+
+            return response.Value.Content;
         }
         
+        private string CreateFoodAnalysisSystemPrompt()
+        {
+            return @"Bạn là một chuyên gia dinh dưỡng và đầu bếp chuyên nghiệp với khả năng phân tích hình ảnh món ăn. Nhiệm vụ của bạn là phân tích hình ảnh và nhận diện món ăn một cách chính xác, chỉ tập trung vào các món ăn phổ biến, được biết đến rộng rãi (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta). KHÔNG tạo ra hoặc gợi ý món ăn không có thật hoặc không phổ biến.
+
+YÊU CẦU PHÂN TÍCH:
+1. Nhận diện chính xác tên món ăn (chỉ các món phổ biến, có thật).
+2. Mô tả chi tiết món ăn (nguyên liệu chính, cách trình bày).
+3. Ước tính thời gian chuẩn bị và nấu nướng.
+4. Tính toán thông tin dinh dưỡng (calories, protein, carbs, fat, fiber) với độ chính xác cao, dựa trên cơ sở khoa học.
+5. Tạo hướng dẫn nấu nướng từng bước chi tiết.
+6. Đưa ra tips hữu ích để nấu và bảo quản món ăn.
+7. Đánh giá độ khó (1-5, 1=dễ, 5=khó).
+8. Xác định loại bữa ăn phù hợp.
+9. Phân tích nguyên liệu chính có trong món ăn.
+10. Kiểm tra tính hợp lệ của hình ảnh: nếu hình ảnh không rõ, không chứa món ăn, hoặc có vấn đề (quá tối, mờ, không nhận diện được), trả về JSON với trường ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"".
+
+LOẠI BỮA ĂN (MealType) - SỬ DỤNG SỐ NGUYÊN:
+0=Breakfast, 1=Lunch, 2=Dinner, 3=Snack
+
+ĐƠN VỊ NGUYÊN LIỆU (IngredientUnit) - SỬ DỤNG SỐ NGUYÊN:
+0=Kilogram, 1=Liter, 2=Piece, 3=Box, 4=Gram, 5=Milliliter,
+6=Can, 7=Cup, 8=Tablespoon, 9=Teaspoon, 10=Package, 11=Bottle, 12=Other
+
+DANH MỤC NGUYÊN LIỆU (IngredientCategory) - SỬ DỤNG SỐ NGUYÊN:
+0=Vegetables, 1=Fruits, 2=Meat, 3=Dairy, 4=Grains, 5=Spices, 6=Other
+
+Trả về kết quả dưới dạng JSON với format sau:
+{
+  ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"", // Chỉ trả về nếu hình ảnh không hợp lệ
+  ""name"": ""Tên món ăn"",
+  ""description"": ""Mô tả chi tiết món ăn"",
+  ""preparationTimeMinutes"": 15,
+  ""cookingTimeMinutes"": 30,
+  ""calories"": 350.0,
+  ""protein"": 25.0,
+  ""carbohydrates"": 45.0,
+  ""fat"": 12.0,
+  ""fiber"": 5.0,
+  ""instructions"": [
+    ""Bước 1: Chuẩn bị nguyên liệu"",
+    ""Bước 2: Xử lý nguyên liệu"",
+    ""Bước 3: Nấu nướng""
+  ],
+  ""tips"": [
+    ""Tip 1: Lưu ý về nhiệt độ"",
+    ""Tip 2: Cách bảo quản""
+  ],
+  ""difficultyLevel"": 2,
+  ""mealType"": 1,
+  ""ingredients"": [
+    {
+      ""ingredientId"": 0,
+      ""name"": ""Tên nguyên liệu"",
+      ""quantity"": 100.0,
+      ""unit"": 4,
+      ""category"": 0
+    }
+  ]
+}
+
+LƯU Ý:
+- Tất cả số liệu phải là số thập phân (decimal).
+- difficultyLevel: 1-5 (1=Dễ, 5=Khó).
+- instructions và tips phải là mảng string.
+- Chỉ trả về JSON object, KHÔNG kèm text giải thích.
+- Nếu không thể nhận diện món ăn, trả về JSON với trường ""error"" như trên.";
+        }
+
+        private string CreateIngredientAnalysisSystemPrompt()
+        {
+            return @"Bạn là một chuyên gia dinh dưỡng với khả năng phân tích hình ảnh nguyên liệu thực phẩm. Nhiệm vụ của bạn là nhận diện nguyên liệu chính trong hình ảnh một cách chính xác, chỉ tập trung vào các nguyên liệu phổ biến, có thật (ví dụ: cà chua, thịt bò, gạo, sữa). KHÔNG tạo ra hoặc nhận diện nguyên liệu không có thật hoặc không phổ biến.
+
+YÊU CẦU PHÂN TÍCH:
+1. Nhận diện nguyên liệu chính trong hình ảnh.
+2. Mô tả chi tiết nguyên liệu (tình trạng, màu sắc, đặc điểm).
+3. Ước tính số lượng/khối lượng chính xác dựa trên hình ảnh.
+4. Xác định đơn vị tính và danh mục phù hợp.
+5. Ước tính hạn sử dụng dựa trên tình trạng hiện tại.
+6. Kiểm tra tính hợp lệ của hình ảnh: nếu hình ảnh không rõ, không chứa nguyên liệu, hoặc có vấn vấn đề (quá tối, mờ, không nhận diện được), trả về JSON với trường ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"".
+
+ĐƠN VỊ NGUYÊN LIỆU (IngredientUnit) - SỬ DỤNG SỐ NGUYÊN:
+0=Kilogram, 1=Liter, 2=Piece, 3=Box, 4=Gram, 5=Milliliter,
+6=Can, 7=Cup, 8=Tablespoon, 9=Teaspoon, 10=Package, 11=Bottle, 12=Other
+
+DANH MỤC NGUYÊN LIỆU (IngredientCategory) - SỬ DỤNG SỐ NGUYÊN:
+0=Vegetables, 1=Fruits, 2=Meat, 3=Dairy, 4=Grains, 5=Spices, 6=Other
+
+Trả về kết quả dưới dạng JSON với format sau:
+{
+  ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"", // Chỉ trả về nếu hình ảnh không hợp lệ
+  ""name"": ""Tên nguyên liệu chính"",
+  ""description"": ""Mô tả chi tiết nguyên liệu"",
+  ""quantity"": 500.0,
+  ""unit"": 4,
+  ""category"": 0,
+  ""expiryDate"": ""2024-12-31T23:59:59Z""
+}
+
+LƯU Ý:
+- Tất cả số liệu phải là số thập phân (decimal).
+- expiryDate phải ở format ISO 8601 (UTC).
+- Chỉ trả về JSON object, KHÔNG kèm text giải thích.
+- Nếu không thể nhận diện nguyên liệu, trả về JSON với trường ""error"" như trên.";
+        }
+
+        private string CreateFoodAnalysisUserPrompt(string imageUrl)
+        {
+            return $@"Hãy phân tích hình ảnh món ăn sau và cung cấp thông tin chi tiết:
+
+IMAGE URL: {imageUrl}
+
+YÊU CẦU PHÂN TÍCH:
+1. Nhận diện tên món ăn (chỉ các món phổ biến, có thật như phở, bánh mì, salad gà, v.v.).
+2. Mô tả chi tiết món ăn (nguyên liệu chính, cách trình bày).
+3. Ước tính thời gian chuẩn bị và nấu nướng.
+4. Tính toán thông tin dinh dưỡng (calories, protein, carbs, fat, fiber) với độ chính xác cao.
+5. Tạo hướng dẫn nấu nướng từng bước chi tiết.
+6. Đưa ra tips hữu ích để nấu và bảo quản món ăn.
+7. Đánh giá độ khó của món ăn (1-5).
+8. Xác định loại bữa ăn phù hợp (0=Breakfast, 1=Lunch, 2=Dinner, 3=Snack).
+9. Phân tích nguyên liệu chính có trong món ăn.
+10. Nếu hình ảnh không rõ, không chứa món ăn, hoặc có vấn đề (quá tối, mờ), trả về JSON với trường ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"".
+
+Hãy quan sát kỹ hình ảnh và đưa ra phân tích chính xác nhất có thể.";
+        }
+
+        private string CreateIngredientAnalysisUserPrompt(string imageUrl)
+        {
+            return $@"Hãy phân tích hình ảnh nguyên liệu thực phẩm sau và cung cấp thông tin chi tiết:
+
+IMAGE URL: {imageUrl}
+
+YÊU CẦU PHÂN TÍCH:
+1. Nhận diện nguyên liệu chính (chỉ các nguyên liệu phổ biến, có thật như cà chua, thịt bò, gạo, v.v.).
+2. Mô tả chi tiết nguyên liệu (tình trạng, màu sắc, đặc điểm).
+3. Ước tính số lượng/khối lượng chính xác dựa trên hình ảnh.
+4. Xác định đơn vị tính và danh mục phù hợp.
+5. Ước tính hạn sử dụng dựa trên tình trạng hiện tại.
+6. Nếu hình ảnh không rõ, không chứa nguyên liệu, hoặc có vấn đề (quá tối, mờ), trả về JSON với trường ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"".
+
+Hãy quan sát kỹ hình ảnh và đưa ra phân tích chính xác nhất có thể.";
+        }
+
+        private FoodAnalysticResponseDto ParseFoodAnalysisResponse(string jsonResponse)
+        {
+            try
+            {
+                var jsonStart = jsonResponse.IndexOf('{');
+                var jsonEnd = jsonResponse.LastIndexOf('}');
+
+                if (jsonStart >= 0 && jsonEnd > jsonStart)
+                {
+                    var jsonContent = jsonResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
+
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        WriteIndented = false,
+                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                        PropertyNameCaseInsensitive = true
+                    };
+
+                    var result = JsonSerializer.Deserialize<FoodAnalysticResponseDto>(jsonContent, options);
+
+                    if (result != null)
+                    {
+                        result.Instructions ??= new List<string>();
+                        result.Tips ??= new List<string>();
+                        result.Ingredients ??= new List<FoodIngredientDto>();
+
+                        if (result.DifficultyLevel < 1 || result.DifficultyLevel > 5)
+                            result.DifficultyLevel = 1;
+
+                        result.NormalizeConsumedAt();
+
+                        return result;
+                    }
+                }
+
+                _logger.LogWarning("Failed to parse food analysis response: {Response}", jsonResponse);
+                throw new InvalidOperationException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác");
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse food analysis JSON: {Response}", jsonResponse);
+                throw new InvalidOperationException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác");
+            }
+        }
+
+        private IngredientAnalysticResponseDto ParseIngredientAnalysisResponse(string jsonResponse)
+        {
+            try
+            {
+                var jsonStart = jsonResponse.IndexOf('{');
+                var jsonEnd = jsonResponse.LastIndexOf('}');
+
+                if (jsonStart >= 0 && jsonEnd > jsonStart)
+                {
+                    var jsonContent = jsonResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
+
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        WriteIndented = false,
+                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                        PropertyNameCaseInsensitive = true
+                    };
+
+                    var result = JsonSerializer.Deserialize<IngredientAnalysticResponseDto>(jsonContent, options);
+
+                    if (result != null)
+                    {
+                        result.NormalizeExpiryDate();
+                        return result;
+                    }
+                }
+
+                _logger.LogWarning("Failed to parse ingredient analysis response: {Response}", jsonResponse);
+                throw new InvalidOperationException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác");
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse ingredient analysis JSON: {Response}", jsonResponse);
+                throw new InvalidOperationException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác");
+            }
+        }
 
         private string CreateNutritionTargetSystemPrompt()
         {
@@ -246,12 +593,11 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
 
             return prompt;
         }
-        
+
         private List<int> ParseNutritionTargets(string jsonResponse)
         {
             try
             {
-                // Tìm JSON array trong response
                 var jsonStart = jsonResponse.IndexOf('[');
                 var jsonEnd = jsonResponse.LastIndexOf(']');
 
@@ -268,12 +614,11 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
 
                     if (targets != null && targets.Count == 5)
                     {
-                        // Validate reasonable ranges
-                        if (targets[0] >= 1000 && targets[0] <= 5000 && // Calories: 1000-5000
-                            targets[1] >= 50 && targets[1] <= 400 && // Protein: 50-400g
-                            targets[2] >= 100 && targets[2] <= 600 && // Carbs: 100-600g
-                            targets[3] >= 30 && targets[3] <= 200 && // Fat: 30-200g
-                            targets[4] >= 15 && targets[4] <= 80) // Fiber: 15-80g
+                        if (targets[0] >= 1000 && targets[0] <= 5000 &&
+                            targets[1] >= 50 && targets[1] <= 400 &&
+                            targets[2] >= 100 && targets[2] <= 600 &&
+                            targets[3] >= 30 && targets[3] <= 200 &&
+                            targets[4] >= 15 && targets[4] <= 80)
                         {
                             return targets;
                         }
@@ -317,11 +662,9 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
             return response.Value.Content;
         }
 
-
         private string CreateFoodSuggestionSystemPrompt()
         {
-            return @"Bạn là một chuyên gia dinh dưỡng và đầu bếp chuyên nghiệp. 
-Nhiệm vụ của bạn là đưa ra gợi ý món ăn phù hợp dựa trên thông tin người dùng và danh sách nguyên liệu được cung cấp.
+            return @"Bạn là một chuyên gia dinh dưỡng và đầu bếp chuyên nghiệp. Nhiệm vụ của bạn là gợi ý các món ăn PHỔ BIẾN, được biết đến rộng rãi (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta) dựa trên thông tin người dùng và danh sách nguyên liệu được cung cấp. KHÔNG gợi ý món ăn không có thật hoặc không phổ biến.
 
 QUAN TRỌNG - QUY TẮC VỀ NGUYÊN LIỆU:
 1. NGUYÊN LIỆU CÓ SẴN: Nếu sử dụng nguyên liệu từ danh sách người dùng cung cấp:
@@ -361,20 +704,19 @@ Trả về kết quả dưới dạng JSON array với format sau (CHÍNH XÁC t
 ]
 
 LƯU Ý QUAN TRỌNG:
-- kcal phải là số thập phân (decimal)
-- quantity phải là số thập phân (decimal)
-- Tất cả field names phải chính xác như trên (case-sensitive)
-
-CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
+- Chỉ gợi ý món ăn phổ biến, được biết đến rộng rãi.
+- kcal phải là số thập phân (decimal).
+- quantity phải là số thập phân (decimal).
+- Tất cả field names phải chính xác như trên (case-sensitive).
+- Chỉ trả về JSON array, KHÔNG kèm text giải thích.";
         }
 
         private string CreateFoodSuggestionUserPrompt(FoodSuggestionRequestDto requestDto,
             List<FoodIngredientDto> ingredients)
         {
             var userInfo = requestDto.UserInformation;
-            var prompt = $"Gợi ý {requestDto.MaxSuggestions} món ăn phù hợp cho người dùng:\n\n";
+            var prompt = $"Gợi ý {requestDto.MaxSuggestions} món ăn PHỔ BIẾN, được biết đến rộng rãi (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta) phù hợp cho người dùng:\n\n";
 
-            // Thông tin người dùng
             prompt += "=== THÔNG TIN NGƯỜI DÙNG ===\n";
 
             if (userInfo.Gender.HasValue)
@@ -409,10 +751,10 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
 
             prompt += "\n⚠️ LƯU Ý QUAN TRỌNG:\n";
             prompt +=
-                "- Khi sử dụng nguyên liệu từ danh sách trên: PHẢI giữ CHÍNH XÁC ingredientId, ingredientName, unit\n";
+                "- Chỉ gợi ý món ăn phổ biến, được biết đến rộng rãi.\n";
+            prompt += "- Khi sử dụng nguyên liệu từ danh sách trên: PHẢI giữ CHÍNH XÁC ingredientId, ingredientName, unit\n";
             prompt += "- Quantity không được vượt quá số lượng tối đa đã cho\n";
             prompt += "- Nguyên liệu bổ sung (không có trong danh sách): ingredientId = 0\n";
-
 
             prompt += "\n=== YÊU CẦU ===\n";
             prompt += "Đưa ra các món ăn phù hợp với mục tiêu sức khỏe và dinh dưỡng của người dùng.\n";
@@ -424,8 +766,7 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
 
         private string CreateRecipeSystemPrompt()
         {
-            return @"Bạn là một đầu bếp chuyên nghiệp với nhiều năm kinh nghiệm. 
-Nhiệm vụ của bạn là cung cấp công thức nấu ăn chi tiết và chính xác.
+            return @"Bạn là một đầu bếp chuyên nghiệp với nhiều năm kinh nghiệm. Nhiệm vụ của bạn là cung cấp công thức nấu ăn chi tiết và chính xác cho các món ăn PHỔ BIẾN, được biết đến rộng rãi (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta). KHÔNG tạo ra hoặc cung cấp công thức cho món ăn không có thật hoặc không phổ biến.
 
 QUAN TRỌNG - QUY TẮC VỀ NGUYÊN LIỆU:
 1. NGUYÊN LIỆU CÓ SẴN: Nếu sử dụng nguyên liệu từ danh sách người dùng cung cấp:
@@ -482,19 +823,18 @@ Trả về kết quả dưới dạng JSON với format sau (CHÍNH XÁC theo t�
 }
 
 LƯU Ý QUAN TRỌNG:
-- Tất cả số liệu dinh dưỡng (calories, protein, carbohydrates, fat, fiber) phải là số thập phân (decimal)
-- quantity cũng phải là số thập phân
-- mealDate phải có format ISO 8601 với UTC timezone
-- id luôn đặt = 0 (sẽ được generate ở server)
-
-CHỈ TRẢ VỀ JSON OBJECT, KHÔNG KÈM TEXT GIẢI THÍCH.";
+- Chỉ cung cấp công thức cho món ăn phổ biến, được biết đến rộng rãi.
+- Tất cả số liệu dinh dưỡng (calories, protein, carbohydrates, fat, fiber) phải là số thập phân (decimal).
+- quantity cũng phải là số thập phân.
+- mealDate phải có format ISO 8601 với UTC timezone.
+- id luôn đặt = 0 (sẽ được generate ở server).
+- Chỉ trả về JSON object, KHÔNG kèm text giải thích.";
         }
 
         private string CreateRecipeUserPrompt(FoodRecipeRequestDto recipeRequest)
         {
-            var prompt = $"Tạo công thức nấu ăn chi tiết cho món: \"{recipeRequest.FoodName}\"\n\n";
+            var prompt = $"Tạo công thức nấu ăn chi tiết cho món PHỔ BIẾN: \"{recipeRequest.FoodName}\" (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta). KHÔNG tạo công thức cho món không có thật hoặc không phổ biến.\n\n";
 
-            // Danh sách nguyên liệu có sẵn
             if (recipeRequest.Ingredients?.Any() == true)
             {
                 prompt += "=== NGUYÊN LIỆU CÓ SẴN (ƯU TIÊN SỬ DỤNG) ===\n";
@@ -521,7 +861,6 @@ CHỈ TRẢ VỀ JSON OBJECT, KHÔNG KÈM TEXT GIẢI THÍCH.";
             return prompt;
         }
 
-
         private List<FoodSuggestionResponseDto> ParseFoodSuggestions(string jsonResponse,
             FoodSuggestionRequestDto requestDto, List<FoodIngredientDto> ingredients)
         {
@@ -534,35 +873,31 @@ CHỈ TRẢ VỀ JSON OBJECT, KHÔNG KÈM TEXT GIẢI THÍCH.";
                 {
                     var jsonContent = jsonResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
 
-                    // Sử dụng JsonSerializerOptions phù hợp với DTO
                     var options = new JsonSerializerOptions
                     {
                         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                         WriteIndented = false,
                         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                        PropertyNameCaseInsensitive = true // Thêm để xử lý case mismatch
+                        PropertyNameCaseInsensitive = true
                     };
 
                     var suggestions =
                         JsonSerializer.Deserialize<List<FoodSuggestionResponseDto>>(jsonContent, options) ?? new();
 
-                    // Kiểm tra và fix số lượng nguyên liệu
                     foreach (var suggestion in suggestions)
                     {
                         if (suggestion?.Ingredients == null) continue;
 
-                        // Đảm bảo Ingredients không null
                         suggestion.Ingredients ??= new List<FoodIngredientDto>();
 
                         foreach (var ingredient in suggestion.Ingredients)
                         {
-                            if (ingredient.IngredientId <= 0) continue; // Skip nguyên liệu bổ sung
+                            if (ingredient.IngredientId <= 0) continue;
 
                             var requestIngredient =
                                 ingredients.FirstOrDefault(i => i.IngredientId == ingredient.IngredientId);
                             if (requestIngredient == null) continue;
 
-                            // Kiểm tra quantity không vượt quá giới hạn
                             if (ingredient.Quantity > requestIngredient.Quantity)
                             {
                                 _logger.LogWarning(
@@ -590,7 +925,6 @@ CHỈ TRẢ VỀ JSON OBJECT, KHÔNG KÈM TEXT GIẢI THÍCH.";
         {
             try
             {
-                // Trích xuất JSON từ response
                 var jsonStart = jsonResponse.IndexOf('{');
                 var jsonEnd = jsonResponse.LastIndexOf('}');
 
@@ -598,25 +932,22 @@ CHỈ TRẢ VỀ JSON OBJECT, KHÔNG KÈM TEXT GIẢI THÍCH.";
                 {
                     var jsonContent = jsonResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
 
-                    // Sử dụng JsonSerializerOptions phù hợp với DTO
                     var options = new JsonSerializerOptions
                     {
                         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                         WriteIndented = false,
                         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                        PropertyNameCaseInsensitive = true // Thêm để xử lý case mismatch
+                        PropertyNameCaseInsensitive = true
                     };
 
                     var recipe = JsonSerializer.Deserialize<FoodDataResponseDto>(jsonContent, options);
 
                     if (recipe != null)
                     {
-                        // Đảm bảo các collection không null
                         recipe.Instructions ??= new List<string>();
                         recipe.Tips ??= new List<string>();
                         recipe.Ingredients ??= new List<FoodIngredientDto>();
 
-                        // Set default MealDate nếu cần
                         if (recipe.MealDate == default(DateTime))
                         {
                             recipe.MealDate = DateTime.UtcNow;
@@ -634,7 +965,7 @@ CHỈ TRẢ VỀ JSON OBJECT, KHÔNG KÈM TEXT GIẢI THÍCH.";
                 return new FoodDataResponseDto();
             }
         }
-        
+
         public void Dispose()
         {
             if (!_disposed)

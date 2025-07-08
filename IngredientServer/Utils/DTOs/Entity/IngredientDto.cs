@@ -56,7 +56,7 @@ public class DeleteIngredientRequestDto
 
 public class IngredientAnalysticRequestDto
 {
-    public IFormFile Image { get; set; } = null!;
+    public IFormFile? Image { get; set; } = null!;
 }
 
 public class IngredientAnalysticResponseDto : IngredientDataResponseDto

@@ -12,6 +12,6 @@ public interface IAIService
     
     Task<List<int>> GetTargetDailyNutritionAsync(UserInformationDto userInformation, CancellationToken cancellationToken = default);
     Task<FoodAnalysticResponseDto> GetFoodAnalysticAsync(FoodAnalysticRequestDto request, CancellationToken cancellationToken = default);
-    Task<IngredientAnalysticResponseDto> GetIngredientAnalysticAsync(IngredientAnalysticRequestDto request, CancellationToken cancellationToken = default);
+    Task<IngredientAnalysticResponseDto> GetIngredientAnalysticAsync(IngredientAnalysticRequestDto? request, CancellationToken cancellationToken = default);
     
 }
