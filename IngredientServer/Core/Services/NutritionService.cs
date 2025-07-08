@@ -20,6 +20,8 @@ public class NutritionService(
     {
         //Log current date
         logger.LogInformation("Getting daily nutrition summary for date: {Date}", userNutritionRequestDto.CurrentDate);
+        var targetDate = userNutritionRequestDto.CurrentDate.Date.AddDays(1);
+        userNutritionRequestDto.CurrentDate = targetDate;
         var mealBreakdown = new List<NutritionDto>();
         var result = new DailyNutritionSummaryDto()
         {
