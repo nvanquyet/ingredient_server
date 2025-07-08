@@ -20,8 +20,11 @@ public class NutritionService(
     {
         //Log current date
         logger.LogInformation("Getting daily nutrition summary for date: {Date}", userNutritionRequestDto.CurrentDate);
-        var targetDate = userNutritionRequestDto.CurrentDate.Date.AddDays(1);
-        userNutritionRequestDto.CurrentDate = targetDate;
+        if (usingAIAssistant)
+        {
+            var targetDate = userNutritionRequestDto.CurrentDate.Date.AddDays(1);
+            userNutritionRequestDto.CurrentDate = targetDate;
+        }
         var mealBreakdown = new List<NutritionDto>();
         var result = new DailyNutritionSummaryDto()
         {
@@ -178,7 +181,7 @@ public class NutritionService(
              date = date.AddDays(1))
         {
             userNutritionRequestDto.CurrentDate = date;
-            var dailySummary = await GetDailyNutritionSummaryAsync(userNutritionRequestDto);
+            var dailySummary = await GetDailyNutritionSummaryAsync(userNutritionRequestDto, true);
             dailyBreakdown.Add(dailySummary);
 
             // Cộng dồn để tính tổng
