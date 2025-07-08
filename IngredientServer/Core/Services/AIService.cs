@@ -234,17 +234,6 @@ namespace IngredientServer.Core.Services
                 _semaphore.Release();
             }
         }
-        private class TextChatMessageContentItem(string content) : ChatMessageContentItem
-        {
-            public string Type { get; } = "text";
-            public string Content { get; } = content;
-        }
-
-        private class ImageChatMessageContentItem(string content) : ChatMessageContentItem
-        {
-            public string Type { get; } = "image";
-            public string Content { get; } = content;
-        }
 
         private async Task<string> CallOpenAIWithImageAsync(string systemPrompt, string userPrompt, string imageUrl,
             CancellationToken cancellationToken)
@@ -255,9 +244,8 @@ namespace IngredientServer.Core.Services
                 Messages =
                 {
                     new ChatRequestSystemMessage(systemPrompt),
-                    new ChatRequestSystemMessage(systemPrompt),
-                    new ChatRequestUserMessage(new TextChatMessageContentItem(userPrompt)),
-                    new ChatRequestUserMessage(new ImageChatMessageContentItem(imageUrl))
+                    new ChatRequestUserMessage(new ChatMessageTextContentItem(userPrompt)),
+                    new ChatRequestUserMessage(new ChatMessageImageContentItem(new Uri(imageUrl), ChatMessageImageDetailLevel.High))
                 },
                 MaxTokens = 2000,
                 Temperature = 0.3f,
@@ -274,7 +262,7 @@ namespace IngredientServer.Core.Services
 
             return response.Value.Content;
         }
-        
+
         private string CreateFoodAnalysisSystemPrompt()
         {
             return @"Bạn là một chuyên gia dinh dưỡng và đầu bếp chuyên nghiệp với khả năng phân tích hình ảnh món ăn. Nhiệm vụ của bạn là phân tích hình ảnh và nhận diện món ăn một cách chính xác, chỉ tập trung vào các món ăn phổ biến, được biết đến rộng rãi (ví dụ: phở, bánh mì, cơm tấm, salad gà, pasta). KHÔNG tạo ra hoặc gợi ý món ăn không có thật hoặc không phổ biến.
