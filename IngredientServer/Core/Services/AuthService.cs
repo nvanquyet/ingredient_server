@@ -78,19 +78,11 @@ public class AuthService(
     {
         try
         {
-            // Parse và validate JWT token
-            var principal = ValidateToken(token);
-            // Lấy userId từ token đã được validate
-            if (principal == null)
-            {
-                return new ResponseDto<AuthResponseDto>
-                {
-                    Success = false,
-                    Message = "Invalid token"
-                };
-            }
+            var handler = new JwtSecurityTokenHandler();
+            var jwtToken = handler.ReadJwtToken(token); // ❗ không verify chữ ký
 
-            var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+
             if (!int.TryParse(userIdClaim, out int userId) || userId <= 0)
             {
                 return new ResponseDto<AuthResponseDto>
@@ -100,7 +92,6 @@ public class AuthService(
                 };
             }
 
-            // Kiểm tra user có tồn tại trong database không
             var user = await userRepository.GetByIdAsync(userId);
             if (user == null)
             {
@@ -111,13 +102,12 @@ public class AuthService(
                 };
             }
 
-            // Fix DateTime format
             user.NormalizeDateTimes();
 
             var response = new AuthResponseDto
             {
                 User = UserProfileDto.FromUser(user),
-                Token = token // Trả lại token nếu cần
+                Token = token
             };
 
             return new ResponseDto<AuthResponseDto>
@@ -127,22 +117,13 @@ public class AuthService(
                 Data = response
             };
         }
-        catch (SecurityTokenException ex)
-        {
-            logger.LogWarning(ex, "Invalid token format");
-            return new ResponseDto<AuthResponseDto>
-            {
-                Success = false,
-                Message = "Invalid token format"
-            };
-        }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error during token validation");
+            logger.LogError(ex, "Error decoding token");
             return new ResponseDto<AuthResponseDto>
             {
                 Success = false,
-                Message = "An error occurred during token validation"
+                Message = "An error occurred while decoding token"
             };
         }
     }
