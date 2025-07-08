@@ -238,6 +238,8 @@ public class NutritionService(
         };
         foreach (var existingDay in existingDays)
         {
+            //Log days
+            logger.LogInformation("Calculating nutrition for existing day: {Date}", existingDay);
             userRequest.CurrentDate = existingDay;
             var dailySummary = await GetDailyNutritionSummaryAsync(userRequest);
 
@@ -248,7 +250,13 @@ public class NutritionService(
             totalFat += dailySummary.TotalFat;
             totalFiber += dailySummary.TotalFiber;
         }
-        
+        //Log day count
+        logger.LogInformation("Total existing days: {Count}", existingDays.Count);
+        //Log total nutrition values
+        logger.LogInformation("Total nutrition values - Calories: {Calories}, Protein: {Protein}, Carbs: {Carbs}, Fat: {Fat}, Fiber: {Fiber}",
+            totalCalories, totalProtein, totalCarbs, totalFat, totalFiber);
+        // Tính trung bình
+        logger.LogInformation("Calculating average nutrition values");
         var result = new OverviewNutritionSummaryDto
         {
             AverageCalories = existingDays.Count > 0 ? totalCalories / existingDays.Count : 0,
