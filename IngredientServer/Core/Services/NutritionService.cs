@@ -28,9 +28,12 @@ public class NutritionService(
             TotalFat = 0,
             TotalFiber = 0
         };
-
+        
         var currentUserId = userContextService.GetAuthenticatedUserId();
-
+        //Increase one day to get the next day summary
+        var targetDate = userNutritionRequestDto.CurrentDate.Date.AddDays(1);
+        userNutritionRequestDto.CurrentDate = targetDate;
+        
         logger.LogInformation("Getting daily nutrition summary for date {Date}, userId: {UserId}, usingAI: {UseAI}",
             userNutritionRequestDto.CurrentDate.ToString("yyyy-MM-dd"), currentUserId, usingAIAssistant);
 
