@@ -11,13 +11,15 @@ public class NutritionService(
     INutritionTargetsService nutritionTargetsService,
     IMealRepository mealRepository,
     IMealFoodRepository mealFoodRepository,
-    IUserContextService userContextService,
-    ILogger<NutritionService> logger)
+    ILogger<NutritionService> logger,
+    IUserContextService userContextService)
     : INutritionService
 {
     public async Task<DailyNutritionSummaryDto> GetDailyNutritionSummaryAsync(
         UserNutritionRequestDto userNutritionRequestDto, bool usingAIAssistant = false)
     {
+        //Log current date
+        logger.LogInformation("Getting daily nutrition summary for date: {Date}", userNutritionRequestDto.CurrentDate);
         var mealBreakdown = new List<NutritionDto>();
         var result = new DailyNutritionSummaryDto()
         {
@@ -26,52 +28,36 @@ public class NutritionService(
             TotalProtein = 0,
             TotalCarbs = 0,
             TotalFat = 0,
-            TotalFiber = 0
+            TotalFiber = 0 // Đảm bảo khởi tạo TotalFiber
         };
-        
-        var currentUserId = userContextService.GetAuthenticatedUserId();
-        //Increase one day to get the next day summary
-        var targetDate = userNutritionRequestDto.CurrentDate.Date.AddDays(1);
-        userNutritionRequestDto.CurrentDate = targetDate;
-        
-        logger.LogInformation("Getting daily nutrition summary for date {Date}, userId: {UserId}, usingAI: {UseAI}",
-            userNutritionRequestDto.CurrentDate.ToString("yyyy-MM-dd"), currentUserId, usingAIAssistant);
 
+        // Định nghĩa các loại bữa ăn cần thiết (thêm Other)
         var requiredMealTypes = new List<MealType>
             { MealType.Breakfast, MealType.Lunch, MealType.Dinner, MealType.Snack, MealType.Other };
 
+        // Lấy meals theo ngày
         var existingMeals =
             await mealRepository.GetByDateAsync(userNutritionRequestDto.CurrentDate.ToString("yyyy-MM-dd"));
         var mealList = existingMeals?.ToList() ?? new List<Meal>();
 
-        logger.LogInformation("Found {MealCount} meals in database for date {Date}",
-            mealList.Count, userNutritionRequestDto.CurrentDate.ToString("yyyy-MM-dd"));
-
-        var filteredMeals = mealList
-            .Where(m => m.MealDate.Date == userNutritionRequestDto.CurrentDate.Date)
-            .ToList();
-
-        if (!filteredMeals.Any())
-        {
-            logger.LogWarning("No meals found for the requested date {Date}", userNutritionRequestDto.CurrentDate);
-        }
-
-        var groupedMeals = filteredMeals
+        // Group meals theo MealType và chỉ lấy meal mới nhất cho mỗi loại
+        var groupedMeals = mealList
             .GroupBy(m => m.MealType)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(m => m.MealDate).First());
 
-        logger.LogInformation("Grouped meals into {GroupCount} meal types", groupedMeals.Count);
-
+        // Tạo danh sách meals cuối cùng - đảm bảo có đủ 5 loại
         var finalMeals = new List<Meal>();
 
         foreach (var mealType in requiredMealTypes)
         {
             if (groupedMeals.ContainsKey(mealType))
             {
+                // Sử dụng meal có sẵn
                 finalMeals.Add(groupedMeals[mealType]);
             }
             else
             {
+                // Tạo meal mới nếu thiếu
                 finalMeals.Add(new Meal
                 {
                     MealType = mealType,
@@ -81,22 +67,23 @@ public class NutritionService(
                     TotalCarbs = 0,
                     TotalFat = 0,
                     TotalFiber = 0,
-                    UserId = currentUserId
+                    UserId = userContextService.GetAuthenticatedUserId()
                 });
             }
         }
 
+        // Sắp xếp lại theo thứ tự mong muốn (theo thứ tự enum)
         var orderedMeals = finalMeals.OrderBy(m => (int)m.MealType).ToList();
 
+        // Xử lý từng meal
         foreach (var meal in orderedMeals)
         {
+            // Lấy foods trong meal (chỉ với meal có Id > 0)
             var foodsInMeal = meal.Id > 0
                 ? await mealFoodRepository.GetByMealIdAsync(meal.Id)
                 : new List<MealFood>();
 
-            logger.LogInformation("Processing meal {MealType} (Id: {MealId}) with {FoodCount} foods",
-                meal.MealType, meal.Id, foodsInMeal.Count());
-
+            // Reset nutrition values
             meal.TotalCalories = 0;
             meal.TotalProtein = 0;
             meal.TotalCarbs = 0;
@@ -105,47 +92,42 @@ public class NutritionService(
 
             var foodNutrition = new List<FoodNutritionDto>();
 
+            // Kiểm tra có foods trong meal không
             if (foodsInMeal != null && foodsInMeal.Any())
             {
-                foreach (var mealFood in foodsInMeal)
+                foreach (var f in foodsInMeal)
                 {
-                    if (mealFood.Food == null) continue;
+                    // Kiểm tra food có tồn tại không
+                    if (f.Food == null) continue;
 
-                    var calories = mealFood.Food.Calories;
-                    var protein = mealFood.Food.Protein;
-                    var carbs = mealFood.Food.Carbohydrates;
-                    var fat = mealFood.Food.Fat;
-                    var fiber = mealFood.Food.Fiber;
-
-                    meal.TotalCalories += (double)calories;
-                    meal.TotalProtein += (double)protein;
-                    meal.TotalCarbs += (double)carbs;
-                    meal.TotalFat += (double)fat;
-                    meal.TotalFiber += (double)fiber;
+                    // Tính nutrition (với null check)
+                    meal.TotalCalories += (double)(f.Food.Calories);
+                    meal.TotalProtein += (double)(f.Food.Protein);
+                    meal.TotalCarbs += (double)(f.Food.Carbohydrates);
+                    meal.TotalFat += (double)(f.Food.Fat);
+                    meal.TotalFiber += (double)(f.Food.Fiber);
 
                     foodNutrition.Add(new FoodNutritionDto()
                     {
-                        FoodId = mealFood.Food.Id,
-                        FoodName = mealFood.Food.Name,
-                        Calories = calories,
-                        Protein = protein,
-                        Carbs = carbs,
-                        Fat = fat,
-                        Fiber = fiber
+                        FoodId = f.Food.Id,
+                        FoodName = f.Food.Name,
+                        Calories = f.Food.Calories,
+                        Protein = f.Food.Protein,
+                        Carbs = f.Food.Carbohydrates,
+                        Fat = f.Food.Fat,
+                        Fiber = f.Food.Fiber
                     });
                 }
             }
 
-            logger.LogInformation(
-                "Meal {MealType} nutrition: Calories={Calories}, Protein={Protein}, Carbs={Carbs}, Fat={Fat}, Fiber={Fiber}",
-                meal.MealType, meal.TotalCalories, meal.TotalProtein, meal.TotalCarbs, meal.TotalFat, meal.TotalFiber);
-
+            // Cộng dồn vào tổng (BỔ SUNG TotalFiber)
             result.TotalCalories += meal.TotalCalories;
             result.TotalProtein += meal.TotalProtein;
             result.TotalCarbs += meal.TotalCarbs;
             result.TotalFat += meal.TotalFat;
-            result.TotalFiber += meal.TotalFiber;
+            result.TotalFiber += meal.TotalFiber; // THÊM DÒNG NÀY
 
+            // Tạo nutrition DTO
             var nutritionDto = new NutritionDto()
             {
                 MealId = meal.Id,
@@ -163,41 +145,21 @@ public class NutritionService(
             mealBreakdown.Add(nutritionDto);
         }
 
+        // Using AI to get Target Nutrition value 
         if (usingAIAssistant)
         {
-            try
-            {
-                var targetValue = await nutritionTargetsService.GetDailyUserNutritionTargetsAsync(
-                    userNutritionRequestDto.UserInformationDto);
+            var targetValue = await nutritionTargetsService.GetDailyUserNutritionTargetsAsync(
+                userNutritionRequestDto.UserInformationDto);
 
-                if (targetValue != null)
-                {
-                    result.TargetCalories = (double)(targetValue.TargetDailyCalories);
-                    result.TargetProtein = (double)(targetValue.TargetDailyProtein);
-                    result.TargetCarbs = (double)(targetValue.TargetDailyCarbohydrates);
-                    result.TargetFat = (double)(targetValue.TargetDailyFat);
-                    result.TargetFiber = (double)(targetValue.TargetDailyFiber);
-
-                    logger.LogInformation(
-                        "AI Nutrition Targets: Cal={Calories}, Protein={Protein}, Carbs={Carbs}, Fat={Fat}, Fiber={Fiber}",
-                        result.TargetCalories, result.TargetProtein, result.TargetCarbs, result.TargetFat,
-                        result.TargetFiber);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error getting nutrition targets for userId {UserId}", currentUserId);
-            }
+            result.TargetCalories = (double)(targetValue.TargetDailyCalories);
+            result.TargetProtein = (double)(targetValue.TargetDailyProtein);
+            result.TargetCarbs = (double)(targetValue.TargetDailyCarbohydrates);
+            result.TargetFat = (double)(targetValue.TargetDailyFat);
+            result.TargetFiber = (double)(targetValue.TargetDailyFiber);
         }
 
         result.MealBreakdown = mealBreakdown;
         result.NormalizeDate();
-
-        logger.LogInformation(
-            "Finished summary for date {Date}: TotalCalories={Calories}, Protein={Protein}, Carbs={Carbs}, Fat={Fat}, Fiber={Fiber}",
-            result.Date, result.TotalCalories, result.TotalProtein, result.TotalCarbs, result.TotalFat,
-            result.TotalFiber);
-
         return result;
     }
 
