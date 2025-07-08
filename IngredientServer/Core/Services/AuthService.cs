@@ -274,9 +274,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
                 Message = "Invalid user profile data"
             });
         }
-
         var user = await userRepository.GetByIdAsync(userId);
-
         if (user == null)
         {
             return await Task.FromResult(new ResponseDto<UserProfileDto>
@@ -286,7 +284,22 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
             });
         }
 
+        if (!string.IsNullOrEmpty(updateUserProfileDto.Username) &&
+            updateUserProfileDto.Username != user.Username)
+        {
+            var existingUser = await userRepository.GetByUsernameAsync(updateUserProfileDto.Username);
+            if (existingUser != null)
+            {
+                return new ResponseDto<UserProfileDto>
+                {
+                    Success = false,
+                    Message = "Username already exists"
+                };
+            }
+        }
+        var originalUsername = user.Username;
         user.UpdateUserProfile(updateUserProfileDto);
+        user.Username = originalUsername;
         // Normalize DateTime properties
         user.NormalizeDateTimes();
         await userRepository.UpdateAsync(user);
@@ -303,7 +316,7 @@ public class AuthService(IUserRepository userRepository, IJwtService jwtService,
             TargetWeight = user.TargetWeight,
         };
         
-        var userNutritionTargets = await nutritionTargetsService.UpdateNutritionTargetAsync(userInfor);
+        await nutritionTargetsService.UpdateNutritionTargetAsync(userInfor);
         
         return await Task.FromResult(new ResponseDto<UserProfileDto>
         {
