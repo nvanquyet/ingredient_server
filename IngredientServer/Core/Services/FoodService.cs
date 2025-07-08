@@ -98,10 +98,12 @@ public class FoodService(
         // Handle Meal logic
         logger.LogInformation("Checking for existing meal - Date: {MealDate}, Type: {MealType}",
             dataDto.MealDate, dataDto.MealType);
+        
+        
 
         var existingMeals = await mealRepository.GetByDateAsync(dataDto.MealDate);
         var meal = existingMeals.FirstOrDefault(m => m.MealType == dataDto.MealType);
-
+        
         if (meal == null)
         {
             logger.LogInformation("Creating new meal for {MealType} on {MealDate}", dataDto.MealType, dataDto.MealDate);
@@ -115,6 +117,8 @@ public class FoodService(
         }
         else
         {
+            logger.LogInformation("Before adding MealFood - Meal {MealId} has {Count} foods", 
+                meal.Id, meal.MealFoods?.Count ?? 0);
             logger.LogInformation("Using existing meal with ID: {MealId}", meal.Id);
         }
 
