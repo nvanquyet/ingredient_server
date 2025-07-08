@@ -319,7 +319,7 @@ Edit
   ""ingredients"": [
     {
       ""ingredientId"": 0, // Mặc định là 0, không có giá trị khác
-      ""name"": ""Tên nguyên liệu"", // Giá trị này không được null
+      ""ingredientName"": ""Tên nguyên liệu"", // Giá trị này không được null
       ""quantity"": 100.0,
       ""unit"": 4,
       ""category"": 2
