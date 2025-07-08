@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using IngredientServer.Core.Entities;
 using Microsoft.AspNetCore.Http;
@@ -78,6 +79,10 @@ namespace IngredientServer.Utils.DTOs.Entity
             ConsumedAt = ConsumedAt.Value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(ConsumedAt.Value, DateTimeKind.Local).ToUniversalTime() : ConsumedAt.Value.ToUniversalTime();
         }
 
+        public override string ToString()
+        {
+            return JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+        }
     }
 
     public class UpdateFoodRequestDto : CreateFoodRequestDto
@@ -85,6 +90,17 @@ namespace IngredientServer.Utils.DTOs.Entity
         [Required]
         [JsonPropertyName("id")]
         public int Id { get; set; }
+
+
+        public override string ToString()
+        {
+            //return json
+            // This method is used to convert the object to JSON string for logging or debugging purposes
+            // You can use any JSON serialization library here, e.g., System.Text.Json, Newtonsoft.Json, etc.
+            // Assuming you have a method to convert this object to JSON string
+            // For example, using System.Text.Json:
+            return JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+        }
     }
 
     public class DeleteFoodRequestDto
@@ -92,6 +108,11 @@ namespace IngredientServer.Utils.DTOs.Entity
         [Required]
         [JsonPropertyName("id")]
         public int Id { get; set; }
+        public override string ToString()
+        {
+            // This method is used to convert the object to JSON string for logging or debugging purposes
+            return JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+        }
     }
 
     public class FoodDataResponseDto

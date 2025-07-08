@@ -248,8 +248,7 @@ public class FoodService(
     {
         var operationId = Guid.NewGuid().ToString("N")[..8];
         logger.LogInformation("=== START UPDATE FOOD OPERATION ===");
-        logger.LogInformation("Operation ID: {OperationId}, Food ID: {FoodId}, User ID: {UserId}", operationId, dto.Id,
-            userContextService.GetAuthenticatedUserId());
+        logger.LogInformation($"dto = {dto.ToString()}");
 
         dto.NormalizeConsumedAt();
 
