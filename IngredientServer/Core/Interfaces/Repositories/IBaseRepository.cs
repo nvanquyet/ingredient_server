@@ -11,7 +11,7 @@ public interface IBaseRepository<T> where T : BaseEntity
     Task<T> AddAsync(T entity);
     Task<T> UpdateAsync(T entity);
     Task<bool> DeleteAsync(int id); 
-    Task<bool> DeleteAsync(Expression<Func<T, bool>> predicate); 
-    Task<bool> DeleteSafeAsync(Expression<Func<T, bool>> predicate)
+    Task<bool> DeleteAsync(Expression<Func<T, bool>> predicate);
+    Task<bool> DeleteSafeAsync(Expression<Func<T, bool>> predicate);
     Task<bool> ExistsAsync(int id);
 }
