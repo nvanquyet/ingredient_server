@@ -8,7 +8,6 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace IngredientServer.Core.Services;
 
-
 public class JwtService : IJwtService
 {
     private readonly IConfiguration configuration;
@@ -17,17 +16,15 @@ public class JwtService : IJwtService
     public JwtService(IConfiguration configuration)
     {
         this.configuration = configuration;
-        
+
         // Setup token validation parameters
         this.tokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(configuration["JWT:Secret"]!)),
-            ValidateIssuer = true,
-            ValidIssuer = configuration["JWT:Issuer"],
-            ValidateAudience = true,
-            ValidAudience = configuration["JWT:Audience"],
+                Encoding.UTF8.GetBytes(configuration["Jwt:Secret"]!)),
+            ValidateIssuer = false,  // Nếu bạn không kiểm tra Issuer có thể để false
+            ValidateAudience = false, // Nếu bạn không kiểm tra Audience có thể để false
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };
@@ -38,46 +35,53 @@ public class JwtService : IJwtService
         try
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            
+
             var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out SecurityToken validatedToken);
-            
-            // Kiểm tra thêm xem có phải JWT token không
-            if (validatedToken is not JwtSecurityToken jwtToken || 
+
+            if (validatedToken is not JwtSecurityToken jwtToken ||
                 !jwtToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
             {
+                Console.WriteLine("Token algorithm is invalid");
                 return null;
             }
 
             return principal;
         }
-        catch (Exception)
+        catch (SecurityTokenExpiredException ex)
         {
+            Console.WriteLine($"Token expired: {ex.Message}");
+            return null;
+        }
+        catch (SecurityTokenInvalidSignatureException ex)
+        {
+            Console.WriteLine($"Invalid signature: {ex.Message}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Token validation failed: {ex.Message}");
             return null;
         }
     }
 
     public string GenerateToken(User user)
     {
-        var claims = new[]
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var key = Encoding.ASCII.GetBytes(configuration["Jwt:Secret"] ?? "");
+
+        var tokenDescriptor = new SecurityTokenDescriptor
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
+            Subject = new ClaimsIdentity(new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Email, user.Email)
+            }),
+            Expires = DateTime.UtcNow.AddHours(24),
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["JWT:Secret"]!));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        var token = new JwtSecurityToken(
-            issuer: configuration["JWT:Issuer"],
-            audience: configuration["JWT:Audience"],
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(Convert.ToDouble(configuration["JWT:ExpiryHours"])),
-            signingCredentials: credentials
-        );
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        var token = tokenHandler.CreateToken(tokenDescriptor);
+        return tokenHandler.WriteToken(token);
     }
 }

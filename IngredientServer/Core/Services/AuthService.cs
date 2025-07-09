@@ -17,7 +17,6 @@ public class AuthService(
     IUserRepository userRepository,
     IJwtService jwtService,
     IConfiguration configuration,
-    INutritionTargetsService nutritionTargetsService,
     ILogger<AuthService> logger)
     : IAuthService
 {
@@ -45,10 +44,19 @@ public class AuthService(
                 };
             }
 
-            user.NormalizeDateTimes();
             await userRepository.UpdateForLoginAsync(user);
 
-            var token = GenerateJwtToken(user);
+            //Check format create at 
+            if (user.CreatedAt == default(DateTime))
+            {
+                user.CreatedAt = DateTime.UtcNow;
+            }
+            else if (user.CreatedAt.Kind != DateTimeKind.Utc)
+            {
+                user.CreatedAt = DateTime.SpecifyKind(user.CreatedAt, DateTimeKind.Utc);
+            }
+
+            var token = jwtService.GenerateToken(user);
             var response = new AuthResponseDto
             {
                 Token = token,
@@ -78,13 +86,27 @@ public class AuthService(
     {
         try
         {
-            var handler = new JwtSecurityTokenHandler();
-            var jwtToken = handler.ReadJwtToken(token); // ❗ không verify chữ ký
+            logger.LogInformation("Starting token validation process");
 
-            var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            // Parse và validate JWT token
+            var principal = jwtService.ValidateToken(token);
+            if (principal == null)
+            {
+                logger.LogWarning("JWT validation failed - token is null or invalid");
+                return new ResponseDto<AuthResponseDto>
+                {
+                    Success = false,
+                    Message = "Invalid or expired token"
+                };
+            }
+
+            // Lấy userId từ token đã được validate
+            var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            logger.LogInformation("Extracted user ID claim: {UserIdClaim}", userIdClaim);
 
             if (!int.TryParse(userIdClaim, out int userId) || userId <= 0)
             {
+                logger.LogWarning("Invalid user ID in token: {UserIdClaim}", userIdClaim);
                 return new ResponseDto<AuthResponseDto>
                 {
                     Success = false,
@@ -92,9 +114,13 @@ public class AuthService(
                 };
             }
 
+            logger.LogInformation("Parsed user ID: {UserId}", userId);
+
+            // Kiểm tra user có tồn tại trong database không
             var user = await userRepository.GetByIdAsync(userId);
             if (user == null)
             {
+                logger.LogWarning("User not found in database: {UserId}", userId);
                 return new ResponseDto<AuthResponseDto>
                 {
                     Success = false,
@@ -102,14 +128,26 @@ public class AuthService(
                 };
             }
 
-            user.NormalizeDateTimes();
+            logger.LogInformation("User found: {Username}", user.Username);
+
+            // Fix DateTime format
+            if (user.CreatedAt == default(DateTime))
+            {
+                user.CreatedAt = DateTime.UtcNow;
+                logger.LogInformation("Set default CreatedAt for user {UserId}", userId);
+            }
+            else if (user.CreatedAt.Kind != DateTimeKind.Utc)
+            {
+                user.CreatedAt = DateTime.SpecifyKind(user.CreatedAt, DateTimeKind.Utc);
+            }
 
             var response = new AuthResponseDto
             {
                 User = UserProfileDto.FromUser(user),
-                Token = token
+                Token = token // Trả lại token nếu cần
             };
 
+            logger.LogInformation("Token validation successful for user {UserId}", userId);
             return new ResponseDto<AuthResponseDto>
             {
                 Success = true,
@@ -117,17 +155,25 @@ public class AuthService(
                 Data = response
             };
         }
-        catch (Exception ex)
+        catch (SecurityTokenException ex)
         {
-            logger.LogError(ex, "Error decoding token");
+            logger.LogWarning(ex, "Security token exception during validation");
             return new ResponseDto<AuthResponseDto>
             {
                 Success = false,
-                Message = "An error occurred while decoding token"
+                Message = "Invalid token format"
+            };
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error during token validation");
+            return new ResponseDto<AuthResponseDto>
+            {
+                Success = false,
+                Message = "An error occurred during token validation"
             };
         }
     }
-
 
     public async Task<ResponseDto<AuthResponseDto>> RegisterAsync(RegisterDto registerDto)
     {
@@ -150,31 +196,12 @@ public class AuthService(
                 PasswordHash = HashPassword(registerDto.Password),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                LastName = registerDto.Username,
-                FirstName = registerDto.Username,
-
-
-                gender = Gender.Male,
-                DateOfBirth = DateTime.UtcNow,
-                Height = 160,
-                Weight = 60,
-                TargetWeight = 50,
-                PrimaryNutritionGoal = NutritionGoal.Balanced,
-                ActivityLevel = ActivityLevel.Sedentary,
-                HasFoodAllergies = false,
-                FoodAllergies = string.Empty,
-                FoodPreferences = string.Empty,
-                EnableNotifications = true,
-                EnableMealReminders = true
             };
-
-            // Normalize DateTime properties
-            user.NormalizeDateTimes();
 
             // Use AddForRegistrationAsync instead of AddAsync to avoid authentication context issues
             await userRepository.AddForRegistrationAsync(user);
 
-            var token = GenerateJwtToken(user);
+            var token = jwtService.GenerateToken(user);
             var response = new AuthResponseDto
             {
                 Token = token,
@@ -240,7 +267,6 @@ public class AuthService(
             };
         }
 
-        user.NormalizeDateTimes();
         var userProfileDto = user.ToDto();
         return new ResponseDto<UserProfileDto>
         {
@@ -253,11 +279,8 @@ public class AuthService(
     public async Task<ResponseDto<UserProfileDto>> UpdateUserProfileAsync(int userId,
         UserProfileDto? updateUserProfileDto)
     {
-        logger.LogInformation("Start updating user profile for UserId: {UserId}", userId);
-
         if (updateUserProfileDto == null)
         {
-            logger.LogWarning("Update failed: updateUserProfileDto is null for UserId: {UserId}", userId);
             return await Task.FromResult(new ResponseDto<UserProfileDto>
             {
                 Success = false,
@@ -266,9 +289,9 @@ public class AuthService(
         }
 
         var user = await userRepository.GetByIdAsync(userId);
+
         if (user == null)
         {
-            logger.LogWarning("Update failed: User not found with UserId: {UserId}", userId);
             return await Task.FromResult(new ResponseDto<UserProfileDto>
             {
                 Success = false,
@@ -276,47 +299,8 @@ public class AuthService(
             });
         }
 
-        if (!string.IsNullOrEmpty(updateUserProfileDto.Username) &&
-            updateUserProfileDto.Username != user.Username)
-        {
-            logger.LogInformation("Checking if username '{Username}' already exists", updateUserProfileDto.Username);
-
-            var existingUser = await userRepository.GetByUsernameAsync(updateUserProfileDto.Username);
-            if (existingUser != null)
-            {
-                logger.LogWarning("Username already exists: {Username}", updateUserProfileDto.Username);
-                return new ResponseDto<UserProfileDto>
-                {
-                    Success = false,
-                    Message = "Username already exists"
-                };
-            }
-        }
-
-        logger.LogInformation("Updating user profile for UserId: {UserId}", userId);
-
         user.UpdateUserProfile(updateUserProfileDto);
-        user.NormalizeDateTimes();
-
         await userRepository.UpdateAsync(user);
-
-        logger.LogInformation("Updating nutrition targets for UserId: {UserId}", userId);
-
-        var userInfor = new UserInformationDto
-        {
-            ActivityLevel = user.ActivityLevel,
-            PrimaryNutritionGoal = user.PrimaryNutritionGoal,
-            Height = user.Height,
-            Weight = user.Weight,
-            DateOfBirth = user.DateOfBirth,
-            Gender = user.gender,
-            TargetWeight = user.TargetWeight,
-        };
-
-        await nutritionTargetsService.UpdateNutritionTargetAsync(userInfor);
-
-        logger.LogInformation("User profile updated successfully for UserId: {UserId}", userId);
-
         return await Task.FromResult(new ResponseDto<UserProfileDto>
         {
             Success = true,
@@ -384,52 +368,6 @@ public class AuthService(
             Message = "Password changed successfully",
             Data = true
         };
-    }
-
-
-    private string GenerateJwtToken(User user)
-    {
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(configuration["Jwt:Secret"] ?? "");
-
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity([
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Email, user.Email)
-            ]),
-            Expires = DateTime.UtcNow.AddHours(24),
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key),
-                SecurityAlgorithms.HmacSha256Signature)
-        };
-
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
-    }
-
-    //Validate Token without service 
-    private ClaimsPrincipal? ValidateToken(string token)
-    {
-        try
-        {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(configuration["Jwt:Secret"] ?? "");
-            var validationParameters = new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(key),
-                ValidateIssuer = false,
-                ValidateAudience = false,
-                ClockSkew = TimeSpan.Zero // No clock skew for immediate expiration
-            };
-
-            return tokenHandler.ValidateToken(token, validationParameters, out _);
-        }
-        catch (Exception)
-        {
-            return null; // Token is invalid
-        }
     }
 
     private bool VerifyPassword(string password, string hash)
