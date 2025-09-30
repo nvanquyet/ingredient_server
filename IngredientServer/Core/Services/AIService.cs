@@ -1,21 +1,19 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
-using Azure;
-using Azure.AI.Inference;
-using Azure.Core.Pipeline;
 using IngredientServer.Core.Entities;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Entity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using OpenAI;
 using OpenAI.Chat;
 
 namespace IngredientServer.Core.Services
 {
     public class AIService : IAIService, IDisposable
     {
-        private readonly ChatCompletionsClient _chatClient;
+        private readonly ChatClient _chatClient;
         private readonly ILogger<AIService> _logger;
         private readonly IImageService _imageService;
         private readonly string _model;
@@ -28,23 +26,12 @@ namespace IngredientServer.Core.Services
             _logger = logger;
             this._imageService = _imageService;
 
-            var endpoint = new Uri(configuration["AzureOpenAI:Endpoint"]);
-            var apiKey = configuration["AzureOpenAI:ApiKey"];
-            _model = configuration["AzureOpenAI:Model"];
+            var apiKey = configuration["OpenAI:ApiKey"];
+            _model = configuration["OpenAI:Model"];
 
-            var credential = new AzureKeyCredential(apiKey);
-
-            _chatClient = new ChatCompletionsClient(
-                endpoint,
-                credential,
-                new AzureAIInferenceClientOptions()
-                {
-                    Transport = new HttpClientTransport(new HttpClient
-                    {
-                        Timeout = TimeSpan.FromMinutes(2)
-                    })
-                }
-            );
+            // Khởi tạo OpenAI client
+            var openAIClient = new OpenAIClient(apiKey);
+            _chatClient = openAIClient.GetChatClient(_model);
 
             _semaphore = new SemaphoreSlim(10, 10);
 
@@ -164,7 +151,6 @@ namespace IngredientServer.Core.Services
                     throw new ArgumentException("Hình ảnh không được rỗng", nameof(request.Image));
                 }
 
-
                 var imageUrl = await _imageService.SaveImageAsync(request.Image);
 
                 var systemPrompt = CreateFoodAnalysisSystemPrompt();
@@ -208,7 +194,6 @@ namespace IngredientServer.Core.Services
                     throw new ArgumentException("Hình ảnh không được rỗng", nameof(request.Image));
                 }
 
-
                 var imageUrl = await _imageService.SaveImageAsync(request.Image);
 
                 var systemPrompt = CreateIngredientAnalysisSystemPrompt();
@@ -238,30 +223,31 @@ namespace IngredientServer.Core.Services
         private async Task<string> CallOpenAIWithImageAsync(string systemPrompt, string userPrompt, string imageUrl,
             CancellationToken cancellationToken)
         {
-            var options = new ChatCompletionsOptions
+            var messages = new List<ChatMessage>
             {
-                Model = _model,
-                Messages =
-                {
-                    new ChatRequestSystemMessage(systemPrompt),
-                    new ChatRequestUserMessage(new ChatMessageTextContentItem(userPrompt)),
-                    new ChatRequestUserMessage(new ChatMessageImageContentItem(new Uri(imageUrl),
-                        ChatMessageImageDetailLevel.High))
-                },
-                MaxTokens = 2000,
+                new SystemChatMessage(systemPrompt),
+                new UserChatMessage(
+                    ChatMessageContentPart.CreateTextPart(userPrompt),
+                    ChatMessageContentPart.CreateImagePart(new Uri(imageUrl), ChatImageDetailLevel.High)
+                )
+            };
+
+            var options = new ChatCompletionOptions
+            {
+                MaxOutputTokenCount = 2000,
                 Temperature = 0.3f,
                 FrequencyPenalty = 0.1f,
                 PresencePenalty = 0.1f
             };
 
-            var response = await _chatClient.CompleteAsync(options, cancellationToken);
+            var response = await _chatClient.CompleteChatAsync(messages, options, cancellationToken);
 
-            if (response?.Value?.Content == null)
+            if (response?.Value?.Content == null || response.Value.Content.Count == 0)
             {
                 throw new InvalidOperationException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác");
             }
 
-            return response.Value.Content;
+            return response.Value.Content[0].Text;
         }
 
         private string CreateFoodAnalysisSystemPrompt()
@@ -297,11 +283,9 @@ YÊU CẦU PHÂN TÍCH:
 10. Nếu hình ảnh **không rõ**, **không có món ăn**, hoặc **không nhận diện được**, trả về JSON:
 ```json
 { ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"" }
+```
 TRẢ VỀ DUY NHẤT 1 OBJECT JSON:
-
-json
-Copy
-Edit
+```json
 {
   ""name"": ""Tên món ăn"",
   ""description"": ""Mô tả món ăn"",
@@ -312,20 +296,21 @@ Edit
   ""carbohydrates"": 45.0,
   ""fat"": 12.0,
   ""fiber"": 5.0,
-  ""instructions"": [""Bước 1..."", ""Bước 2..."", ""...""] ,
-  ""tips"": [""Mẹo 1..."", ""Mẹo 2...""] ,
+  ""instructions"": [""Bước 1..."", ""Bước 2..."", ""...""],
+  ""tips"": [""Mẹo 1..."", ""Mẹo 2...""],
   ""difficultyLevel"": 2,
   ""mealType"": 1,
   ""ingredients"": [
     {
-      ""ingredientId"": 0, // Mặc định là 0, không có giá trị khác
-      ""ingredientName"": ""Tên nguyên liệu"", // Giá trị này không được null
+      ""ingredientId"": 0,
+      ""ingredientName"": ""Tên nguyên liệu"",
       ""quantity"": 100.0,
       ""unit"": 4,
       ""category"": 2
     }
   ]
 }
+```
 KHÔNG được trả thêm mô tả hoặc giải thích ngoài JSON.";
         }
 
@@ -347,11 +332,9 @@ YÊU CẦU PHÂN TÍCH:
 Nếu hình ảnh **không rõ**, **không chứa nguyên liệu**, hoặc **quá mờ**, trả về JSON:
 ```json
 { ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"" }
+```
 TRẢ VỀ DUY NHẤT 1 OBJECT JSON:
-
-json
-Copy
-Edit
+```json
 {
   ""name"": ""Tên nguyên liệu"",
   ""description"": ""Chi tiết mô tả"",
@@ -360,6 +343,7 @@ Edit
   ""category"": 2,
   ""expiryDate"": ""2025-01-01T00:00:00Z""
 }
+```
 KHÔNG được kèm theo mô tả hoặc văn bản ngoài JSON.";
         }
 
@@ -379,6 +363,7 @@ YÊU CẦU:
 - Nếu hình ảnh không hợp lệ, trả về:
 ```json
 {{ ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"" }}
+```
 Chỉ trả về JSON object, không kèm mô tả thêm.";
         }
 
@@ -398,6 +383,7 @@ YÊU CẦU:
 Nếu ảnh không rõ hoặc không có nguyên liệu, trả về:
 ```json
 {{ ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"" }}
+```
 Chỉ trả về JSON object, không kèm giải thích.";
         }
 
@@ -617,28 +603,28 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
         private async Task<string> CallOpenAIAsync(string systemPrompt, string userPrompt,
             CancellationToken cancellationToken)
         {
-            var options = new ChatCompletionsOptions
+            var messages = new List<ChatMessage>
             {
-                Model = _model,
-                Messages =
-                {
-                    new ChatRequestSystemMessage(systemPrompt),
-                    new ChatRequestUserMessage(userPrompt)
-                },
-                MaxTokens = 2000,
+                new SystemChatMessage(systemPrompt),
+                new UserChatMessage(userPrompt)
+            };
+
+            var options = new ChatCompletionOptions
+            {
+                MaxOutputTokenCount = 2000,
                 Temperature = 0.7f,
                 FrequencyPenalty = 0.1f,
                 PresencePenalty = 0.1f
             };
 
-            var response = await _chatClient.CompleteAsync(options, cancellationToken);
+            var response = await _chatClient.CompleteChatAsync(messages, options, cancellationToken);
 
-            if (response?.Value?.Content == null)
+            if (response?.Value?.Content == null || response.Value.Content.Count == 0)
             {
                 throw new InvalidOperationException("Received empty response from OpenAI");
             }
 
-            return response.Value.Content;
+            return response.Value.Content[0].Text;
         }
 
         private string CreateFoodSuggestionSystemPrompt()

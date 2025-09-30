@@ -1,4 +1,9 @@
-﻿version: '3.8'
+﻿
+# ============================================
+# docker-compose.yml
+# ============================================
+
+version: '3.8'
 
 services:
   mysql:
@@ -9,6 +14,7 @@ services:
       - MYSQL_DATABASE=IngredientServerDb
       - MYSQL_USER=ingredientuser
       - MYSQL_PASSWORD=${DB_PASSWORD}
+      - TZ=Asia/Ho_Chi_Minh
     ports:
       - "3307:3306"
     volumes:
@@ -29,6 +35,9 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
 
   # Init service để cấp quyền thư mục uploads
   init-permissions:
@@ -36,7 +45,8 @@ services:
     container_name: init-permissions
     volumes:
       - ./uploads:/uploads
-    command: ["sh", "-c", "chmod -R 777 /uploads"]
+      - ./logs:/logs
+    command: ["sh", "-c", "chmod -R 777 /uploads /logs && chown -R 1000:1000 /uploads /logs"]
     networks:
       - internal-network
 
@@ -45,17 +55,30 @@ services:
     build:
       context: .
       dockerfile: IngredientServer/Dockerfile
+      args:
+        BUILD_CONFIGURATION: Release
     container_name: ingredientserver-app
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
+      - TZ=Asia/Ho_Chi_Minh
+      # Database Connection
       - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=IngredientServerDb;User=ingredientuser;Password=${DB_PASSWORD};
+      # JWT Configuration
       - JWT__Secret=${JWT_SECRET}
+      - JWT__Issuer=${JWT_ISSUER:-IngredientServer}
+      - JWT__Audience=${JWT_AUDIENCE:-IngredientServerApp}
+      # OpenAI Configuration
+      - OpenAI__ApiKey=${OPENAI_API_KEY}
+      - OpenAI__Model=${OPENAI_MODEL:-gpt-4-turbo}
+      # File Upload Configuration
+      - FileUpload__MaxFileSize=${MAX_FILE_SIZE:-10485760}
+      - FileUpload__AllowedExtensions=${ALLOWED_EXTENSIONS:-.jpg,.jpeg,.png,.gif}
     depends_on:
       mysql:
         condition: service_healthy
       init-permissions:
-        condition: service_started
+        condition: service_completed_successfully
     networks:
       - internal-network
     restart: unless-stopped
@@ -68,6 +91,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
 
   nginx:
     image: nginx:alpine
@@ -79,11 +108,18 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro
       - ./uploads:/usr/share/nginx/html/uploads:ro
+      - ./nginx-logs:/var/log/nginx
     depends_on:
-      - ingredientserver
+      ingredientserver:
+        condition: service_healthy
     networks:
       - internal-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   mysql_data:
@@ -92,4 +128,3 @@ volumes:
 networks:
   internal-network:
     driver: bridge
-    internal: false
