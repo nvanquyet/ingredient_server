@@ -40,12 +40,6 @@ public class FoodService(
         }
 
         dataDto.NormalizeConsumedAt();
-        // Log detailed input data
-        logger.LogInformation("Input Data - Calories: {Calories}, Protein: {Protein}g, Carbs: {Carbs}g, Fat: {Fat}g",
-            dataDto.Calories, dataDto.Protein, dataDto.Carbohydrates, dataDto.Fat);
-        logger.LogInformation("Cooking Time: {CookingTime}min, Prep Time: {PrepTime}min, Difficulty: {Difficulty}",
-            dataDto.CookingTimeMinutes, dataDto.PreparationTimeMinutes, dataDto.DifficultyLevel);
-        logger.LogInformation("Ingredients Count: {IngredientCount}", dataDto.Ingredients?.Count() ?? 0);
 
         string? imageUrl = "";
 
@@ -99,8 +93,6 @@ public class FoodService(
         logger.LogInformation("Checking for existing meal - Date: {MealDate}, Type: {MealType}",
             dataDto.MealDate, dataDto.MealType);
         
-        
-
         var existingMeals = await mealRepository.GetByDateAsync(dataDto.MealDate);
         var meal = existingMeals.FirstOrDefault(m => m.MealType == dataDto.MealType);
         

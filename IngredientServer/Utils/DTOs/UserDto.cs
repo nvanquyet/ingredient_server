@@ -124,7 +124,7 @@ public class UserProfileDto
             Email = user.Email,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            Gender = user.gender,
+            Gender = user.Gender,
             DateOfBirth = user.DateOfBirth,
             Height = user.Height,
             Weight = user.Weight,

@@ -41,7 +41,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             // Enum conversions
             entity.Property(e => e.PrimaryNutritionGoal).HasConversion<string>();
             entity.Property(e => e.ActivityLevel).HasConversion<string>();
-            entity.Property(e => e.gender).HasConversion<string>();
+            entity.Property(e => e.Gender).HasConversion<string>();
 
             // Navigation properties
             entity.HasMany(u => u.Ingredients)

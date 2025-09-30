@@ -73,10 +73,7 @@ namespace IngredientServer.Utils.DTOs.Entity
         
         public void NormalizeConsumedAt()
         {
-            if (ConsumedAt == null) return;
-
-            // Nếu thời gian không có Kind, giả sử là Local rồi chuyển sang UTC
-            ConsumedAt = ConsumedAt.Value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(ConsumedAt.Value, DateTimeKind.Local).ToUniversalTime() : ConsumedAt.Value.ToUniversalTime();
+            ConsumedAt ??= DateTime.Now;
         }
 
         public override string ToString()

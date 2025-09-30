@@ -196,6 +196,16 @@ public class AuthService(
                 PasswordHash = HashPassword(registerDto.Password),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
+                DateOfBirth = DateTime.UtcNow,
+                IsActive = true,
+                Gender = Gender.Male,
+                FirstName = registerDto.Username,
+                LastName = string.Empty,
+                Height = 170,
+                Weight = 70,
+                TargetWeight = 65,
+                PrimaryNutritionGoal = NutritionGoal.Balanced,
+                ActivityLevel = ActivityLevel.Moderate,
             };
 
             // Use AddForRegistrationAsync instead of AddAsync to avoid authentication context issues

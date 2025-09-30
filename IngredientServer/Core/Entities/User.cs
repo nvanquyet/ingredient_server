@@ -67,7 +67,7 @@ namespace IngredientServer.Core.Entities
 
         // Thông tin cá nhân
         public DateTime? DateOfBirth { get; set; }
-        public Gender? gender { get; set; }
+        public Gender? Gender { get; set; }
         [Column(TypeName = "decimal(5,2)")]
         public decimal? Height { get; set; } // cm
         [Column(TypeName = "decimal(5,2)")]
@@ -113,10 +113,10 @@ namespace IngredientServer.Core.Entities
         {
             get
             {
-                if (!Weight.HasValue || !Height.HasValue || !Age.HasValue || !gender.HasValue)
+                if (!Weight.HasValue || !Height.HasValue || !Age.HasValue || !Gender.HasValue)
                     return null;
 
-                decimal bmr = gender == Gender.Male
+                decimal bmr = Gender == Entities.Gender.Male
                     ? (10 * Weight.Value) + (6.25m * Height.Value) - (5 * Age.Value) + 5
                     : (10 * Weight.Value) + (6.25m * Height.Value) - (5 * Age.Value) - 161;
 
@@ -155,7 +155,7 @@ namespace IngredientServer.Core.Entities
             if (targetData.Username != null)
                 this.Username = targetData.Username; 
             if (targetData.Gender.HasValue)
-                this.gender = targetData.Gender;
+                this.Gender = targetData.Gender;
             if (targetData.DateOfBirth.HasValue)
                 this.DateOfBirth = targetData.DateOfBirth;
             if (targetData.Height.HasValue)
@@ -190,7 +190,7 @@ namespace IngredientServer.Core.Entities
                 Email = this.Email,
                 FirstName = this.FirstName,
                 LastName = this.LastName,
-                Gender = this.gender,
+                Gender = this.Gender,
                 DateOfBirth = this.DateOfBirth,
                 Height = this.Height,
                 Weight = this.Weight,
