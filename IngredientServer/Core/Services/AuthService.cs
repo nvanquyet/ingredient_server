@@ -47,14 +47,8 @@ public class AuthService(
             await userRepository.UpdateForLoginAsync(user);
 
             //Check format create at 
-            if (user.CreatedAt == default(DateTime))
-            {
-                user.CreatedAt = DateTime.UtcNow;
-            }
-            else if (user.CreatedAt.Kind != DateTimeKind.Utc)
-            {
-                user.CreatedAt = DateTime.SpecifyKind(user.CreatedAt, DateTimeKind.Utc);
-            }
+            user.CreatedAt = user.CreatedAt == default ? DateTime.UtcNow : user.CreatedAt.ToUniversalTime();
+            user.DateOfBirth = user.DateOfBirth?.ToUniversalTime() ?? DateTime.UtcNow;
 
             var token = jwtService.GenerateToken(user);
             var response = new AuthResponseDto
