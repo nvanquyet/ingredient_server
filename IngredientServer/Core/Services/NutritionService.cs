@@ -42,7 +42,7 @@ public class NutritionService(
 
         // Lấy meals theo ngày
         var existingMeals =
-            await mealRepository.GetByDateAsync(userNutritionRequestDto.CurrentDate.ToString("yyyy-MM-dd"));
+            await mealRepository.GetByDateAsync(DateTime.Parse(userNutritionRequestDto.CurrentDate.ToString("yyyy-MM-dd")));
         var mealList = existingMeals?.ToList() ?? new List<Meal>();
 
         // Group meals theo MealType và chỉ lấy meal mới nhất cho mỗi loại
