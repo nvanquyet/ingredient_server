@@ -12,6 +12,42 @@ namespace IngredientServer.API.Controllers;
 [Authorize]
 public class FoodController(IFoodService foodService) : ControllerBase
 {
+    private static List<string> ProcessJsonListStrings(List<string>? inputList)
+    {
+        if (inputList == null || inputList.Count == 0)
+        {
+            return inputList ?? new List<string>();
+        }
+
+        var processedList = new List<string>();
+        foreach (var item in inputList)
+        {
+            try
+            {
+                // Nếu item là một chuỗi JSON, parse nó
+                if (item.StartsWith("[") && item.EndsWith("]"))
+                {
+                    var parsedItems = JsonSerializer.Deserialize<List<string>>(item);
+                    if (parsedItems != null)
+                    {
+                        processedList.AddRange(parsedItems);
+                    }
+                }
+                else
+                {
+                    // Nếu không phải JSON, giữ nguyên
+                    processedList.Add(item);
+                }
+            }
+            catch (JsonException)
+            {
+                // Nếu parse lỗi, giữ nguyên chuỗi gốc
+                processedList.Add(item);
+            }
+        }
+
+        return processedList;
+    }
     [HttpPost]
     public async Task<ActionResult<ApiResponse<FoodDataResponseDto>>> CreateFood(
         [FromForm] CreateFoodRequestDto dataDto)
@@ -289,73 +325,21 @@ public class FoodController(IFoodService foodService) : ControllerBase
             });
         }
 
-        // Implement actual logic here when service method is available
         var food = await foodService.GetFoodByIdAsync(id);
+        if (food == null)
+        {
+            return NotFound(new ApiResponse<FoodDataResponseDto>
+            {
+                Success = false,
+                Message = "Food not found"
+            });
+        }
+        
         food.NormalizeConsumedAt();
-        if (food.Instructions.Count > 0)
-        {
-            var processedInstructions = new List<string>();
-            foreach (var instruction in food.Instructions)
-            {
-                try
-                {
-                    // Nếu instruction là một chuỗi JSON, parse nó
-                    if (instruction.StartsWith("[") && instruction.EndsWith("]"))
-                    {
-                        var parsedInstructions = JsonSerializer.Deserialize<List<string>>(instruction);
-                        if (parsedInstructions != null)
-                        {
-                            processedInstructions.AddRange(parsedInstructions);
-                        }
-                    }
-                    else
-                    {
-                        // Nếu không phải JSON, giữ nguyên
-                        processedInstructions.Add(instruction);
-                    }
-                }
-                catch (JsonException)
-                {
-                    // Nếu parse lỗi, giữ nguyên chuỗi gốc
-                    processedInstructions.Add(instruction);
-                }
-            }
-
-            food.Instructions = processedInstructions;
-        }
-
-        // Xử lý Tips - tương tự như Instructions
-        if (food.Tips.Count > 0)
-        {
-            var processedTips = new List<string>();
-            foreach (var tip in food.Tips)
-            {
-                try
-                {
-                    // Nếu tip là một chuỗi JSON, parse nó
-                    if (tip.StartsWith("[") && tip.EndsWith("]"))
-                    {
-                        var parsedTips = JsonSerializer.Deserialize<List<string>>(tip);
-                        if (parsedTips != null)
-                        {
-                            processedTips.AddRange(parsedTips);
-                        }
-                    }
-                    else
-                    {
-                        // Nếu không phải JSON, giữ nguyên
-                        processedTips.Add(tip);
-                    }
-                }
-                catch (JsonException)
-                {
-                    // Nếu parse lỗi, giữ nguyên chuỗi gốc
-                    processedTips.Add(tip);
-                }
-            }
-
-            food.Tips = processedTips;
-        }
+        
+        // Process Instructions and Tips - handle JSON strings
+        food.Instructions = ProcessJsonListStrings(food.Instructions);
+        food.Tips = ProcessJsonListStrings(food.Tips);
 
         return Ok(new ApiResponse<FoodDataResponseDto>
         {

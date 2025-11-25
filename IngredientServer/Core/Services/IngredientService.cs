@@ -31,13 +31,13 @@ public class IngredientService(IIngredientRepository ingredientRepository,
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to save image for food {FoodName}", dto.Name);
+                logger.LogError(ex, "Failed to save image for ingredient {IngredientName}", dto.Name);
                 throw;
             }
         }
         else
         {
-            logger.LogInformation("No image provided for food creation");
+            logger.LogInformation("No image provided for ingredient creation");
         }
        
         var ingredient = new Ingredient
@@ -54,10 +54,6 @@ public class IngredientService(IIngredientRepository ingredientRepository,
 
         var savedIngredient = await ingredientRepository.AddAsync(ingredient);
         
-        if (savedIngredient == null)
-        {
-            throw new UnauthorizedAccessException("Failed to create ingredient or access denied.");
-        }
         // Map the saved ingredient to DTO
         var response = new IngredientDataResponseDto
         {

@@ -18,6 +18,8 @@ public static class DateTimeFormat
     }
     
     //Get Update time is now
+    // DEPRECATED: Sử dụng ITimeService.UtcNow thay vì method này
+    [Obsolete("Use ITimeService.UtcNow instead")]
     public static DateTime GetUpdateTimeNow()
     {
         return DateTime.UtcNow;

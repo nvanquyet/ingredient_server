@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
+using IngredientServer.Core.Services;
 using IngredientServer.Infrastructure.Data;
 using IngredientServer.Infrastructure.Repositories;
 using IngredientServer.API.Middlewares;
@@ -57,6 +58,7 @@ builder.Services.AddScoped<IFoodIngredientRepository, FoodIngredientRepository>(
 builder.Services.AddScoped<IUserNutritionRepository, UserNutritionRepository>();
 
 // Services - từ Core.Services
+builder.Services.AddSingleton<ITimeService, TimeService>(); // Singleton vì không có state
 builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -182,9 +184,9 @@ app.UseMiddleware<GlobalErrorHandlingMiddleware>();
 app.MapControllers();
 
 // Health check endpoint
-app.MapGet("/health", () => Results.Ok(new { 
+app.MapGet("/health", (ITimeService timeService) => Results.Ok(new { 
     status = "healthy", 
-    timestamp = DateTime.UtcNow,
+    timestamp = timeService.UtcNow,
     version = "1.0.0"
 }));
 
@@ -218,7 +220,8 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-Console.WriteLine($"Application starting on {DateTime.UtcNow}");
+var timeService = app.Services.GetRequiredService<ITimeService>();
+Console.WriteLine($"Application starting on {timeService.UtcNow}");
 Console.WriteLine($"Environment: {app.Environment.EnvironmentName}");
 
 app.Run();

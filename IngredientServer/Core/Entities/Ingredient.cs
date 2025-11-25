@@ -64,8 +64,10 @@ namespace IngredientServer.Core.Entities
         public string? ImageUrl { get; set; }
         
         // Computed properties
-        public int DaysUntilExpiry => (ExpiryDate.Date - DateTime.Now.Date).Days;
-        public bool IsExpired => DateTime.Now.Date > ExpiryDate.Date;
+        // Note: Sử dụng UTC time cho consistency
+        // ExpiryDate nên được lưu dưới dạng UTC hoặc chỉ date (không có time)
+        public int DaysUntilExpiry => (ExpiryDate.Date - DateTime.UtcNow.Date).Days;
+        public bool IsExpired => DateTime.UtcNow.Date > ExpiryDate.Date;
         public bool IsExpiringSoon => DaysUntilExpiry is <= 7 and >= 0;
         
         public string ExpiryDateUtc => DateTime.SpecifyKind(ExpiryDate, DateTimeKind.Utc)

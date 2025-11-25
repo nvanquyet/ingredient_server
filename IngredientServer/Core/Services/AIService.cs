@@ -21,10 +21,13 @@ namespace IngredientServer.Core.Services
         private readonly JsonSerializerOptions _jsonOptions;
         private bool _disposed;
 
-        public AIService(IConfiguration configuration, IImageService _imageService, ILogger<AIService> logger)
+        private readonly ITimeService _timeService;
+
+        public AIService(IConfiguration configuration, IImageService _imageService, ILogger<AIService> logger, ITimeService timeService)
         {
             _logger = logger;
             this._imageService = _imageService;
+            _timeService = timeService;
 
             var apiKey = configuration["OpenAI:ApiKey"];
             _model = configuration["OpenAI:Model"];
@@ -531,7 +534,7 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
 
             if (userInfo.DateOfBirth.HasValue)
             {
-                var age = DateTime.Now.Year - userInfo.DateOfBirth.Value.Year;
+                var age = _timeService.CalculateAge(userInfo.DateOfBirth.Value);
                 prompt += $"• Tuổi: {age}\n";
             }
 
@@ -691,7 +694,7 @@ LƯU Ý QUAN TRỌNG:
 
             if (userInfo.DateOfBirth.HasValue)
             {
-                var age = DateTime.Now.Year - userInfo.DateOfBirth.Value.Year;
+                var age = _timeService.CalculateAge(userInfo.DateOfBirth.Value);
                 prompt += $"• Tuổi: {age}\n";
             }
 
@@ -920,7 +923,7 @@ LƯU Ý QUAN TRỌNG:
 
                         if (recipe.MealDate == default(DateTime))
                         {
-                            recipe.MealDate = DateTime.UtcNow;
+                            recipe.MealDate = _timeService.UtcNow;
                         }
 
                         return recipe;

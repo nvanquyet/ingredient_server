@@ -115,7 +115,11 @@ public class AuthController(IAuthService authService, IUserContextService userCo
     [Authorize]
     public async Task<IActionResult> OnChangePassword([FromBody] ChangePasswordDto? dto)
     {
-        // Thêm validation check
+        if (dto == null)
+        {
+            return BadRequest(new { message = "Change password data is required" });
+        }
+
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
@@ -123,7 +127,7 @@ public class AuthController(IAuthService authService, IUserContextService userCo
 
         var userIdClaim = userContextService.GetAuthenticatedUserId();
 
-        var user = await authService.ChangePasswordAsync(userIdClaim, dto);
-        return Ok(user);
+        var result = await authService.ChangePasswordAsync(userIdClaim, dto);
+        return Ok(result);
     }
 }

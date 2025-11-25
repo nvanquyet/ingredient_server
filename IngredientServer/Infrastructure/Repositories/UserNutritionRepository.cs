@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace IngredientServer.Infrastructure.Repositories;
 
-public class UserNutritionRepository(ApplicationDbContext context, IUserContextService userContextService) : BaseRepository<UserNutritionTargets>(context, userContextService), IUserNutritionRepository
+public class UserNutritionRepository(ApplicationDbContext context, IUserContextService userContextService, ITimeService timeService) : BaseRepository<UserNutritionTargets>(context, userContextService, timeService), IUserNutritionRepository
 {
 
     public async Task<UserNutritionTargets?> GetByUserIdAsync()

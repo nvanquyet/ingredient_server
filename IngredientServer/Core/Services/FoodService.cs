@@ -20,7 +20,8 @@ public class FoodService(
     IAIService aiService,
     IUserContextService userContextService,
     IImageService imageService,
-    ILogger<FoodService> logger)
+    ILogger<FoodService> logger,
+    ITimeService timeService)
     : IFoodService
 {
     public async Task<FoodDataResponseDto> CreateFoodAsync(CreateFoodRequestDto dataDto)
@@ -236,8 +237,8 @@ public class FoodService(
         };
 
         logger.LogInformation("=== FOOD CREATION COMPLETED SUCCESSFULLY ===");
-        logger.LogInformation("Operation ID: {OperationId}, Food ID: {FoodId}, Total time: {ElapsedTime}ms",
-            operationId, savedFood.Id, DateTime.UtcNow.Subtract(DateTime.UtcNow).TotalMilliseconds);
+        logger.LogInformation("Operation ID: {OperationId}, Food ID: {FoodId}",
+            operationId, savedFood.Id);
 
         // Log potential warnings for client
         if (insufficientIngredients.Count > 0)
@@ -252,7 +253,13 @@ public class FoodService(
     {
         var operationId = Guid.NewGuid().ToString("N")[..8];
         logger.LogInformation("=== START UPDATE FOOD OPERATION ===");
-        logger.LogInformation($"dto = {dto.ToString()}");
+        logger.LogInformation("Operation ID: {OperationId}, Food ID: {FoodId}", operationId, dto.Id);
+
+        if (dto == null)
+        {
+            logger.LogError("UpdateFoodAsync called with null dto");
+            throw new ArgumentNullException(nameof(dto), "Food data cannot be null.");
+        }
 
         dto.NormalizeConsumedAt();
 
@@ -337,13 +344,13 @@ public class FoodService(
             ConsumedAt = food.ConsumedAt,
             MealType = dto.MealType,
             MealDate = dto.MealDate,
-            Ingredients = dto.Ingredients.Select(i => new FoodIngredientDto
+            Ingredients = dto.Ingredients?.Select(i => new FoodIngredientDto
             {
                 IngredientId = i.IngredientId,
                 Quantity = i.Quantity,
                 Unit = i.Unit,
                 IngredientName = i.IngredientName
-            }).ToList()
+            }).ToList() ?? new List<FoodIngredientDto>()
         };
     }
 
@@ -528,14 +535,14 @@ public class FoodService(
             DifficultyLevel = food.DifficultyLevel,
             ConsumedAt = food.ConsumedAt,
             MealType = mealFood?.Meal.MealType ?? MealType.Breakfast,
-            MealDate = mealFood?.Meal.MealDate ?? DateTime.UtcNow,
-            Ingredients = food.FoodIngredients.Select(fi => new FoodIngredientDto
+            MealDate = mealFood?.Meal.MealDate ?? timeService.UtcNow,
+            Ingredients = food.FoodIngredients?.Select(fi => new FoodIngredientDto
             {
                 IngredientId = fi.IngredientId,
                 Quantity = fi.Quantity,
                 Unit = fi.Unit,
-                IngredientName = fi.Ingredient.Name
-            }).ToList()
+                IngredientName = fi.Ingredient?.Name ?? string.Empty
+            }).ToList() ?? new List<FoodIngredientDto>()
         };
     }
 }

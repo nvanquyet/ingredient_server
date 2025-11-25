@@ -99,8 +99,10 @@ namespace IngredientServer.Core.Entities
         public UserNutritionTargets? NutritionTargets { get; set; }
 
         // Computed properties
+        // Note: Age calculation uses UTC time for consistency
+        // For display purposes, convert to local time if needed
         public int? Age => DateOfBirth.HasValue 
-            ? DateTime.Now.Year - DateOfBirth.Value.Year - (DateTime.Now.DayOfYear < DateOfBirth.Value.DayOfYear ? 1 : 0)
+            ? DateTime.UtcNow.Year - DateOfBirth.Value.Year - (DateTime.UtcNow.DayOfYear < DateOfBirth.Value.DayOfYear ? 1 : 0)
             : null;
 
         public decimal? BMI => Height.HasValue && Weight.HasValue && Height > 0 
@@ -178,7 +180,7 @@ namespace IngredientServer.Core.Entities
                 this.EnableNotifications = targetData.EnableNotifications.Value;
             if (targetData.EnableMealReminders.HasValue)
                 this.EnableMealReminders = targetData.EnableMealReminders.Value;
-            this.UpdatedAt = DateTime.UtcNow;
+            // UpdatedAt sẽ được set bởi repository/service với ITimeService
         }
 
         public UserProfileDto ToDto()

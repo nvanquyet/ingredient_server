@@ -17,7 +17,8 @@ public class AuthService(
     IUserRepository userRepository,
     IJwtService jwtService,
     IConfiguration configuration,
-    ILogger<AuthService> logger)
+    ILogger<AuthService> logger,
+    ITimeService timeService)
     : IAuthService
 {
     public async Task<ResponseDto<AuthResponseDto>> LoginAsync(LoginDto loginDto)
@@ -49,7 +50,7 @@ public class AuthService(
             //Check format create at 
             if (user.CreatedAt == default(DateTime))
             {
-                user.CreatedAt = DateTime.UtcNow;
+                user.CreatedAt = timeService.UtcNow;
             }
             else if (user.CreatedAt.Kind != DateTimeKind.Utc)
             {
@@ -60,7 +61,7 @@ public class AuthService(
             var response = new AuthResponseDto
             {
                 Token = token,
-                ExpiresAt = DateTime.UtcNow.AddHours(24),
+                ExpiresAt = timeService.UtcNow.AddHours(24),
                 User = UserProfileDto.FromUser(user)
             };
 
@@ -133,7 +134,7 @@ public class AuthService(
             // Fix DateTime format
             if (user.CreatedAt == default(DateTime))
             {
-                user.CreatedAt = DateTime.UtcNow;
+                user.CreatedAt = timeService.UtcNow;
                 logger.LogInformation("Set default CreatedAt for user {UserId}", userId);
             }
             else if (user.CreatedAt.Kind != DateTimeKind.Utc)
@@ -194,8 +195,8 @@ public class AuthService(
                 Username = registerDto.Username,
                 Email = registerDto.Email,
                 PasswordHash = HashPassword(registerDto.Password),
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                CreatedAt = timeService.UtcNow,
+                UpdatedAt = timeService.UtcNow,
             };
 
             // Use AddForRegistrationAsync instead of AddAsync to avoid authentication context issues
@@ -205,7 +206,7 @@ public class AuthService(
             var response = new AuthResponseDto
             {
                 Token = token,
-                ExpiresAt = DateTime.UtcNow.AddHours(24),
+                ExpiresAt = timeService.UtcNow.AddHours(24),
                 User = UserProfileDto.FromUser(user)
             };
 

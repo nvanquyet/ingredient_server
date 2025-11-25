@@ -8,11 +8,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IngredientServer.Infrastructure.Repositories;
 
-public abstract class BaseRepository<T>(ApplicationDbContext context, IUserContextService userContextService)
+public abstract class BaseRepository<T>(ApplicationDbContext context, IUserContextService userContextService, ITimeService timeService)
     : IBaseRepository<T>
     where T : BaseEntity
 {
     protected readonly ApplicationDbContext Context = context;
+    protected readonly ITimeService TimeService = timeService;
 
     protected int AuthenticatedUserId => userContextService.GetAuthenticatedUserId();
 
@@ -40,6 +41,8 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
     public virtual async Task<T> AddAsync(T entity)
     {
         entity.UserId = AuthenticatedUserId; // Automatically set UserId from context
+        entity.CreatedAt = TimeService.UtcNow;
+        entity.UpdatedAt = TimeService.UtcNow;
         Context.Set<T>().Add(entity);
         await Context.SaveChangesAsync();
         return entity;
@@ -50,6 +53,7 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
         if (entity == null)
             throw new ArgumentNullException(nameof(entity));
         entity.UserId = AuthenticatedUserId;
+        entity.UpdatedAt = TimeService.UtcNow;
         Context.Set<T>().Update(entity);
         try
         {
@@ -57,8 +61,7 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
         }
         catch (DbUpdateException ex)
         {
-            // Log lỗi chi tiết
-            Console.WriteLine($"UpdateAsync Error: {ex.InnerException?.Message}");
+            // Re-throw as UnauthorizedAccessException for consistent error handling
             throw new UnauthorizedAccessException("Entity not found or access denied.", ex);
         }
         return entity;
@@ -70,7 +73,6 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
         if (entity == null)
         {
             throw new UnauthorizedAccessException("Entity not found or access denied.");
-            return false;
         }
         
         Context.Set<T>().Remove(entity);

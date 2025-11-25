@@ -7,8 +7,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IngredientServer.Infrastructure.Repositories;
 
-public class UserRepository(ApplicationDbContext context, IUserContextService userContextService)
-    : BaseRepository<User>(context, userContextService), IUserRepository
+public class UserRepository(ApplicationDbContext context, IUserContextService userContextService, ITimeService timeService)
+    : BaseRepository<User>(context, userContextService, timeService), IUserRepository
 {
     public async Task<User?> GetByUsernameAsync(string username)
     {
@@ -23,7 +23,6 @@ public class UserRepository(ApplicationDbContext context, IUserContextService us
             return null; // Invalid user ID
         }
         // Fetch the user by ID to validate the token
-        Console.WriteLine($"ValidateTokenAsync - UserId: {userId}");
         return await Context.Users
             .FirstOrDefaultAsync(u => u.Id == userId);
     }
@@ -43,8 +42,8 @@ public class UserRepository(ApplicationDbContext context, IUserContextService us
     
     public async Task<User> AddForRegistrationAsync(User user)
     {
-        user.CreatedAt = DateTime.UtcNow;
-        user.UpdatedAt = DateTime.UtcNow;
+        user.CreatedAt = TimeService.UtcNow;
+        user.UpdatedAt = TimeService.UtcNow;
         user.IsActive = true;
         
         Context.Users.Add(user);
@@ -54,17 +53,20 @@ public class UserRepository(ApplicationDbContext context, IUserContextService us
     
     public async Task UpdateForLoginAsync(User user)
     {
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = TimeService.UtcNow;
         Context.Users.Update(user);
         await Context.SaveChangesAsync();
     }
     
-    public async Task<User?> GetByIdAsync(int id)
+    public override async Task<User?> GetByIdAsync(int id)
     {
-        id = userContextService.GetAuthenticatedUserId();
-        var user = await Context.Users
+        // Use the base implementation which already filters by UserId
+        return await base.GetByIdAsync(id);
+    }
+    
+    public async Task<User?> GetByIdWithoutAuthAsync(int id)
+    {
+        return await Context.Users
             .FirstOrDefaultAsync(u => u.Id == id);
-        Console.WriteLine($"GetByIdAsync - UserId: {id}, User: {(user == null ? "null" : user.Id)}");
-        return user;
     }
 }

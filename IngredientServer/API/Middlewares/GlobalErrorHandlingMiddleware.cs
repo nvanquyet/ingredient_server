@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using IngredientServer.Core.Interfaces.Services;
 
 namespace IngredientServer.API.Middlewares;
 using System.Net;
@@ -10,11 +11,13 @@ public class GlobalErrorHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<GlobalErrorHandlingMiddleware> _logger;
+    private readonly ITimeService _timeService;
 
-    public GlobalErrorHandlingMiddleware(RequestDelegate next, ILogger<GlobalErrorHandlingMiddleware> logger)
+    public GlobalErrorHandlingMiddleware(RequestDelegate next, ILogger<GlobalErrorHandlingMiddleware> logger, ITimeService timeService)
     {
         _next = next;
         _logger = logger;
+        _timeService = timeService;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -30,7 +33,7 @@ public class GlobalErrorHandlingMiddleware
         }
     }
 
-    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
         
@@ -77,7 +80,7 @@ public class GlobalErrorHandlingMiddleware
         }
 
         response.StatusCode = context.Response.StatusCode;
-        response.Timestamp = DateTime.UtcNow;
+        response.Timestamp = _timeService.UtcNow;
         response.Path = context.Request.Path;
 
         var jsonResponse = JsonSerializer.Serialize(response, new JsonSerializerOptions

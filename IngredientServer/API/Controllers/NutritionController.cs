@@ -11,7 +11,7 @@ namespace IngredientServer.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class NutritionController(INutritionService nutritionService, IUserContextService userContextService)
+public class NutritionController(INutritionService nutritionService, IUserContextService userContextService, ITimeService timeService)
     : ControllerBase
 {
     [HttpPost("daily")]
@@ -22,7 +22,7 @@ public class NutritionController(INutritionService nutritionService, IUserContex
         {
             if (userNutritionRequestDto.CurrentDate == default)
             {
-                userNutritionRequestDto.CurrentDate = DateTime.UtcNow.Date; // Default to today if no date is provided
+                userNutritionRequestDto.CurrentDate = timeService.UtcToday; // Default to today if no date is provided
             }
             var summary = await nutritionService.GetDailyNutritionSummaryAsync(userNutritionRequestDto, true);
             return Ok(new ApiResponse<DailyNutritionSummaryDto>

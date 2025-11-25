@@ -6,7 +6,8 @@ namespace IngredientServer.Core.Services;
 
 public class ImageService(
     IHttpContextAccessor httpContextAccessor,
-    ILogger<ImageService> logger) : IImageService
+    ILogger<ImageService> logger,
+    ITimeService timeService) : IImageService
 {
     private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
     private static readonly string[] AllowedMimeTypes = { "image/jpeg", "image/png", "image/gif", "image/webp" };
@@ -44,10 +45,10 @@ public class ImageService(
 
             logger.LogInformation("Saving image to: {FilePath}", filePath);
 
-            var startTime = DateTime.UtcNow;
+            var startTime = timeService.UtcNow;
             await using var fileStream = new FileStream(filePath, FileMode.Create);
             await image.CopyToAsync(fileStream);
-            var saveTime = DateTime.UtcNow.Subtract(startTime).TotalMilliseconds;
+            var saveTime = timeService.UtcNow.Subtract(startTime).TotalMilliseconds;
 
             logger.LogInformation("Image saved successfully in {SaveTime}ms", saveTime);
 

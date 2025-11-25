@@ -6,8 +6,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IngredientServer.Infrastructure.Repositories;
 
-public class FoodIngredientRepository(ApplicationDbContext context, IUserContextService userContextService)
-    : BaseRepository<FoodIngredient>(context, userContextService), IFoodIngredientRepository
+public class FoodIngredientRepository(ApplicationDbContext context, IUserContextService userContextService, ITimeService timeService)
+    : BaseRepository<FoodIngredient>(context, userContextService, timeService), IFoodIngredientRepository
 {
     public async Task<IEnumerable<FoodIngredient>> GetByFoodIdAsync(int foodId)
     {

@@ -7,8 +7,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IngredientServer.Infrastructure.Repositories;
 
-public class IngredientRepository(ApplicationDbContext context, IUserContextService userContextService)
-    : BaseRepository<Ingredient>(context, userContextService), IIngredientRepository
+public class IngredientRepository(ApplicationDbContext context, IUserContextService userContextService, ITimeService timeService)
+    : BaseRepository<Ingredient>(context, userContextService, timeService), IIngredientRepository
 {
     public override async Task<Ingredient> AddAsync(Ingredient entity)
     {
@@ -39,9 +39,10 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
             // Lọc theo IsExpired
             if (filter.IsExpired.HasValue)
             {
+                var today = timeService.UtcToday;
                 query = query.Where(i => filter.IsExpired.Value
-                    ? i.ExpiryDate.Date < DateTime.UtcNow.Date
-                    : i.ExpiryDate.Date >= DateTime.UtcNow.Date);
+                    ? i.ExpiryDate.Date < today
+                    : i.ExpiryDate.Date >= today);
             }
 
             // Lọc theo SearchTerm
