@@ -1,9 +1,11 @@
 ﻿using System.Net.Http;
 using System.Net.Http.Json;
 using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs.Entity;
+using IngredientServer.Utils.Mappers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -16,7 +18,6 @@ public class FoodService(
     IMealFoodRepository mealFoodRepository,
     IIngredientRepository ingredientRepository,
     IFoodIngredientRepository foodIngredientRepository,
-    HttpClient httpClient,
     IAIService aiService,
     IUserContextService userContextService,
     IImageService imageService,
@@ -328,33 +329,14 @@ public class FoodService(
 
         logger.LogInformation("=== FOOD UPDATE COMPLETED SUCCESSFULLY ===");
 
-        return new FoodDataResponseDto
+        // Reload food with relationships to get updated data
+        var updatedFood = await foodRepository.GetByIdAsync(food.Id);
+        if (updatedFood == null)
         {
-            Id = food.Id,
-            Name = food.Name,
-            Description = food.Description,
-            ImageUrl = food.ImageUrl,
-            PreparationTimeMinutes = food.PreparationTimeMinutes,
-            CookingTimeMinutes = food.CookingTimeMinutes,
-            Calories = food.Calories,
-            Protein = food.Protein,
-            Carbohydrates = food.Carbohydrates,
-            Fat = food.Fat,
-            Fiber = food.Fiber,
-            Instructions = food.Instructions,
-            Tips = food.Tips,
-            DifficultyLevel = food.DifficultyLevel,
-            ConsumedAt = food.ConsumedAt,
-            MealType = dto.MealType,
-            MealDate = mealDate, // FIX: Trả về Date đã chuẩn hóa
-            Ingredients = dto.Ingredients.Select(i => new FoodIngredientDto
-            {
-                IngredientId = i.IngredientId,
-                Quantity = i.Quantity,
-                Unit = i.Unit,
-                IngredientName = i.IngredientName
-            }).ToList()
-        };
+            throw new UnauthorizedAccessException("Food not found after update");
+        }
+
+        return updatedFood.ToDto();
     }
 
     public async Task<bool> DeleteFoodAsync(int foodId)
@@ -563,34 +545,6 @@ public class FoodService(
             throw new UnauthorizedAccessException("Food not found or access denied.");
         }
 
-        var mealFood = food.MealFoods.FirstOrDefault();
-
-        return new FoodDataResponseDto
-        {
-            Id = food.Id,
-            Name = food.Name,
-            Description = food.Description,
-            ImageUrl = food.ImageUrl,
-            PreparationTimeMinutes = food.PreparationTimeMinutes,
-            CookingTimeMinutes = food.CookingTimeMinutes,
-            Calories = food.Calories,
-            Protein = food.Protein,
-            Carbohydrates = food.Carbohydrates,
-            Fat = food.Fat,
-            Fiber = food.Fiber,
-            Instructions = food.Instructions,
-            Tips = food.Tips,
-            DifficultyLevel = food.DifficultyLevel,
-            ConsumedAt = food.ConsumedAt,
-            MealType = mealFood?.Meal.MealType ?? MealType.Breakfast,
-            MealDate = mealFood?.Meal.MealDate ?? DateTime.UtcNow,
-            Ingredients = food.FoodIngredients.Select(fi => new FoodIngredientDto
-            {
-                IngredientId = fi.IngredientId,
-                Quantity = fi.Quantity,
-                Unit = fi.Unit,
-                IngredientName = fi.Ingredient.Name
-            }).ToList()
-        };
+        return food.ToDto();
     }
 }

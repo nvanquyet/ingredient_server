@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 using Microsoft.AspNetCore.Http;
 
 namespace IngredientServer.Utils.DTOs.Entity;
@@ -33,10 +34,7 @@ public class CreateIngredientRequestDto
     
     public void NormalizeExpiryDate()
     {
-        // Nếu thời gian không có timezone, giả định là local và chuyển sang UTC
-        ExpiryDate = ExpiryDate.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(ExpiryDate, DateTimeKind.Local).ToUniversalTime() :
-            // Nếu đã có timezone (Local hoặc Utc), chuyển về UTC
-            ExpiryDate.ToUniversalTime();
+        ExpiryDate = DateTimeHelper.NormalizeToUtc(ExpiryDate);
     }
 
 }
@@ -86,10 +84,7 @@ public class IngredientDataResponseDto
     
     public void NormalizeExpiryDate()
     {
-        // Nếu thời gian không có timezone, giả định là local và chuyển sang UTC
-        ExpiryDate = ExpiryDate.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(ExpiryDate, DateTimeKind.Local).ToUniversalTime() :
-            // Nếu đã có timezone (Local hoặc Utc), chuyển về UTC
-            ExpiryDate.ToUniversalTime();
+        ExpiryDate = DateTimeHelper.NormalizeToUtc(ExpiryDate);
     }
 
 }

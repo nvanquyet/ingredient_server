@@ -2,6 +2,7 @@
 using System.Security.Claims;
 using System.Text;
 using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
@@ -16,7 +17,6 @@ namespace IngredientServer.Core.Services;
 public class AuthService(
     IUserRepository userRepository,
     IJwtService jwtService,
-    IConfiguration configuration,
     ILogger<AuthService> logger)
     : IAuthService
 {
@@ -46,15 +46,15 @@ public class AuthService(
 
             await userRepository.UpdateForLoginAsync(user);
 
-            //Check format create at 
-            user.CreatedAt = user.CreatedAt == default ? DateTime.UtcNow : user.CreatedAt.ToUniversalTime();
-            user.DateOfBirth = user.DateOfBirth?.ToUniversalTime() ?? DateTime.UtcNow;
+            // Normalize DateTime to UTC
+            user.CreatedAt = user.CreatedAt == default ? DateTimeHelper.UtcNow : DateTimeHelper.NormalizeToUtc(user.CreatedAt);
+            user.DateOfBirth = DateTimeHelper.NormalizeToUtc(user.DateOfBirth);
 
             var token = jwtService.GenerateToken(user);
             var response = new AuthResponseDto
             {
                 Token = token,
-                ExpiresAt = DateTime.UtcNow.AddHours(24),
+                ExpiresAt = DateTimeHelper.UtcNow.AddHours(24),
                 User = UserProfileDto.FromUser(user)
             };
 
@@ -124,15 +124,15 @@ public class AuthService(
 
             logger.LogInformation("User found: {Username}", user.Username);
 
-            // Fix DateTime format
+            // Normalize DateTime to UTC
             if (user.CreatedAt == default(DateTime))
             {
-                user.CreatedAt = DateTime.UtcNow;
+                user.CreatedAt = DateTimeHelper.UtcNow;
                 logger.LogInformation("Set default CreatedAt for user {UserId}", userId);
             }
-            else if (user.CreatedAt.Kind != DateTimeKind.Utc)
+            else
             {
-                user.CreatedAt = DateTime.SpecifyKind(user.CreatedAt, DateTimeKind.Utc);
+                user.CreatedAt = DateTimeHelper.NormalizeToUtc(user.CreatedAt);
             }
 
             var response = new AuthResponseDto
@@ -188,9 +188,9 @@ public class AuthService(
                 Username = registerDto.Username,
                 Email = registerDto.Email,
                 PasswordHash = HashPassword(registerDto.Password),
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                DateOfBirth = DateTime.UtcNow,
+                CreatedAt = DateTimeHelper.UtcNow,
+                UpdatedAt = DateTimeHelper.UtcNow,
+                DateOfBirth = null, // Don't set default DateOfBirth on registration
                 IsActive = true,
                 Gender = Gender.Male,
                 FirstName = registerDto.Username,
@@ -209,7 +209,7 @@ public class AuthService(
             var response = new AuthResponseDto
             {
                 Token = token,
-                ExpiresAt = DateTime.UtcNow.AddHours(24),
+                ExpiresAt = DateTimeHelper.UtcNow.AddHours(24),
                 User = UserProfileDto.FromUser(user)
             };
 

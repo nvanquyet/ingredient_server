@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using IngredientServer.Core.Helpers;
 using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Auth;
 
@@ -99,9 +100,7 @@ namespace IngredientServer.Core.Entities
         public UserNutritionTargets? NutritionTargets { get; set; }
 
         // Computed properties
-        public int? Age => DateOfBirth.HasValue 
-            ? DateTime.Now.Year - DateOfBirth.Value.Year - (DateTime.Now.DayOfYear < DateOfBirth.Value.DayOfYear ? 1 : 0)
-            : null;
+        public int? Age => DateTimeHelper.CalculateAge(DateOfBirth);
 
         public decimal? BMI => Height.HasValue && Weight.HasValue && Height > 0 
             ? Math.Round(Weight.Value / (decimal)Math.Pow((double)(Height.Value / 100), 2), 2)
@@ -178,7 +177,7 @@ namespace IngredientServer.Core.Entities
                 this.EnableNotifications = targetData.EnableNotifications.Value;
             if (targetData.EnableMealReminders.HasValue)
                 this.EnableMealReminders = targetData.EnableMealReminders.Value;
-            this.UpdatedAt = DateTime.UtcNow;
+            this.UpdatedAt = DateTimeHelper.UtcNow;
         }
 
         public UserProfileDto ToDto()
@@ -208,10 +207,7 @@ namespace IngredientServer.Core.Entities
         public override void NormalizeDateTimes()
         {
             base.NormalizeDateTimes();
-            if (DateOfBirth.HasValue && DateOfBirth.Value.Kind != DateTimeKind.Utc)
-            {
-                DateOfBirth = DateTime.SpecifyKind(DateOfBirth.Value, DateTimeKind.Utc);
-            }
+            DateOfBirth = DateTimeHelper.NormalizeToUtc(DateOfBirth);
         }
     }
 }

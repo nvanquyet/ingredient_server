@@ -1,6 +1,7 @@
-﻿namespace IngredientServer.Core.Entities;
+﻿using IngredientServer.Core.Helpers;
 using System.ComponentModel.DataAnnotations;
 
+namespace IngredientServer.Core.Entities;
 
 public abstract class BaseEntity
 {
@@ -14,12 +15,12 @@ public abstract class BaseEntity
 
     public DateTime UpdatedAt { get; set; }
     
+    /// <summary>
+    /// Normalizes all DateTime properties to UTC
+    /// </summary>
     public virtual void NormalizeDateTimes()
     {
-        if (CreatedAt.Kind != DateTimeKind.Utc)
-            CreatedAt = DateTime.SpecifyKind(CreatedAt, DateTimeKind.Utc);
-
-        if (UpdatedAt.Kind != DateTimeKind.Utc)
-            UpdatedAt = DateTime.SpecifyKind(UpdatedAt, DateTimeKind.Utc);
+        CreatedAt = DateTimeHelper.NormalizeToUtc(CreatedAt);
+        UpdatedAt = DateTimeHelper.NormalizeToUtc(UpdatedAt);
     }
 }

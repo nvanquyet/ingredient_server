@@ -5,14 +5,16 @@ using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Core.Services;
 using IngredientServer.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace IngredientServer.Infrastructure.Repositories;
 
-public abstract class BaseRepository<T>(ApplicationDbContext context, IUserContextService userContextService)
+public abstract class BaseRepository<T>(ApplicationDbContext context, IUserContextService userContextService, ILogger<BaseRepository<T>>? logger = null)
     : IBaseRepository<T>
     where T : BaseEntity
 {
     protected readonly ApplicationDbContext Context = context;
+    protected readonly ILogger<BaseRepository<T>>? Logger = logger;
 
     protected int AuthenticatedUserId => userContextService.GetAuthenticatedUserId();
 
@@ -57,8 +59,7 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
         }
         catch (DbUpdateException ex)
         {
-            // Log lỗi chi tiết
-            Console.WriteLine($"UpdateAsync Error: {ex.InnerException?.Message}");
+            Logger?.LogError(ex, "UpdateAsync Error: {Message}", ex.InnerException?.Message);
             throw new UnauthorizedAccessException("Entity not found or access denied.", ex);
         }
         return entity;
@@ -70,7 +71,6 @@ public abstract class BaseRepository<T>(ApplicationDbContext context, IUserConte
         if (entity == null)
         {
             throw new UnauthorizedAccessException("Entity not found or access denied.");
-            return false;
         }
         
         Context.Set<T>().Remove(entity);

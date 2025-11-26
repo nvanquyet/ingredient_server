@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 using Microsoft.AspNetCore.Http;
 
 namespace IngredientServer.Utils.DTOs.Entity
@@ -63,7 +64,7 @@ namespace IngredientServer.Utils.DTOs.Entity
         [Range(1, 5, ErrorMessage = "Difficulty must be between 1 and 5")]
         public int DifficultyLevel { get; set; } = 1;
 
-        public DateTime MealDate { get; set; } = DateTime.UtcNow;
+        public DateTime MealDate { get; set; } = DateTimeHelper.UtcNow;
         
         public MealType MealType { get; set; } = MealType.Breakfast;
         
@@ -73,7 +74,8 @@ namespace IngredientServer.Utils.DTOs.Entity
         
         public void NormalizeConsumedAt()
         {
-            ConsumedAt ??= DateTime.Now;
+            ConsumedAt ??= DateTimeHelper.UtcNow;
+            ConsumedAt = DateTimeHelper.NormalizeToUtc(ConsumedAt);
         }
 
         public override string ToString()
@@ -129,17 +131,14 @@ namespace IngredientServer.Utils.DTOs.Entity
         public List<string> Tips { get; set; } = new List<string>();
         public int DifficultyLevel { get; set; } = 1;
         public MealType MealType { get; set; }
-        public DateTime MealDate { get; set; } = DateTime.UtcNow;
+        public DateTime MealDate { get; set; } = DateTimeHelper.UtcNow;
         
         public DateTime? ConsumedAt { get; set; } = null;
         public IEnumerable<FoodIngredientDto> Ingredients { get; set; } = new List<FoodIngredientDto>();
         
         public void NormalizeConsumedAt()
         {
-            if (ConsumedAt == null) return;
-
-            // Nếu thời gian không có Kind, giả sử là Local rồi chuyển sang UTC
-            ConsumedAt = ConsumedAt.Value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(ConsumedAt.Value, DateTimeKind.Local).ToUniversalTime() : ConsumedAt.Value.ToUniversalTime();
+            ConsumedAt = DateTimeHelper.NormalizeToUtc(ConsumedAt);
         }
     }
     

@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using IngredientServer.Core.Helpers;
 
 namespace IngredientServer.Core.Entities
 {
@@ -64,11 +65,11 @@ namespace IngredientServer.Core.Entities
         public string? ImageUrl { get; set; }
         
         // Computed properties
-        public int DaysUntilExpiry => (ExpiryDate.Date - DateTime.Now.Date).Days;
-        public bool IsExpired => DateTime.Now.Date > ExpiryDate.Date;
-        public bool IsExpiringSoon => DaysUntilExpiry is <= 7 and >= 0;
+        public int DaysUntilExpiry => DateTimeHelper.DaysUntilExpiry(ExpiryDate);
+        public bool IsExpired => DateTimeHelper.IsExpired(ExpiryDate);
+        public bool IsExpiringSoon => DateTimeHelper.IsExpiringSoon(ExpiryDate);
         
-        public string ExpiryDateUtc => DateTime.SpecifyKind(ExpiryDate, DateTimeKind.Utc)
+        public string ExpiryDateUtc => DateTimeHelper.NormalizeToUtc(ExpiryDate)
             .ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
 
         // Navigation properties

@@ -3,12 +3,14 @@ using System.Text.Json.Serialization;
 using Azure;
 using Azure.AI.Inference;
 using Azure.Core.Pipeline;
+using IngredientServer.Core.Configuration;
 using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Entity;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OpenAI.Chat;
 
 namespace IngredientServer.Core.Services
@@ -18,35 +20,48 @@ namespace IngredientServer.Core.Services
         private readonly ChatCompletionsClient _chatClient;
         private readonly ILogger<AIService> _logger;
         private readonly IImageService _imageService;
-        private readonly string _model;
+        private readonly AzureOpenAIOptions _options;
         private readonly SemaphoreSlim _semaphore;
         private readonly JsonSerializerOptions _jsonOptions;
+        private readonly HttpClient _httpClient;
         private bool _disposed;
 
-        public AIService(IConfiguration configuration, IImageService _imageService, ILogger<AIService> logger)
+        public AIService(
+            IOptions<AzureOpenAIOptions> options,
+            IImageService imageService,
+            ILogger<AIService> logger)
         {
             _logger = logger;
-            this._imageService = _imageService;
+            _imageService = imageService;
+            _options = options.Value;
 
-            var endpoint = new Uri(configuration["AzureOpenAI:Endpoint"]);
-            var apiKey = configuration["AzureOpenAI:ApiKey"];
-            _model = configuration["AzureOpenAI:Model"];
+            // Validate configuration
+            if (string.IsNullOrWhiteSpace(_options.Endpoint))
+                throw new InvalidOperationException("AzureOpenAI:Endpoint is not configured");
+            if (string.IsNullOrWhiteSpace(_options.ApiKey))
+                throw new InvalidOperationException("AzureOpenAI:ApiKey is not configured");
+            if (string.IsNullOrWhiteSpace(_options.Model))
+                throw new InvalidOperationException("AzureOpenAI:Model is not configured");
 
-            var credential = new AzureKeyCredential(apiKey);
+            var endpoint = new Uri(_options.Endpoint);
+            var credential = new AzureKeyCredential(_options.ApiKey);
+
+            // Create HttpClient with proper timeout
+            _httpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromMinutes(_options.TimeoutMinutes)
+            };
 
             _chatClient = new ChatCompletionsClient(
                 endpoint,
                 credential,
                 new AzureAIInferenceClientOptions()
                 {
-                    Transport = new HttpClientTransport(new HttpClient
-                    {
-                        Timeout = TimeSpan.FromMinutes(2)
-                    })
+                    Transport = new HttpClientTransport(_httpClient)
                 }
             );
 
-            _semaphore = new SemaphoreSlim(10, 10);
+            _semaphore = new SemaphoreSlim(_options.MaxConcurrentRequests, _options.MaxConcurrentRequests);
 
             _jsonOptions = new JsonSerializerOptions
             {
@@ -166,6 +181,10 @@ namespace IngredientServer.Core.Services
 
 
                 var imageUrl = await _imageService.SaveImageAsync(request.Image);
+                if (string.IsNullOrEmpty(imageUrl))
+                {
+                    throw new InvalidOperationException("Failed to save image");
+                }
 
                 var systemPrompt = CreateFoodAnalysisSystemPrompt();
                 var userPrompt = CreateFoodAnalysisUserPrompt(imageUrl);
@@ -210,6 +229,10 @@ namespace IngredientServer.Core.Services
 
 
                 var imageUrl = await _imageService.SaveImageAsync(request.Image);
+                if (string.IsNullOrEmpty(imageUrl))
+                {
+                    throw new InvalidOperationException("Failed to save image");
+                }
 
                 var systemPrompt = CreateIngredientAnalysisSystemPrompt();
                 var userPrompt = CreateIngredientAnalysisUserPrompt(imageUrl);
@@ -238,9 +261,14 @@ namespace IngredientServer.Core.Services
         private async Task<string> CallOpenAIWithImageAsync(string systemPrompt, string userPrompt, string imageUrl,
             CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                throw new ArgumentException("Image URL cannot be null or empty", nameof(imageUrl));
+            }
+
             var options = new ChatCompletionsOptions
             {
-                Model = _model,
+                Model = _options.Model,
                 Messages =
                 {
                     new ChatRequestSystemMessage(systemPrompt),
@@ -248,20 +276,35 @@ namespace IngredientServer.Core.Services
                     new ChatRequestUserMessage(new ChatMessageImageContentItem(new Uri(imageUrl),
                         ChatMessageImageDetailLevel.High))
                 },
-                MaxTokens = 2000,
-                Temperature = 0.3f,
-                FrequencyPenalty = 0.1f,
-                PresencePenalty = 0.1f
+                MaxTokens = _options.MaxTokens,
+                Temperature = _options.ImageAnalysisTemperature,
+                FrequencyPenalty = _options.FrequencyPenalty,
+                PresencePenalty = _options.PresencePenalty
             };
 
-            var response = await _chatClient.CompleteAsync(options, cancellationToken);
-
-            if (response?.Value?.Content == null)
+            try
             {
-                throw new InvalidOperationException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác");
-            }
+                var response = await _chatClient.CompleteAsync(options, cancellationToken);
 
-            return response.Value.Content;
+                if (response?.Value?.Content == null)
+                {
+                    _logger.LogWarning("Received empty response from Azure OpenAI for image analysis");
+                    throw new InvalidOperationException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác");
+                }
+
+                return response.Value.Content;
+            }
+            catch (RequestFailedException ex)
+            {
+                _logger.LogError(ex, "Azure OpenAI image analysis request failed. Status: {Status}, Error: {Error}", 
+                    ex.Status, ex.Message);
+                throw new HttpRequestException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác", ex);
+            }
+            catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+            {
+                _logger.LogError(ex, "Azure OpenAI image analysis request timed out after {Timeout} minutes", _options.TimeoutMinutes);
+                throw new TimeoutException($"Phân tích hình ảnh quá thời gian chờ ({_options.TimeoutMinutes} phút)", ex);
+            }
         }
 
         private string CreateFoodAnalysisSystemPrompt()
@@ -545,7 +588,7 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
 
             if (userInfo.DateOfBirth.HasValue)
             {
-                var age = DateTime.Now.Year - userInfo.DateOfBirth.Value.Year;
+                var age = DateTimeHelper.CalculateAge(userInfo.DateOfBirth) ?? 0;
                 prompt += $"• Tuổi: {age}\n";
             }
 
@@ -619,26 +662,41 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
         {
             var options = new ChatCompletionsOptions
             {
-                Model = _model,
+                Model = _options.Model,
                 Messages =
                 {
                     new ChatRequestSystemMessage(systemPrompt),
                     new ChatRequestUserMessage(userPrompt)
                 },
-                MaxTokens = 2000,
-                Temperature = 0.7f,
-                FrequencyPenalty = 0.1f,
-                PresencePenalty = 0.1f
+                MaxTokens = _options.MaxTokens,
+                Temperature = _options.Temperature,
+                FrequencyPenalty = _options.FrequencyPenalty,
+                PresencePenalty = _options.PresencePenalty
             };
 
-            var response = await _chatClient.CompleteAsync(options, cancellationToken);
-
-            if (response?.Value?.Content == null)
+            try
             {
-                throw new InvalidOperationException("Received empty response from OpenAI");
-            }
+                var response = await _chatClient.CompleteAsync(options, cancellationToken);
 
-            return response.Value.Content;
+                if (response?.Value?.Content == null)
+                {
+                    _logger.LogWarning("Received empty response from Azure OpenAI");
+                    throw new InvalidOperationException("Received empty response from Azure OpenAI");
+                }
+
+                return response.Value.Content;
+            }
+            catch (RequestFailedException ex)
+            {
+                _logger.LogError(ex, "Azure OpenAI API request failed. Status: {Status}, Error: {Error}", 
+                    ex.Status, ex.Message);
+                throw new HttpRequestException($"Azure OpenAI API request failed: {ex.Message}", ex);
+            }
+            catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+            {
+                _logger.LogError(ex, "Azure OpenAI API request timed out after {Timeout} minutes", _options.TimeoutMinutes);
+                throw new TimeoutException($"Azure OpenAI API request timed out after {_options.TimeoutMinutes} minutes", ex);
+            }
         }
 
         private string CreateFoodSuggestionSystemPrompt()
@@ -705,7 +763,7 @@ LƯU Ý QUAN TRỌNG:
 
             if (userInfo.DateOfBirth.HasValue)
             {
-                var age = DateTime.Now.Year - userInfo.DateOfBirth.Value.Year;
+                var age = DateTimeHelper.CalculateAge(userInfo.DateOfBirth) ?? 0;
                 prompt += $"• Tuổi: {age}\n";
             }
 
@@ -934,8 +992,9 @@ LƯU Ý QUAN TRỌNG:
 
                         if (recipe.MealDate == default(DateTime))
                         {
-                            recipe.MealDate = DateTime.UtcNow;
+                            recipe.MealDate = DateTimeHelper.UtcNow;
                         }
+                        recipe.MealDate = DateTimeHelper.NormalizeToUtc(recipe.MealDate);
 
                         return recipe;
                     }
@@ -955,6 +1014,7 @@ LƯU Ý QUAN TRỌNG:
             if (!_disposed)
             {
                 _semaphore?.Dispose();
+                _httpClient?.Dispose();
                 _disposed = true;
             }
         }

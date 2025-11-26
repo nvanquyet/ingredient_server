@@ -1,5 +1,6 @@
 ﻿// NutritionController.cs
 
+using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Entity;
@@ -22,7 +23,7 @@ public class NutritionController(INutritionService nutritionService, IUserContex
         {
             if (userNutritionRequestDto.CurrentDate == default)
             {
-                userNutritionRequestDto.CurrentDate = DateTime.UtcNow.Date; // Default to today if no date is provided
+                userNutritionRequestDto.CurrentDate = DateTimeHelper.UtcToday; // Default to today if no date is provided
             }
             var summary = await nutritionService.GetDailyNutritionSummaryAsync(userNutritionRequestDto, true);
             return Ok(new ApiResponse<DailyNutritionSummaryDto>

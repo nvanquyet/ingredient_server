@@ -1,8 +1,10 @@
 ﻿using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Infrastructure.Data;
 using IngredientServer.Utils.DTOs.Entity;
+using IngredientServer.Utils.Mappers;
 using Microsoft.EntityFrameworkCore;
 
 namespace IngredientServer.Infrastructure.Repositories;
@@ -40,8 +42,8 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
             if (filter.IsExpired.HasValue)
             {
                 query = query.Where(i => filter.IsExpired.Value
-                    ? i.ExpiryDate.Date < DateTime.UtcNow.Date
-                    : i.ExpiryDate.Date >= DateTime.UtcNow.Date);
+                    ? i.ExpiryDate.Date < DateTimeHelper.UtcToday
+                    : i.ExpiryDate.Date >= DateTimeHelper.UtcToday);
             }
 
             // Lọc theo SearchTerm
@@ -91,17 +93,7 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
         // Trả về kết quả với phân trang
         return new IngredientSearchResultDto
         {
-            Ingredients = items.Select(i => new IngredientDataResponseDto
-            {
-                Id = i.Id,
-                Name = i.Name,
-                Description = i.Description,
-                ImageUrl = i.ImageUrl,
-                Unit = i.Unit,
-                Category = i.Category,
-                Quantity = i.Quantity,
-                ExpiryDate = DateTime.SpecifyKind(i.ExpiryDate, DateTimeKind.Utc),
-            }).ToList(),
+            Ingredients = items.Select(i => i.ToDto()).ToList(),
             TotalCount = totalCount
         };
     }
