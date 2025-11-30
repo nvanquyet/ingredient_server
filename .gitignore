@@ -425,3 +425,4 @@ used queries
 1
 # App settings - contains sensitive configuration
 IngredientServer/API/appsettings.json
+.env
