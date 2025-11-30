@@ -37,14 +37,16 @@ public static class FoodMapper
             DifficultyLevel = food.DifficultyLevel,
             ConsumedAt = DateTimeHelper.NormalizeToUtc(food.ConsumedAt),
             MealType = mealFood?.Meal.MealType ?? MealType.Breakfast,
-            MealDate = mealFood?.Meal.MealDate ?? DateTimeHelper.UtcNow,
-            Ingredients = food.FoodIngredients.Select(fi => new FoodIngredientDto
+            MealDate = mealFood != null 
+                ? DateTimeHelper.NormalizeToUtc(mealFood.Meal.MealDate) 
+                : DateTimeHelper.UtcNow,
+            Ingredients = food.FoodIngredients?.Select(fi => new FoodIngredientDto
             {
                 IngredientId = fi.IngredientId,
                 Quantity = fi.Quantity,
                 Unit = fi.Unit,
                 IngredientName = fi.Ingredient?.Name ?? string.Empty
-            }).ToList()
+            }).ToList() ?? new List<FoodIngredientDto>()
         };
         
         dto.NormalizeConsumedAt();

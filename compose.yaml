@@ -3,8 +3,6 @@
 # docker-compose.yml
 # ============================================
 
-version: '3.8'
-
 services:
   mysql:
     image: mariadb:10.4
@@ -65,15 +63,27 @@ services:
       # Database Connection
       - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=IngredientServerDb;User=ingredientuser;Password=${DB_PASSWORD};
       # JWT Configuration
-      - JWT__Secret=${JWT_SECRET}
-      - JWT__Issuer=${JWT_ISSUER:-IngredientServer}
-      - JWT__Audience=${JWT_AUDIENCE:-IngredientServerApp}
-      # OpenAI Configuration
-      - OpenAI__ApiKey=${OPENAI_API_KEY}
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+      - Jwt__ExpirationMinutes=${JWT_EXPIRATION_MINUTES:-1440}
+      # Azure OpenAI Configuration
+      - AzureOpenAI__Endpoint=${AZURE_OPENAI_ENDPOINT}
+      - AzureOpenAI__ApiKey=${AZURE_OPENAI_API_KEY}
+      - AzureOpenAI__Model=${AZURE_OPENAI_MODEL}
+      - AzureOpenAI__MaxTokens=${AZURE_OPENAI_MAX_TOKENS:-2000}
+      - AzureOpenAI__TimeoutMinutes=${AZURE_OPENAI_TIMEOUT_MINUTES:-2}
+      - AzureOpenAI__Temperature=${AZURE_OPENAI_TEMPERATURE:-0.7}
+      - AzureOpenAI__ImageAnalysisTemperature=${AZURE_OPENAI_IMAGE_ANALYSIS_TEMPERATURE:-0.3}
+      - AzureOpenAI__FrequencyPenalty=${AZURE_OPENAI_FREQUENCY_PENALTY:-0.1}
+      - AzureOpenAI__PresencePenalty=${AZURE_OPENAI_PRESENCE_PENALTY:-0.1}
+      - AzureOpenAI__MaxConcurrentRequests=${AZURE_OPENAI_MAX_CONCURRENT_REQUESTS:-10}
+      # OpenAI Configuration (optional)
+      - OpenAI__ApiKey=${OPENAI_API_KEY:-}
       - OpenAI__Model=${OPENAI_MODEL:-gpt-4-turbo}
       # File Upload Configuration
-      - FileUpload__MaxFileSize=${MAX_FILE_SIZE:-10485760}
-      - FileUpload__AllowedExtensions=${ALLOWED_EXTENSIONS:-.jpg,.jpeg,.png,.gif}
+      - FileUpload__MaxFileSize=${FILE_UPLOAD_MAX_FILE_SIZE:-10485760}
+      - FileUpload__AllowedExtensions=${FILE_UPLOAD_ALLOWED_EXTENSIONS:-.jpg,.jpeg,.png,.gif,.webp}
     depends_on:
       mysql:
         condition: service_healthy
@@ -85,6 +95,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./uploads:/app/wwwroot/uploads
+      - ./IngredientServer/API/appsettings.json:/app/API/appsettings.json:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 30s

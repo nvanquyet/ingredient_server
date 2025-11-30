@@ -260,27 +260,50 @@ export JWT__Secret="your-jwt-secret"
 
 ### Quick Start với Docker Compose
 
-1. **Tạo file `.env`** (optional)
-```env
-DB_ROOT_PASSWORD=YourRootPassword123!
-DB_PASSWORD=YourPassword123!
-JWT_SECRET=your-jwt-secret-key-change-in-production
+1. **Tạo file `.env`** từ `.env.example`
+```bash
+cp .env.example .env
+# Sau đó chỉnh sửa .env với các giá trị thực tế
 ```
 
-2. **Build và chạy**
+2. **Build và chạy lần đầu**
 ```bash
 docker compose up -d --build
 ```
 
-3. **Xem logs**
+3. **Rebuild sau khi thay đổi code**
 ```bash
-docker compose logs -f ingredientserver
+# Rebuild và restart
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+
+# Hoặc rebuild chỉ API service
+docker compose build --no-cache ingredientserver
+docker compose up -d ingredientserver
 ```
 
-4. **Dừng services**
+4. **Xem logs**
+```bash
+# Tất cả services
+docker compose logs -f
+
+# Chỉ API service
+docker compose logs -f ingredientserver-app
+
+# Last 100 lines
+docker compose logs --tail=100 ingredientserver-app
+```
+
+5. **Dừng services**
 ```bash
 docker compose down
+
+# Xóa cả volumes (xóa data)
+docker compose down -v
 ```
+
+**📖 Xem thêm:** [DOCKER_COMMANDS.md](./DOCKER_COMMANDS.md) để biết tất cả các lệnh Docker hữu ích
 
 ### Services trong Docker Compose
 

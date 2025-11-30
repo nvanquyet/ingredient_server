@@ -92,12 +92,13 @@ public class NutritionService(
                 ? await mealFoodRepository.GetByMealIdAsync(meal.Id)
                 : new List<MealFood>();
 
-            // Reset nutrition values
-            meal.TotalCalories = 0;
-            meal.TotalProtein = 0;
-            meal.TotalCarbs = 0;
-            meal.TotalFat = 0;
-            meal.TotalFiber = 0;
+            // FIX: Tính lại nutrition từ foods để đảm bảo tính nhất quán
+            // (vì có thể có thay đổi trực tiếp trong database)
+            double calculatedCalories = 0;
+            double calculatedProtein = 0;
+            double calculatedCarbs = 0;
+            double calculatedFat = 0;
+            double calculatedFiber = 0;
 
             var foodNutrition = new List<FoodNutritionDto>();
 
@@ -110,11 +111,11 @@ public class NutritionService(
                     if (f.Food == null) continue;
 
                     // Tính nutrition (với null check)
-                    meal.TotalCalories += (double)(f.Food.Calories);
-                    meal.TotalProtein += (double)(f.Food.Protein);
-                    meal.TotalCarbs += (double)(f.Food.Carbohydrates);
-                    meal.TotalFat += (double)(f.Food.Fat);
-                    meal.TotalFiber += (double)(f.Food.Fiber);
+                    calculatedCalories += (double)(f.Food.Calories);
+                    calculatedProtein += (double)(f.Food.Protein);
+                    calculatedCarbs += (double)(f.Food.Carbohydrates);
+                    calculatedFat += (double)(f.Food.Fat);
+                    calculatedFiber += (double)(f.Food.Fiber);
 
                     foodNutrition.Add(new FoodNutritionDto()
                     {
@@ -127,6 +128,22 @@ public class NutritionService(
                         Fiber = f.Food.Fiber
                     });
                 }
+            }
+
+            // FIX: Cập nhật meal nutrition với giá trị đã tính
+            // Nếu meal đã có trong DB (Id > 0), cập nhật lại để đảm bảo nhất quán
+            meal.TotalCalories = calculatedCalories;
+            meal.TotalProtein = calculatedProtein;
+            meal.TotalCarbs = calculatedCarbs;
+            meal.TotalFat = calculatedFat;
+            meal.TotalFiber = calculatedFiber;
+
+            // FIX: Cập nhật lại Meal trong DB nếu meal đã tồn tại
+            if (meal.Id > 0)
+            {
+                await mealRepository.UpdateAsync(meal);
+                logger.LogDebug("Updated Meal {MealId} nutrition - Calories: {Calories}, Protein: {Protein}",
+                    meal.Id, meal.TotalCalories, meal.TotalProtein);
             }
 
             // Cộng dồn vào tổng (BỔ SUNG TotalFiber)

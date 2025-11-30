@@ -10,7 +10,7 @@ namespace IngredientServer.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class FoodController(IFoodService foodService) : ControllerBase
+public class FoodController(IFoodService foodService, ILogger<FoodController> logger) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<ApiResponse<FoodDataResponseDto>>> CreateFood(
@@ -18,6 +18,100 @@ public class FoodController(IFoodService foodService) : ControllerBase
     {
         try
         {
+            // FIX: Log all form keys for debugging
+            logger.LogInformation("Form keys: {Keys}", string.Join(", ", Request.Form.Keys));
+            
+            // FIX: Parse Ingredients from JSON string if needed (multipart/form-data sends complex objects as JSON strings)
+            if (Request.Form.ContainsKey("Ingredients"))
+            {
+                var ingredientsJson = Request.Form["Ingredients"].ToString();
+                logger.LogInformation("Found Ingredients in form: {Json}", ingredientsJson);
+                
+                if (!string.IsNullOrEmpty(ingredientsJson))
+                {
+                    try
+                    {
+                        // FIX: Try to parse as JSON array
+                        var parsedIngredients = JsonSerializer.Deserialize<List<FoodIngredientDto>>(ingredientsJson, new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        });
+                        if (parsedIngredients != null && parsedIngredients.Any())
+                        {
+                            dataDto.Ingredients = parsedIngredients;
+                            logger.LogInformation("✅ Parsed {Count} ingredients from JSON", parsedIngredients.Count);
+                        }
+                        else
+                        {
+                            logger.LogWarning("Parsed ingredients is null or empty");
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+                        logger.LogError(ex, "Failed to parse Ingredients JSON: {Json}", ingredientsJson);
+                    }
+                }
+                else
+                {
+                    logger.LogWarning("Ingredients field is empty");
+                }
+            }
+            else
+            {
+                logger.LogWarning("Ingredients field not found in form data");
+            }
+            
+            // FIX: Also check if Ingredients is already populated (from model binding)
+            if (dataDto.Ingredients != null && dataDto.Ingredients.Any())
+            {
+                logger.LogInformation("Ingredients already populated from model binding: {Count}", dataDto.Ingredients.Count());
+            }
+            else
+            {
+                logger.LogWarning("⚠️ No ingredients found in dataDto after parsing");
+            }
+
+            // FIX: Parse Instructions and Tips from JSON string if needed
+            if (Request.Form.ContainsKey("Instructions"))
+            {
+                var instructionsJson = Request.Form["Instructions"].ToString();
+                if (!string.IsNullOrEmpty(instructionsJson) && instructionsJson.StartsWith("["))
+                {
+                    try
+                    {
+                        var parsedInstructions = JsonSerializer.Deserialize<List<string>>(instructionsJson);
+                        if (parsedInstructions != null)
+                        {
+                            dataDto.Instructions = parsedInstructions;
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Keep original if parse fails
+                    }
+                }
+            }
+
+            if (Request.Form.ContainsKey("Tips"))
+            {
+                var tipsJson = Request.Form["Tips"].ToString();
+                if (!string.IsNullOrEmpty(tipsJson) && tipsJson.StartsWith("["))
+                {
+                    try
+                    {
+                        var parsedTips = JsonSerializer.Deserialize<List<string>>(tipsJson);
+                        if (parsedTips != null)
+                        {
+                            dataDto.Tips = parsedTips;
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Keep original if parse fails
+                    }
+                }
+            }
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(new ApiResponse<FoodDataResponseDto>
@@ -69,6 +163,71 @@ public class FoodController(IFoodService foodService) : ControllerBase
     {
         try
         {
+            // FIX: Parse Ingredients from JSON string if needed
+            if (Request.Form.ContainsKey("Ingredients"))
+            {
+                var ingredientsJson = Request.Form["Ingredients"].ToString();
+                if (!string.IsNullOrEmpty(ingredientsJson))
+                {
+                    try
+                    {
+                        var parsedIngredients = JsonSerializer.Deserialize<List<FoodIngredientDto>>(ingredientsJson, new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        });
+                        if (parsedIngredients != null)
+                        {
+                            dto.Ingredients = parsedIngredients;
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Keep original if parse fails
+                    }
+                }
+            }
+
+            // FIX: Parse Instructions and Tips from JSON string if needed
+            if (Request.Form.ContainsKey("Instructions"))
+            {
+                var instructionsJson = Request.Form["Instructions"].ToString();
+                if (!string.IsNullOrEmpty(instructionsJson) && instructionsJson.StartsWith("["))
+                {
+                    try
+                    {
+                        var parsedInstructions = JsonSerializer.Deserialize<List<string>>(instructionsJson);
+                        if (parsedInstructions != null)
+                        {
+                            dto.Instructions = parsedInstructions;
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Keep original if parse fails
+                    }
+                }
+            }
+
+            if (Request.Form.ContainsKey("Tips"))
+            {
+                var tipsJson = Request.Form["Tips"].ToString();
+                if (!string.IsNullOrEmpty(tipsJson) && tipsJson.StartsWith("["))
+                {
+                    try
+                    {
+                        var parsedTips = JsonSerializer.Deserialize<List<string>>(tipsJson);
+                        if (parsedTips != null)
+                        {
+                            dto.Tips = parsedTips;
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Keep original if parse fails
+                    }
+                }
+            }
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(new ApiResponse<FoodDataResponseDto>

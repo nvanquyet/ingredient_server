@@ -61,6 +61,68 @@ Tất cả API responses đều có format chuẩn:
 
 ---
 
+## ⚠️ Quan trọng: Logic Tự Động của Backend
+
+### 1. Tự Động Trừ Nguyên Liệu Khi Tạo Món Ăn
+
+**Khi tạo món ăn (POST /api/food):**
+- Backend **tự động trừ** số lượng nguyên liệu từ kho của user
+- Nếu nguyên liệu không đủ: số lượng sẽ được set về 0 (không throw error)
+- Response sẽ trả về `remainingQuantity` cho mỗi nguyên liệu (số lượng còn lại sau khi trừ)
+
+**Ví dụ:**
+- User có 500g thịt gà
+- Tạo món ăn cần 200g thịt gà
+- Sau khi tạo: thịt gà còn 300g
+- Response: `{ "ingredientId": 1, "quantity": 200, "remainingQuantity": 300 }`
+
+### 2. Tự Động Cập Nhật Meal Nutrition
+
+**Khi tạo món ăn:**
+- Backend **tự động cộng** calories, protein, carbs, fat, fiber vào `Meal.TotalCalories`, `Meal.TotalProtein`, etc.
+- Meal được tìm theo `MealDate` và `MealType`, hoặc tạo mới nếu chưa có
+
+**Khi sửa món ăn:**
+- Backend **tự động trừ** nutrition cũ từ Meal cũ
+- Backend **tự động cộng** nutrition mới vào Meal mới
+
+**Khi xóa món ăn:**
+- Backend **tự động trừ** nutrition từ Meal
+- Nếu Meal không còn Food nào → Meal sẽ bị xóa tự động
+
+### 3. Tự Động Hoàn Lại Nguyên Liệu
+
+**Khi sửa món ăn:**
+- Backend **tự động hoàn lại** nguyên liệu cũ (cộng lại vào kho)
+- Sau đó **trừ** nguyên liệu mới
+
+**Khi xóa món ăn:**
+- Backend **tự động hoàn lại** tất cả nguyên liệu đã sử dụng (cộng lại vào kho)
+
+### 4. Cache System cho Recipe Generation
+
+**Khi generate recipe (POST /api/food/recipes):**
+- Backend **tự động check cache** trước khi gọi Azure OpenAI API
+- Nếu có trong cache: trả về ngay (nhanh hơn, không tốn API call)
+- Nếu không có: gọi Azure OpenAI → lưu vào cache → trả về
+- Cache là **public** (tất cả users dùng chung)
+
+**Ingredient Mapping:**
+- Cache lưu ingredients theo **tên** (không phải ID vì mỗi user có ID khác nhau)
+- Khi trả về recipe từ cache, backend **tự động map** ingredients:
+  - Tìm ingredient của user theo tên
+  - Nếu user có: `ingredientId = userIngredientId` (> 0)
+  - Nếu user không có: `ingredientId = 0` (frontend cần check và báo user thêm ingredient)
+
+### 4. Detect API Chỉ Trả Về Gợi Ý
+
+**Detect món ăn (POST /api/ai/detect_food) và Detect nguyên liệu (POST /api/ai/detect_ingredient):**
+- Chỉ trả về **gợi ý** từ AI, **KHÔNG tự động tạo** Food/Ingredient
+- Frontend cần sử dụng response để gọi API tạo Food/Ingredient riêng
+- `ingredientId` trong response của detect_food sẽ là `0` (chưa link với nguyên liệu thực tế)
+
+---
+
 ## API Endpoints
 
 ### 1. Authentication APIs
@@ -336,8 +398,14 @@ GET /api/auth/validateToken?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 **Content-Type:** `multipart/form-data`
 
+**Mô tả:**
+- Phân tích hình ảnh món ăn và trả về thông tin gợi ý (tên, mô tả, calories, ingredients, etc.)
+- **LƯU Ý:** API này chỉ trả về **gợi ý**, **KHÔNG tự động tạo** Food trong database
+- Frontend cần sử dụng response để gọi API `POST /api/food` để tạo Food thực tế
+- `ingredientId` trong response sẽ là `0` (chưa link với nguyên liệu thực tế)
+
 **Request Body (Form Data):**
-- `Image` (file, required): File hình ảnh món ăn (jpg, jpeg, png, gif)
+- `Image` (file, required): File hình ảnh món ăn (jpg, jpeg, png, gif, webp)
 
 **Example Request (cURL):**
 ```bash
@@ -351,7 +419,7 @@ curl -X POST "http://localhost:80/api/ai/detect_food" \
 {
   "success": true,
   "data": {
-    "id": 1,
+    "id": 0,
     "name": "Grilled Chicken Salad",
     "description": "Healthy grilled chicken with fresh vegetables",
     "imageUrl": "https://localhost/uploads/food-123.jpg",
@@ -376,7 +444,7 @@ curl -X POST "http://localhost:80/api/ai/detect_food" \
     "consumedAt": "2025-12-01T12:00:00Z",
     "ingredients": [
       {
-        "ingredientId": 1,
+        "ingredientId": 0,
         "quantity": 200,
         "unit": "Gram",
         "ingredientName": "Chicken Breast"
@@ -386,6 +454,13 @@ curl -X POST "http://localhost:80/api/ai/detect_food" \
   "message": "Food analysis successful"
 }
 ```
+
+**Luồng sử dụng:**
+1. User upload ảnh món ăn → Gọi `POST /api/ai/detect_food`
+2. Nhận response với thông tin gợi ý
+3. User xem và chỉnh sửa thông tin (nếu cần)
+4. User chọn nguyên liệu từ kho (map `ingredientId` từ 0 → ID thực tế)
+5. Gọi `POST /api/food` với thông tin đã chỉnh sửa để tạo Food thực tế
 
 ---
 
@@ -397,8 +472,13 @@ curl -X POST "http://localhost:80/api/ai/detect_food" \
 
 **Content-Type:** `multipart/form-data`
 
+**Mô tả:**
+- Phân tích hình ảnh nguyên liệu và trả về thông tin gợi ý (tên, số lượng, đơn vị, category, expiryDate)
+- **LƯU Ý:** API này chỉ trả về **gợi ý**, **KHÔNG tự động tạo** Ingredient trong database
+- Frontend cần sử dụng response để gọi API `POST /api/ingredient` để tạo Ingredient thực tế
+
 **Request Body (Form Data):**
-- `Image` (file, required): File hình ảnh nguyên liệu (jpg, jpeg, png, gif)
+- `Image` (file, required): File hình ảnh nguyên liệu (jpg, jpeg, png, gif, webp)
 
 **Example Request (cURL):**
 ```bash
@@ -412,7 +492,7 @@ curl -X POST "http://localhost:80/api/ai/detect_ingredient" \
 {
   "success": true,
   "data": {
-    "id": 1,
+    "id": 0,
     "name": "Tomato",
     "description": "Fresh red tomato",
     "quantity": 500,
@@ -424,6 +504,12 @@ curl -X POST "http://localhost:80/api/ai/detect_ingredient" \
   "message": "Ingredient analysis successful"
 }
 ```
+
+**Luồng sử dụng:**
+1. User upload ảnh nguyên liệu → Gọi `POST /api/ai/detect_ingredient`
+2. Nhận response với thông tin gợi ý
+3. User xem và chỉnh sửa thông tin (nếu cần)
+4. Gọi `POST /api/ingredient` với thông tin đã chỉnh sửa để tạo Ingredient thực tế
 
 ---
 
@@ -437,6 +523,12 @@ curl -X POST "http://localhost:80/api/ai/detect_ingredient" \
 
 **Content-Type:** `multipart/form-data`
 
+**Mô tả:**
+- Tạo món ăn mới và **tự động trừ nguyên liệu** từ kho của user
+- **Tự động cập nhật** `Meal.TotalCalories`, `Meal.TotalProtein`, etc. cho Meal tương ứng
+- Nếu nguyên liệu không đủ: số lượng sẽ được set về 0 (không throw error)
+- Response trả về `remainingQuantity` cho mỗi nguyên liệu (số lượng còn lại sau khi trừ)
+
 **Request Body (Form Data):**
 - `Name` (string, required, max 200 characters): Tên món ăn
 - `Description` (string, optional, max 1000 characters): Mô tả món ăn
@@ -448,13 +540,35 @@ curl -X POST "http://localhost:80/api/ai/detect_ingredient" \
 - `Carbohydrates` (decimal, required): Lượng carbohydrate (gram)
 - `Fat` (decimal, required): Lượng chất béo (gram)
 - `Fiber` (decimal, required): Lượng chất xơ (gram)
-- `Instructions` (array of strings, required): Các bước hướng dẫn
-- `Tips` (array of strings, required): Mẹo nấu ăn
+- `Instructions` (JSON string, required): Các bước hướng dẫn (array of strings)
+- `Tips` (JSON string, required): Mẹo nấu ăn (array of strings)
 - `DifficultyLevel` (int, optional, 1-5): Độ khó (mặc định: 1)
-- `MealDate` (datetime, optional): Ngày ăn (mặc định: hiện tại)
-- `MealType` (enum, optional): Loại bữa ăn - Breakfast, Lunch, Dinner, Snack (mặc định: Breakfast)
-- `ConsumedAt` (datetime, optional): Thời gian đã ăn
-- `Ingredients` (JSON string, optional): Danh sách nguyên liệu
+- `MealDate` (datetime string, optional): Ngày ăn (ISO 8601 format, mặc định: hiện tại)
+- `MealType` (enum string, optional): Loại bữa ăn - `Breakfast`, `Lunch`, `Dinner`, `Snack` (mặc định: `Breakfast`)
+- `ConsumedAt` (datetime string, optional): Thời gian đã ăn (ISO 8601 format)
+- `Ingredients` (JSON string, optional): Danh sách nguyên liệu (array of objects)
+
+**Format của `Ingredients` (JSON string):**
+```json
+[
+  {
+    "ingredientId": 1,
+    "quantity": 200,
+    "unit": "Gram"
+  },
+  {
+    "ingredientId": 2,
+    "quantity": 100,
+    "unit": "Gram"
+  }
+]
+```
+
+**⚠️ Lưu ý về `ingredientId`:**
+- `ingredientId > 0`: ID của ingredient trong kho của user (sẽ được trừ khi tạo food)
+- `ingredientId = 0`: User không có ingredient này (thường từ cache/recipe suggestion)
+  - Backend sẽ **skip** ingredients có `ingredientId = 0` khi tạo food
+  - Frontend nên check và báo user cần thêm ingredient vào kho trước
 
 **Example Request (cURL):**
 ```bash
@@ -474,7 +588,8 @@ curl -X POST "http://localhost:80/api/food" \
   -F "Tips=[\"Use fresh vegetables\",\"Cook chicken thoroughly\"]" \
   -F "DifficultyLevel=2" \
   -F "MealType=Lunch" \
-  -F "Ingredients=[{\"ingredientId\":1,\"quantity\":200,\"unit\":\"Gram\"}]"
+  -F "MealDate=2025-12-01T00:00:00Z" \
+  -F "Ingredients=[{\"ingredientId\":1,\"quantity\":200,\"unit\":\"Gram\"},{\"ingredientId\":2,\"quantity\":100,\"unit\":\"Gram\"}]"
 ```
 
 **Response (201 Created):**
@@ -497,19 +612,40 @@ curl -X POST "http://localhost:80/api/food" \
     "tips": ["Use fresh vegetables", "Cook chicken thoroughly"],
     "difficultyLevel": 2,
     "mealType": "Lunch",
+    "mealDate": "2025-12-01T00:00:00Z",
     "consumedAt": "2025-12-01T12:00:00Z",
     "ingredients": [
       {
         "ingredientId": 1,
         "quantity": 200,
         "unit": "Gram",
-        "ingredientName": "Chicken Breast"
+        "ingredientName": "Chicken Breast",
+        "remainingQuantity": 300
+      },
+      {
+        "ingredientId": 2,
+        "quantity": 100,
+        "unit": "Gram",
+        "ingredientName": "Lettuce",
+        "remainingQuantity": 400
       }
     ]
   },
   "message": "Food created successfully"
 }
 ```
+
+**Giải thích Response:**
+- `remainingQuantity`: Số lượng nguyên liệu còn lại sau khi trừ (ví dụ: có 500g, dùng 200g → còn 300g)
+- Nếu `remainingQuantity = 0`: Nguyên liệu đã hết hoặc không đủ (đã được set về 0)
+
+**Luồng xử lý tự động:**
+1. Lưu Food vào database
+2. Tìm hoặc tạo Meal theo `MealDate` và `MealType`
+3. Link Food với Meal
+4. **Tự động cộng** `calories`, `protein`, `carbs`, `fat`, `fiber` vào `Meal.TotalCalories`, `Meal.TotalProtein`, etc.
+5. **Tự động trừ** số lượng nguyên liệu từ kho của user
+6. Trả về response với `remainingQuantity`
 
 ---
 
@@ -521,9 +657,18 @@ curl -X POST "http://localhost:80/api/food" \
 
 **Content-Type:** `multipart/form-data`
 
+**Mô tả:**
+- Cập nhật món ăn và **tự động xử lý nguyên liệu**:
+  - **Hoàn lại** nguyên liệu cũ (cộng lại vào kho)
+  - **Trừ** nguyên liệu mới (trừ từ kho)
+- **Tự động cập nhật** Meal nutrition:
+  - **Trừ** nutrition cũ từ Meal cũ
+  - **Cộng** nutrition mới vào Meal mới
+- Response trả về `remainingQuantity` cho mỗi nguyên liệu
+
 **Request Body (Form Data):**
-- Tất cả các field giống như tạo món ăn, thêm:
 - `Id` (int, required): ID của món ăn cần cập nhật
+- Tất cả các field giống như tạo món ăn (có thể chỉ gửi các field cần cập nhật)
 
 **Example Request (cURL):**
 ```bash
@@ -531,7 +676,8 @@ curl -X PUT "http://localhost:80/api/food" \
   -H "Authorization: Bearer <your-token>" \
   -F "Id=1" \
   -F "Name=Updated Grilled Chicken Salad" \
-  -F "Calories=380.0"
+  -F "Calories=380.0" \
+  -F "Ingredients=[{\"ingredientId\":1,\"quantity\":250,\"unit\":\"Gram\"}]"
 ```
 
 **Response (200 OK):**
@@ -542,11 +688,31 @@ curl -X PUT "http://localhost:80/api/food" \
     "id": 1,
     "name": "Updated Grilled Chicken Salad",
     "calories": 380.0,
-    ...
+    "protein": 35.0,
+    "ingredients": [
+      {
+        "ingredientId": 1,
+        "quantity": 250,
+        "unit": "Gram",
+        "ingredientName": "Chicken Breast",
+        "remainingQuantity": 250
+      }
+    ]
   },
   "message": "Food updated successfully"
 }
 ```
+
+**Luồng xử lý tự động:**
+1. Lấy Food cũ với ingredients
+2. Lấy Meal cũ (nếu có)
+3. **Hoàn lại** nguyên liệu cũ: `Ingredient.Quantity += oldQuantity`
+4. Xóa `FoodIngredient` cũ
+5. **Trừ** nguyên liệu mới: `Ingredient.Quantity -= newQuantity`
+6. Tạo `FoodIngredient` mới
+7. **Trừ** nutrition cũ từ Meal cũ (nếu có)
+8. **Cộng** nutrition mới vào Meal mới
+9. Trả về response với `remainingQuantity`
 
 ---
 
@@ -557,6 +723,11 @@ curl -X PUT "http://localhost:80/api/food" \
 **Authentication:** Cần (Bearer Token)
 
 **Content-Type:** `application/json`
+
+**Mô tả:**
+- Xóa món ăn và **tự động hoàn lại** tất cả nguyên liệu đã sử dụng (cộng lại vào kho)
+- **Tự động trừ** nutrition từ Meal
+- Nếu Meal không còn Food nào → Meal sẽ bị xóa tự động
 
 **Request Body:**
 ```json
@@ -580,6 +751,15 @@ curl -X PUT "http://localhost:80/api/food" \
   "message": "Food deleted successfully"
 }
 ```
+
+**Luồng xử lý tự động:**
+1. Lấy Food với ingredients và meals
+2. **Trừ** nutrition từ Meal: `Meal.TotalCalories -= Food.Calories`, etc.
+3. **Hoàn lại** nguyên liệu: `Ingredient.Quantity += FoodIngredient.Quantity`
+4. Xóa relationships (MealFood, FoodIngredient)
+5. Xóa ảnh (nếu có)
+6. Xóa Food
+7. Nếu Meal không còn Food → Xóa Meal
 
 ---
 
@@ -617,6 +797,7 @@ GET /api/food/1
     "tips": ["Use fresh vegetables", "Cook chicken thoroughly"],
     "difficultyLevel": 2,
     "mealType": "Lunch",
+    "mealDate": "2025-12-01T00:00:00Z",
     "consumedAt": "2025-12-01T12:00:00Z",
     "ingredients": [
       {
@@ -708,32 +889,45 @@ GET /api/food/1
 
 **Content-Type:** `application/json`
 
+**Mô tả:**
+- Generate công thức nấu ăn từ Azure OpenAI hoặc lấy từ **cache** (nếu đã có)
+- Backend **tự động check cache** trước khi gọi Azure OpenAI API
+- Nếu có trong cache: trả về ngay (nhanh hơn, không tốn API call)
+- Nếu không có: gọi Azure OpenAI → lưu vào cache → trả về
+- Cache là **public** (tất cả users dùng chung)
+- Ingredients trong response sẽ được **tự động map** sang ingredient ID của user:
+  - Nếu user có ingredient: `ingredientId = userIngredientId` (> 0)
+  - Nếu user không có: `ingredientId = 0` (frontend cần check và báo user thêm ingredient)
+
 **Request Body:**
 ```json
 {
+  "foodName": "Trứng luộc",
   "ingredients": [
     {
       "ingredientId": 1,
-      "quantity": 200,
-      "unit": "Gram"
+      "quantity": 2,
+      "unit": "Piece",
+      "ingredientName": "Trứng gà"
     }
   ]
 }
 ```
 
+**Request Parameters:**
+- `foodName` (string, required): Tên món ăn cần generate recipe
+- `ingredients` (array, optional): Danh sách nguyên liệu có sẵn (dùng để tối ưu recipe)
+
 **Example Request:**
 ```json
 {
+  "foodName": "Trứng luộc",
   "ingredients": [
     {
       "ingredientId": 1,
-      "quantity": 200,
-      "unit": "Gram"
-    },
-    {
-      "ingredientId": 2,
-      "quantity": 100,
-      "unit": "Gram"
+      "quantity": 2,
+      "unit": "Piece",
+      "ingredientName": "Trứng gà"
     }
   ]
 }
@@ -744,23 +938,42 @@ GET /api/food/1
 {
   "success": true,
   "data": {
-    "id": 1,
-    "name": "Grilled Chicken Salad",
-    "description": "Healthy grilled chicken with fresh vegetables",
-    "instructions": ["Prepare vegetables", "Grill chicken", "Mix ingredients"],
-    "tips": ["Use fresh vegetables", "Cook chicken thoroughly"],
+    "id": 0,
+    "name": "Trứng luộc",
+    "description": "Món trứng luộc đơn giản, bổ dưỡng",
+    "preparationTimeMinutes": 5,
+    "cookingTimeMinutes": 10,
+    "calories": 140,
+    "protein": 12,
+    "carbohydrates": 1,
+    "fat": 10,
+    "fiber": 0,
+    "instructions": ["Đun sôi nước", "Cho trứng vào", "Luộc 10 phút"],
+    "tips": ["Luộc vừa lửa", "Ngâm nước lạnh sau khi luộc"],
+    "difficultyLevel": 1,
     "ingredients": [
       {
         "ingredientId": 1,
-        "quantity": 200,
-        "unit": "Gram",
-        "ingredientName": "Chicken Breast"
+        "quantity": 2,
+        "unit": "Piece",
+        "ingredientName": "Trứng gà"
+      },
+      {
+        "ingredientId": 0,
+        "quantity": 500,
+        "unit": "Milliliter",
+        "ingredientName": "Nước"
       }
     ]
   },
   "message": "Recipe retrieved successfully"
 }
 ```
+
+**Lưu ý về Ingredients trong Response:**
+- `ingredientId > 0`: User có ingredient này, có thể dùng ngay khi tạo food
+- `ingredientId = 0`: User **không có** ingredient này, cần thêm vào kho trước khi tạo food
+- Frontend nên check `ingredientId = 0` và hiển thị warning/thông báo cho user
 
 ---
 
@@ -774,13 +987,17 @@ GET /api/food/1
 
 **Content-Type:** `multipart/form-data`
 
+**Mô tả:**
+- Tạo nguyên liệu mới trong kho của user
+- Không có logic tự động đặc biệt, chỉ tạo mới
+
 **Request Body (Form Data):**
 - `Name` (string, required, max 200 characters): Tên nguyên liệu
 - `Description` (string, optional, max 1000 characters): Mô tả
 - `Quantity` (decimal, required, >= 0): Số lượng
-- `Unit` (enum, required): Đơn vị - Xem danh sách đầy đủ ở phần Enums bên dưới (ví dụ: Gram, Kilogram, Piece, Cup, Tablespoon, Teaspoon, Clove, Bunch, etc.)
-- `Category` (enum, required): Danh mục - Xem danh sách đầy đủ ở phần Enums bên dưới (ví dụ: Vegetables, Fruits, Meat, Seafood, Dairy, Grains, Spices, etc.)
-- `ExpiryDate` (datetime, required, ISO 8601 format): Ngày hết hạn
+- `Unit` (enum string, required): Đơn vị - Xem danh sách đầy đủ ở phần Enums bên dưới
+- `Category` (enum string, required): Danh mục - Xem danh sách đầy đủ ở phần Enums bên dưới
+- `ExpiryDate` (datetime string, required, ISO 8601 format): Ngày hết hạn
 - `Image` (file, optional): Hình ảnh nguyên liệu
 
 **Example Request (cURL):**
@@ -824,6 +1041,10 @@ curl -X POST "http://localhost:80/api/ingredient" \
 
 **Content-Type:** `multipart/form-data`
 
+**Mô tả:**
+- Cập nhật thông tin nguyên liệu
+- Có thể thay đổi `Quantity` trực tiếp (không có logic tự động)
+
 **Path Parameters:**
 - `id` (int, required): ID của nguyên liệu
 
@@ -846,7 +1067,10 @@ curl -X PUT "http://localhost:80/api/ingredient/1" \
     "id": 1,
     "name": "Updated Tomato",
     "quantity": 600,
-    ...
+    "unit": "Gram",
+    "category": "Vegetables",
+    "expiryDate": "2025-12-10T00:00:00Z",
+    "imageUrl": "https://localhost/uploads/ingredient-123.jpg"
   },
   "message": "Ingredient updated successfully"
 }
@@ -861,6 +1085,10 @@ curl -X PUT "http://localhost:80/api/ingredient/1" \
 **Authentication:** Cần (Bearer Token)
 
 **Content-Type:** `application/json`
+
+**Mô tả:**
+- Xóa nguyên liệu khỏi kho
+- **LƯU Ý:** Không kiểm tra xem nguyên liệu có đang được sử dụng trong Food không
 
 **Path Parameters:**
 - `id` (int, required): ID của nguyên liệu
@@ -892,10 +1120,10 @@ curl -X PUT "http://localhost:80/api/ingredient/1" \
 **Query Parameters:**
 - `page` (int, optional, default: 1): Số trang
 - `pageSize` (int, optional, default: 10): Số lượng mỗi trang
-- `category` (enum, optional): Lọc theo danh mục - Xem danh sách đầy đủ ở phần Enums bên dưới (ví dụ: Vegetables, Fruits, Meat, Seafood, Dairy, Grains, Spices, etc.)
+- `category` (enum string, optional): Lọc theo danh mục
 - `search` (string, optional): Tìm kiếm theo tên
-- `expiryDateFrom` (datetime, optional): Lọc từ ngày hết hạn
-- `expiryDateTo` (datetime, optional): Lọc đến ngày hết hạn
+- `expiryDateFrom` (datetime string, optional, ISO 8601 format): Lọc từ ngày hết hạn
+- `expiryDateTo` (datetime string, optional, ISO 8601 format): Lọc đến ngày hết hạn
 
 **Example Request:**
 ```
@@ -973,6 +1201,11 @@ GET /api/ingredient/1
 **Authentication:** Cần (Bearer Token)
 
 **Content-Type:** `application/json`
+
+**Mô tả:**
+- Lấy tóm tắt dinh dưỡng cho một ngày cụ thể
+- Tính toán từ tất cả các Meal trong ngày
+- `Meal.TotalCalories`, `Meal.TotalProtein`, etc. đã được cập nhật tự động khi tạo/sửa/xóa Food
 
 **Request Body:**
 ```json
@@ -1176,22 +1409,23 @@ GET /api/ingredient/1
 ## Enums
 
 ### MealType
-- `Breakfast`
-- `Lunch`
-- `Dinner`
-- `Snack`
+- `Breakfast` - Bữa sáng
+- `Lunch` - Bữa trưa
+- `Dinner` - Bữa tối
+- `Snack` - Đồ ăn vặt
+- `Other` - Khác
 
 ### IngredientUnit
 
 #### Weight Units (Đơn vị khối lượng)
-- `Kilogram` - Kilôgam
-- `Gram` - Gam
+- `Kilogram` - Kilôgam (kg)
+- `Gram` - Gam (g)
 - `Pound` - Pao (lb)
 - `Ounce` - Ao-xơ (oz)
 
 #### Volume Units (Đơn vị thể tích)
-- `Liter` - Lít
-- `Milliliter` - Mililít
+- `Liter` - Lít (L)
+- `Milliliter` - Mililít (mL)
 - `Cup` - Cốc
 - `Tablespoon` - Thìa canh
 - `Teaspoon` - Thìa cà phê
@@ -1244,13 +1478,13 @@ GET /api/ingredient/1
 - `Tofu` - Đậu phụ
 
 #### Vegetables (Rau củ)
-- `Vegetables` - Rau củ
+- `Vegetables` - Rau củ (tổng quát)
 - `LeafyGreens` - Rau lá xanh
-- `RootVegetables` - Rau củ
+- `RootVegetables` - Rau củ (củ)
 - `Herbs` - Rau thơm
 
 #### Fruits (Trái cây)
-- `Fruits` - Trái cây
+- `Fruits` - Trái cây (tổng quát)
 - `Berries` - Quả mọng
 - `Citrus` - Cam quýt
 
@@ -1289,22 +1523,22 @@ GET /api/ingredient/1
 - `Other` - Khác
 
 ### Gender
-- `Male`
-- `Female`
-- `Other`
+- `Male` - Nam
+- `Female` - Nữ
+- `Other` - Khác
 
 ### NutritionGoal
-- `WeightLoss`
-- `WeightGain`
-- `Maintenance`
-- `MuscleGain`
+- `WeightLoss` - Giảm cân
+- `WeightGain` - Tăng cân
+- `Maintenance` - Duy trì
+- `MuscleGain` - Tăng cơ
 
 ### ActivityLevel
-- `Sedentary`
-- `Light`
-- `Moderate`
-- `Active`
-- `VeryActive`
+- `Sedentary` - Ít vận động
+- `Light` - Vận động nhẹ
+- `Moderate` - Vận động vừa
+- `Active` - Vận động nhiều
+- `VeryActive` - Vận động rất nhiều
 
 ---
 
@@ -1364,8 +1598,8 @@ Khi có lỗi validation, `metadata.errors` sẽ chứa danh sách các lỗi:
 1. **DateTime Format**: Tất cả datetime đều sử dụng ISO 8601 format (UTC): `2025-12-01T12:00:00Z`
 
 2. **File Upload**: 
-   - Chỉ chấp nhận file ảnh: jpg, jpeg, png, gif
-   - Kích thước tối đa: 10MB (có thể cấu hình)
+   - Chỉ chấp nhận file ảnh: jpg, jpeg, png, gif, webp
+   - Kích thước tối đa: 10MB (có thể cấu hình trong `.env`)
    - File sẽ được lưu tại `/uploads/` và có thể truy cập qua URL: `https://localhost/uploads/{filename}`
 
 3. **Pagination**: 
@@ -1375,6 +1609,30 @@ Khi có lỗi validation, `metadata.errors` sẽ chứa danh sách các lỗi:
 4. **Rate Limiting**: Hiện tại chưa có rate limiting, nhưng nên implement trong production
 
 5. **CORS**: API hỗ trợ CORS, cho phép tất cả origins (có thể cấu hình)
+
+6. **Tự Động Trừ Nguyên Liệu**: 
+   - Khi tạo món ăn, backend tự động trừ nguyên liệu từ kho
+   - Nếu không đủ: số lượng sẽ được set về 0 (không throw error)
+   - Response trả về `remainingQuantity` để frontend hiển thị số lượng còn lại
+
+7. **Tự Động Cập Nhật Meal Nutrition**: 
+   - Khi tạo/sửa/xóa món ăn, `Meal.TotalCalories`, `Meal.TotalProtein`, etc. được cập nhật tự động
+   - Frontend không cần tính toán lại, chỉ cần gọi API nutrition để lấy kết quả
+
+8. **Cache System cho Recipe Generation**: 
+   - Backend tự động cache các recipe đã generate từ Azure OpenAI
+   - Cache là public (tất cả users dùng chung)
+   - Khi request recipe: check cache trước → nếu có thì trả về ngay (nhanh hơn)
+   - Ingredients trong cache được map tự động sang ingredient ID của user
+
+9. **IngredientId = 0**: 
+   - Nghĩa là user không có ingredient này trong kho
+   - Backend sẽ skip khi tạo food (không trừ quantity)
+   - Frontend nên check và báo user cần thêm ingredient vào kho
+
+10. **Detect API**: 
+   - Chỉ trả về gợi ý, không tự động tạo Food/Ingredient
+   - Frontend cần sử dụng response để gọi API tạo riêng
 
 ---
 
@@ -1403,3 +1661,54 @@ Khi chạy ứng dụng, có thể truy cập Swagger UI tại:
 
 Swagger UI cung cấp interactive documentation và có thể test API trực tiếp từ browser.
 
+---
+
+## Ví Dụ Luồng Sử Dụng Cho Frontend
+
+### Luồng 1: Tạo món ăn từ ảnh
+
+1. User chụp/upload ảnh món ăn
+2. Frontend gọi `POST /api/ai/detect_food` với ảnh
+3. Nhận response với thông tin gợi ý (tên, calories, ingredients, etc.)
+4. Frontend hiển thị form với thông tin đã điền sẵn
+5. User chỉnh sửa thông tin (nếu cần)
+6. User chọn nguyên liệu từ kho (map `ingredientId` từ 0 → ID thực tế)
+7. Frontend gọi `POST /api/food` với thông tin đã chỉnh sửa
+8. Nhận response với `remainingQuantity` cho mỗi nguyên liệu
+9. Frontend hiển thị thông báo: "Món ăn đã được tạo. Nguyên liệu còn lại: ..."
+
+### Luồng 2: Tạo nguyên liệu từ ảnh
+
+1. User chụp/upload ảnh nguyên liệu
+2. Frontend gọi `POST /api/ai/detect_ingredient` với ảnh
+3. Nhận response với thông tin gợi ý (tên, số lượng, đơn vị, category, expiryDate)
+4. Frontend hiển thị form với thông tin đã điền sẵn
+5. User chỉnh sửa thông tin (nếu cần)
+6. Frontend gọi `POST /api/ingredient` với thông tin đã chỉnh sửa
+7. Nhận response với thông tin nguyên liệu đã tạo
+8. Frontend cập nhật danh sách nguyên liệu
+
+### Luồng 3: Xem dinh dưỡng hàng ngày
+
+1. User chọn ngày cần xem
+2. Frontend gọi `POST /api/nutrition/daily` với `currentDate`
+3. Nhận response với `totalCalories`, `totalProtein`, etc. và `mealBreakdown`
+4. Frontend hiển thị biểu đồ và danh sách các bữa ăn
+5. **Lưu ý:** Nutrition đã được tính toán tự động, không cần tính lại
+
+---
+
+## Tóm Tắt Logic Tự Động
+
+| Hành động | Tự động trừ nguyên liệu | Tự động cập nhật Meal nutrition | Tự động hoàn lại nguyên liệu |
+|-----------|------------------------|----------------------------------|------------------------------|
+| Tạo món ăn | ✅ Có | ✅ Có (cộng) | ❌ Không |
+| Sửa món ăn | ✅ Có (trừ mới) | ✅ Có (trừ cũ, cộng mới) | ✅ Có (hoàn lại cũ) |
+| Xóa món ăn | ❌ Không | ✅ Có (trừ) | ✅ Có |
+| Tạo nguyên liệu | ❌ Không | ❌ Không | ❌ Không |
+| Sửa nguyên liệu | ❌ Không | ❌ Không | ❌ Không |
+| Xóa nguyên liệu | ❌ Không | ❌ Không | ❌ Không |
+
+---
+
+**Chúc bạn phát triển frontend thành công! 🚀**

@@ -87,9 +87,89 @@ public static class WebApplicationExtensions
         try
         {
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            await context.Database.EnsureCreatedAsync();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-            logger.LogInformation("Database initialized successfully");
+            
+            // Check if database exists, if not create it
+            if (!await context.Database.CanConnectAsync())
+            {
+                logger.LogInformation("Database does not exist, creating...");
+                await context.Database.EnsureCreatedAsync();
+                logger.LogInformation("Database created successfully");
+            }
+            else
+            {
+                // Apply pending migrations
+                var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+                if (pendingMigrations.Any())
+                {
+                    logger.LogInformation("Applying {Count} pending migrations: {Migrations}", 
+                        pendingMigrations.Count(), string.Join(", ", pendingMigrations));
+                    await context.Database.MigrateAsync();
+                    logger.LogInformation("Migrations applied successfully");
+                }
+                else
+                {
+                    logger.LogInformation("Database is up to date");
+                    
+                    // FIX: Check if CachedFoods table exists, if not create it manually
+                    try
+                    {
+                        var tableExists = await context.Database.ExecuteSqlRawAsync(
+                            "SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CachedFoods'");
+                        
+                        // If query returns no rows, table doesn't exist - create it
+                        var cachedFoodExists = context.Model.FindEntityType(typeof(Core.Entities.CachedFood)) != null;
+                        if (cachedFoodExists)
+                        {
+                            logger.LogInformation("CachedFoods table check - ensuring table exists...");
+                            // Try to query the table - if it fails, table doesn't exist
+                            try
+                            {
+                                await context.Set<Core.Entities.CachedFood>().CountAsync();
+                                logger.LogInformation("CachedFoods table exists");
+                            }
+                            catch
+                            {
+                                logger.LogWarning("CachedFoods table does not exist, creating...");
+                                await context.Database.ExecuteSqlRawAsync(@"
+                                    CREATE TABLE IF NOT EXISTS `CachedFoods` (
+                                        `Id` int NOT NULL AUTO_INCREMENT,
+                                        `Name` varchar(200) NOT NULL,
+                                        `SearchKey` varchar(500) NOT NULL,
+                                        `Description` varchar(1000) NULL,
+                                        `PreparationTimeMinutes` int NOT NULL,
+                                        `CookingTimeMinutes` int NOT NULL,
+                                        `Calories` decimal(8,2) NOT NULL,
+                                        `Protein` decimal(8,2) NOT NULL,
+                                        `Carbohydrates` decimal(8,2) NOT NULL,
+                                        `Fat` decimal(8,2) NOT NULL,
+                                        `Fiber` decimal(8,2) NOT NULL,
+                                        `ImageUrl` varchar(500) NULL,
+                                        `Instructions` json NOT NULL,
+                                        `Tips` json NOT NULL,
+                                        `Ingredients` json NOT NULL,
+                                        `DifficultyLevel` int NOT NULL DEFAULT 1,
+                                        `HitCount` int NOT NULL DEFAULT 0,
+                                        `LastAccessedAt` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                                        `CreatedAt` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                                        `UpdatedAt` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                                        PRIMARY KEY (`Id`),
+                                        UNIQUE KEY `IX_CachedFoods_SearchKey` (`SearchKey`),
+                                        KEY `IX_CachedFoods_Name` (`Name`),
+                                        KEY `IX_CachedFoods_LastAccessedAt` (`LastAccessedAt`),
+                                        KEY `IX_CachedFoods_HitCount` (`HitCount`)
+                                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                                ");
+                                logger.LogInformation("CachedFoods table created successfully");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Could not verify/create CachedFoods table, will rely on migrations");
+                    }
+                }
+            }
         }
         catch (Exception ex)
         {

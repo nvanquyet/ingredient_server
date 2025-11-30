@@ -61,6 +61,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMealFoodRepository, MealFoodRepository>();
         services.AddScoped<IFoodIngredientRepository, FoodIngredientRepository>();
         services.AddScoped<IUserNutritionRepository, UserNutritionRepository>();
+        services.AddScoped<ICachedFoodRepository, CachedFoodRepository>();
 
         // Services
         services.AddScoped<IUserContextService, UserContextService>();
@@ -174,6 +175,9 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<AzureOpenAIOptions>(
             configuration.GetSection(AzureOpenAIOptions.SectionName));
+        
+        services.Configure<FileUploadOptions>(
+            configuration.GetSection(FileUploadOptions.SectionName));
 
         return services;
     }

@@ -20,6 +20,9 @@ namespace IngredientServer.Utils.DTOs.Entity
         
         // For response
         public string? IngredientName { get; set; }
+        
+        // Remaining quantity after deduction (for create/update food response)
+        public decimal? RemainingQuantity { get; set; }
     }
     
     public class CreateFoodRequestDto

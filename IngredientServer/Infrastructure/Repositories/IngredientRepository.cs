@@ -97,4 +97,15 @@ public class IngredientRepository(ApplicationDbContext context, IUserContextServ
             TotalCount = totalCount
         };
     }
+
+    public async Task<Ingredient?> FindByNameAsync(string ingredientName)
+    {
+        if (string.IsNullOrWhiteSpace(ingredientName))
+            return null;
+
+        return await Context.Set<Ingredient>()
+            .FirstOrDefaultAsync(i => 
+                i.Name.ToLower() == ingredientName.ToLower() && 
+                i.UserId == AuthenticatedUserId);
+    }
 }

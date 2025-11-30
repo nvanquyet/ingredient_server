@@ -6,6 +6,7 @@ using Azure.Core.Pipeline;
 using IngredientServer.Core.Configuration;
 using IngredientServer.Core.Entities;
 using IngredientServer.Core.Helpers;
+using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Entity;
@@ -19,6 +20,9 @@ namespace IngredientServer.Core.Services
         private readonly ChatCompletionsClient _chatClient;
         private readonly ILogger<AIService> _logger;
         private readonly IImageService _imageService;
+        private readonly ICachedFoodRepository _cachedFoodRepository;
+        private readonly IIngredientRepository _ingredientRepository;
+        private readonly IUserContextService _userContextService;
         private readonly AzureOpenAIOptions _options;
         private readonly SemaphoreSlim _semaphore;
         private readonly JsonSerializerOptions _jsonOptions;
@@ -28,10 +32,16 @@ namespace IngredientServer.Core.Services
         public AIService(
             IOptions<AzureOpenAIOptions> options,
             IImageService imageService,
+            ICachedFoodRepository cachedFoodRepository,
+            IIngredientRepository ingredientRepository,
+            IUserContextService userContextService,
             ILogger<AIService> logger)
         {
             _logger = logger;
             _imageService = imageService;
+            _cachedFoodRepository = cachedFoodRepository;
+            _ingredientRepository = ingredientRepository;
+            _userContextService = userContextService;
             _options = options.Value;
 
             // Validate configuration
@@ -105,6 +115,33 @@ namespace IngredientServer.Core.Services
             FoodRecipeRequestDto recipeRequest,
             CancellationToken cancellationToken = default)
         {
+            // Step 1: Check cache first
+            var searchKey = _cachedFoodRepository.GenerateSearchKey(
+                recipeRequest.FoodName, 
+                recipeRequest.Ingredients);
+            
+            _logger.LogInformation("Checking cache for recipe: {FoodName}, SearchKey: {SearchKey}", 
+                recipeRequest.FoodName, searchKey);
+
+            var cachedFood = await _cachedFoodRepository.FindBySearchKeyAsync(searchKey);
+            
+            if (cachedFood != null)
+            {
+                // Cache hit - update hit count and return cached result
+                cachedFood.HitCount++;
+                cachedFood.LastAccessedAt = DateTime.UtcNow;
+                await _cachedFoodRepository.UpdateAsync(cachedFood);
+                
+                _logger.LogInformation("✅ Cache HIT for {FoodName} (HitCount: {HitCount})", 
+                    recipeRequest.FoodName, cachedFood.HitCount);
+                
+                // Map cached ingredients to user's ingredients
+                return await ConvertCachedFoodToDtoAsync(cachedFood);
+            }
+
+            // Step 2: Cache miss - call Azure OpenAI API
+            _logger.LogInformation("Cache MISS for {FoodName} - calling Azure OpenAI API", recipeRequest.FoodName);
+            
             await _semaphore.WaitAsync(cancellationToken);
 
             try
@@ -115,6 +152,23 @@ namespace IngredientServer.Core.Services
                 var response = await CallOpenAIAsync(systemPrompt, userPrompt, cancellationToken);
 
                 var recipe = ParseRecipeData(response);
+
+                // Step 3: Save to cache before returning
+                try
+                {
+                    var cachedFoodToSave = ConvertDtoToCachedFood(recipe, recipeRequest);
+                    cachedFoodToSave.SearchKey = searchKey;
+                    await _cachedFoodRepository.AddAsync(cachedFoodToSave);
+                    
+                    _logger.LogInformation("✅ Cached recipe for {FoodName} with SearchKey: {SearchKey}", 
+                        recipeRequest.FoodName, searchKey);
+                }
+                catch (Exception cacheEx)
+                {
+                    // Don't fail the request if caching fails
+                    _logger.LogWarning(cacheEx, "Failed to cache recipe for {FoodName}, but returning result", 
+                        recipeRequest.FoodName);
+                }
 
                 _logger.LogInformation("Successfully generated recipe for {FoodName}", recipeRequest.FoodName);
 
@@ -1006,6 +1060,118 @@ LƯU Ý QUAN TRỌNG:
                 _logger.LogWarning(ex, "Failed to parse recipe JSON: {Response}", jsonResponse);
                 return new FoodDataResponseDto();
             }
+        }
+
+        /// <summary>
+        /// Convert CachedFood to FoodDataResponseDto
+        /// Maps cached ingredients (by name) to user's ingredients (by ID)
+        /// </summary>
+        private async Task<FoodDataResponseDto> ConvertCachedFoodToDtoAsync(CachedFood cachedFood)
+        {
+            var userId = _userContextService.GetAuthenticatedUserId();
+            var mappedIngredients = new List<FoodIngredientDto>();
+
+            if (cachedFood.Ingredients != null && cachedFood.Ingredients.Any())
+            {
+                _logger.LogInformation("Mapping {Count} cached ingredients to user {UserId} ingredients", 
+                    cachedFood.Ingredients.Count, userId);
+
+                foreach (var cachedIngredient in cachedFood.Ingredients)
+                {
+                    // Find user's ingredient by name (case-insensitive)
+                    var userIngredient = await _ingredientRepository.FindByNameAsync(cachedIngredient.IngredientName);
+
+                    if (userIngredient != null)
+                    {
+                        // User has this ingredient - use their ingredient ID
+                        mappedIngredients.Add(new FoodIngredientDto
+                        {
+                            IngredientId = userIngredient.Id, // User's ingredient ID
+                            IngredientName = userIngredient.Name,
+                            Quantity = cachedIngredient.Quantity,
+                            Unit = cachedIngredient.Unit
+                        });
+                        
+                        _logger.LogDebug("✅ Mapped ingredient '{Name}' to user ingredient ID: {IngredientId}", 
+                            cachedIngredient.IngredientName, userIngredient.Id);
+                    }
+                    else
+                    {
+                        // User doesn't have this ingredient - set ID to 0
+                        mappedIngredients.Add(new FoodIngredientDto
+                        {
+                            IngredientId = 0, // 0 = user doesn't have this ingredient
+                            IngredientName = cachedIngredient.IngredientName,
+                            Quantity = cachedIngredient.Quantity,
+                            Unit = cachedIngredient.Unit
+                        });
+                        
+                        _logger.LogWarning("⚠️ User {UserId} doesn't have ingredient '{Name}' - setting IngredientId to 0", 
+                            userId, cachedIngredient.IngredientName);
+                    }
+                }
+            }
+
+            _logger.LogInformation("Mapped {MappedCount} ingredients (Found: {FoundCount}, Not Found: {NotFoundCount})", 
+                mappedIngredients.Count,
+                mappedIngredients.Count(i => i.IngredientId > 0),
+                mappedIngredients.Count(i => i.IngredientId == 0));
+
+            return new FoodDataResponseDto
+            {
+                Id = 0, // Cached food doesn't have user-specific ID
+                Name = cachedFood.Name,
+                Description = cachedFood.Description,
+                ImageUrl = cachedFood.ImageUrl,
+                PreparationTimeMinutes = cachedFood.PreparationTimeMinutes,
+                CookingTimeMinutes = cachedFood.CookingTimeMinutes,
+                Calories = cachedFood.Calories,
+                Protein = cachedFood.Protein,
+                Carbohydrates = cachedFood.Carbohydrates,
+                Fat = cachedFood.Fat,
+                Fiber = cachedFood.Fiber,
+                Instructions = cachedFood.Instructions ?? new List<string>(),
+                Tips = cachedFood.Tips ?? new List<string>(),
+                DifficultyLevel = cachedFood.DifficultyLevel,
+                MealType = MealType.Other, // Default, will be set by user
+                MealDate = DateTimeHelper.UtcNow,
+                ConsumedAt = null,
+                Ingredients = mappedIngredients
+            };
+        }
+
+        /// <summary>
+        /// Convert FoodDataResponseDto to CachedFood (for saving to cache)
+        /// </summary>
+        private CachedFood ConvertDtoToCachedFood(FoodDataResponseDto dto, FoodRecipeRequestDto request)
+        {
+            return new CachedFood
+            {
+                Name = dto.Name,
+                Description = dto.Description,
+                ImageUrl = dto.ImageUrl,
+                PreparationTimeMinutes = dto.PreparationTimeMinutes,
+                CookingTimeMinutes = dto.CookingTimeMinutes,
+                Calories = dto.Calories,
+                Protein = dto.Protein,
+                Carbohydrates = dto.Carbohydrates,
+                Fat = dto.Fat,
+                Fiber = dto.Fiber,
+                Instructions = dto.Instructions?.ToList() ?? new List<string>(),
+                Tips = dto.Tips?.ToList() ?? new List<string>(),
+                DifficultyLevel = dto.DifficultyLevel,
+                // Store only ingredient name (not ID) because each user has different ingredient IDs
+                Ingredients = dto.Ingredients?.Select(i => new CachedFoodIngredient
+                {
+                    IngredientName = i.IngredientName ?? string.Empty,
+                    Quantity = i.Quantity,
+                    Unit = i.Unit
+                }).ToList() ?? new List<CachedFoodIngredient>(),
+                HitCount = 0,
+                LastAccessedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
         }
 
         public void Dispose()

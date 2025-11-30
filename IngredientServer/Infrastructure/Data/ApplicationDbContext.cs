@@ -1,5 +1,9 @@
 ﻿using IngredientServer.Core.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using System.Text.Json;
+using System.Collections.Generic;
 
 namespace IngredientServer.Infrastructure.Data;
 
@@ -12,6 +16,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Meal> Meals { get; set; } = null!;
     public DbSet<MealFood> MealFoods { get; set; } = null!;
     public DbSet<FoodIngredient> FoodIngredients { get; set; } = null!;
+    public DbSet<CachedFood> CachedFoods { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -246,6 +251,51 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             // Composite unique index to prevent duplicate entries
             entity.HasIndex(e => new { e.FoodId, e.IngredientId }).IsUnique();
             entity.HasIndex(e => e.UserId);
+        });
+
+        // CachedFood configuration (Public cache for AI-generated recipes)
+        modelBuilder.Entity<CachedFood>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.SearchKey).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.PreparationTimeMinutes).IsRequired();
+            entity.Property(e => e.CookingTimeMinutes).IsRequired();
+            entity.Property(e => e.Calories).HasColumnType("decimal(8,2)").IsRequired();
+            entity.Property(e => e.Protein).HasColumnType("decimal(8,2)").IsRequired();
+            entity.Property(e => e.Carbohydrates).HasColumnType("decimal(8,2)").IsRequired();
+            entity.Property(e => e.Fat).HasColumnType("decimal(8,2)").IsRequired();
+            entity.Property(e => e.Fiber).HasColumnType("decimal(8,2)").IsRequired();
+            entity.Property(e => e.Instructions).HasColumnType("json").IsRequired();
+            entity.Property(e => e.Tips).HasColumnType("json").IsRequired();
+            
+            // Configure JSON conversion for Ingredients (List<CachedFoodIngredient>)
+            var ingredientConverter = new ValueConverter<List<CachedFoodIngredient>, string>(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<List<CachedFoodIngredient>>(v, (JsonSerializerOptions?)null) ?? new List<CachedFoodIngredient>());
+            
+            entity.Property(e => e.Ingredients)
+                .HasColumnType("json")
+                .IsRequired()
+                .HasConversion(ingredientConverter)
+                .Metadata.SetValueComparer(new ValueComparer<List<CachedFoodIngredient>>(
+                    (c1, c2) => c1 != null && c2 != null && c1.SequenceEqual(c2),
+                    c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                    c => c.ToList()));
+            entity.Property(e => e.ImageUrl).HasMaxLength(500);
+            entity.Property(e => e.DifficultyLevel).HasDefaultValue(1);
+            entity.Property(e => e.HitCount).HasDefaultValue(0);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.LastAccessedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            // Indexes for fast lookup
+            entity.HasIndex(e => e.SearchKey).IsUnique();
+            entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.LastAccessedAt);
+            entity.HasIndex(e => e.HitCount);
         });
 
         // Seed data or additional configurations can be added here

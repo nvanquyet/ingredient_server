@@ -24,7 +24,9 @@ public class FoodRepository(ApplicationDbContext context, IUserContextService us
     {
         var food = await Context.Set<Food>()
             .Include(f => f.FoodIngredients)
-            .ThenInclude(fi => fi.Ingredient)
+                .ThenInclude(fi => fi.Ingredient)
+            .Include(f => f.MealFoods)
+                .ThenInclude(mf => mf.Meal)
             .Where(f => f.Id == foodId && f.UserId == AuthenticatedUserId)
             .FirstOrDefaultAsync();
 
@@ -45,7 +47,9 @@ public class FoodRepository(ApplicationDbContext context, IUserContextService us
 
         var food = await Context.Set<Food>()
             .Include(f => f.FoodIngredients)
-            .ThenInclude(fi => fi.Ingredient)
+                .ThenInclude(fi => fi.Ingredient)
+            .Include(f => f.MealFoods)
+                .ThenInclude(mf => mf.Meal)
             .FirstOrDefaultAsync(f => f.Id == id && f.UserId == AuthenticatedUserId);
 
         if (food == null)
