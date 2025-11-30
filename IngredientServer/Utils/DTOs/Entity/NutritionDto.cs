@@ -1,4 +1,5 @@
 ﻿using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 
 namespace IngredientServer.Utils.DTOs.Entity;
 public class FoodNutritionDto
@@ -28,9 +29,7 @@ public class NutritionDto
     // Normalize meal date to UTC
     public void NormalizeMealDate()
     {
-        MealDate = MealDate.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(MealDate, DateTimeKind.Local).ToUniversalTime()
-            : MealDate.ToUniversalTime();
+        MealDate = DateTimeHelper.NormalizeToUtc(MealDate);
     }
 }
 
@@ -55,9 +54,7 @@ public class DailyNutritionSummaryDto
     //Normalize date to UTC
     public void NormalizeDate()
     {
-        Date = Date.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(Date, DateTimeKind.Local).ToUniversalTime()
-            : Date.ToUniversalTime();
+        Date = DateTimeHelper.NormalizeToUtc(Date);
     }
 }
 
@@ -82,13 +79,8 @@ public class WeeklyNutritionSummaryDto
     // Normalize week start and end dates to UTC
     public void NormalizeWeekDates()
     {
-        WeekStart = WeekStart.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(WeekStart, DateTimeKind.Local).ToUniversalTime()
-            : WeekStart.ToUniversalTime();
-        
-        WeekEnd = WeekEnd.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(WeekEnd, DateTimeKind.Local).ToUniversalTime()
-            : WeekEnd.ToUniversalTime();
+        WeekStart = DateTimeHelper.NormalizeToUtc(WeekStart);
+        WeekEnd = DateTimeHelper.NormalizeToUtc(WeekEnd);
     }
 }
 

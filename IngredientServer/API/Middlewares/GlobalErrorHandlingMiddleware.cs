@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using IngredientServer.Core.Helpers;
 
 namespace IngredientServer.API.Middlewares;
 using System.Net;
@@ -77,7 +78,7 @@ public class GlobalErrorHandlingMiddleware
         }
 
         response.StatusCode = context.Response.StatusCode;
-        response.Timestamp = DateTime.UtcNow;
+        response.Timestamp = DateTimeHelper.UtcNow;
         response.Path = context.Request.Path;
 
         var jsonResponse = JsonSerializer.Serialize(response, new JsonSerializerOptions

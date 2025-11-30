@@ -5,13 +5,13 @@ namespace IngredientServer.Infrastructure.Data;
 
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
 {
-    // DbSets for main entities
-    public DbSet<User> Users { get; set; }
-    public DbSet<Ingredient> Ingredients { get; set; }
-    public DbSet<Food> Foods { get; set; }
-    public DbSet<Meal> Meals { get; set; }
-    public DbSet<MealFood> MealFoods { get; set; }
-    public DbSet<FoodIngredient> FoodIngredients { get; set; }
+    // DbSets for main entities - initialized by EF Core
+    public DbSet<User> Users { get; set; } = null!;
+    public DbSet<Ingredient> Ingredients { get; set; } = null!;
+    public DbSet<Food> Foods { get; set; } = null!;
+    public DbSet<Meal> Meals { get; set; } = null!;
+    public DbSet<MealFood> MealFoods { get; set; } = null!;
+    public DbSet<FoodIngredient> FoodIngredients { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,7 +41,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             // Enum conversions
             entity.Property(e => e.PrimaryNutritionGoal).HasConversion<string>();
             entity.Property(e => e.ActivityLevel).HasConversion<string>();
-            entity.Property(e => e.gender).HasConversion<string>();
+            entity.Property(e => e.Gender).HasConversion<string>();
 
             // Navigation properties
             entity.HasMany(u => u.Ingredients)

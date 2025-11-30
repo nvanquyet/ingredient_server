@@ -1,4 +1,6 @@
 ﻿using System.Net;
+using IngredientServer.Core.Configuration;
+using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Infrastructure.Data;
@@ -17,6 +19,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -45,6 +49,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddHttpContextAccessor();
 
+// Configuration - Azure OpenAI
+builder.Services.Configure<AzureOpenAIOptions>(
+    builder.Configuration.GetSection(AzureOpenAIOptions.SectionName));
+
 // Repositories - từ Infrastructure.Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IIngredientRepository, IngredientRepository>();
@@ -71,10 +79,6 @@ builder.Services.AddHttpClient();
 
 // JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? throw new InvalidOperationException("JWT Secret is not configured");
-Console.WriteLine("=== DEBUG CONFIGURATION ===");
-Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
-Console.WriteLine($"Content Root: {builder.Environment.ContentRootPath}");
-Console.WriteLine($"JWT Secret: {(string.IsNullOrEmpty(jwtSecret) ? "Not configured" : "Configured")}");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -184,7 +188,7 @@ app.MapControllers();
 // Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { 
     status = "healthy", 
-    timestamp = DateTime.UtcNow,
+    timestamp = DateTimeHelper.UtcNow,
     version = "1.0.0"
 }));
 
@@ -209,16 +213,19 @@ using (var scope = app.Services.CreateScope())
     {
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await context.Database.EnsureCreatedAsync();
-        Console.WriteLine("Database initialized successfully");
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("Database initialized successfully");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Database initialization failed: {ex.Message}");
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Database initialization failed");
         throw;
     }
 }
 
-Console.WriteLine($"Application starting on {DateTime.UtcNow}");
-Console.WriteLine($"Environment: {app.Environment.EnvironmentName}");
+var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+startupLogger.LogInformation("Application starting on {Time}", DateTimeHelper.UtcNow);
+startupLogger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
 
 app.Run();

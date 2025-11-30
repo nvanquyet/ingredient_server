@@ -1,4 +1,4 @@
-﻿# ============================================
+# ============================================
 # Dockerfile - IngredientServer/Dockerfile
 # ============================================
 
@@ -23,7 +23,7 @@ WORKDIR "/src/IngredientServer"
 # Build the application
 RUN dotnet build "IngredientServer.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
-# Stage 3: Publish
+# Stage 2: Publish
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "IngredientServer.csproj" \
@@ -31,8 +31,8 @@ RUN dotnet publish "IngredientServer.csproj" \
     -o /app/publish \
     /p:UseAppHost=false
 
-# Stage 4: Final
-FROM base AS final
+# Stage 3: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 
 # Copy published app

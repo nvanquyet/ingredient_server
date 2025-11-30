@@ -1,10 +1,10 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Entity;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OpenAI;
 using OpenAI.Chat;
@@ -16,12 +16,16 @@ namespace IngredientServer.Core.Services
         private readonly ChatClient _chatClient;
         private readonly ILogger<AIService> _logger;
         private readonly IImageService _imageService;
-        private readonly string _model;
+        private readonly AzureOpenAIOptions _options;
         private readonly SemaphoreSlim _semaphore;
         private readonly JsonSerializerOptions _jsonOptions;
+        private readonly HttpClient _httpClient;
         private bool _disposed;
 
-        public AIService(IConfiguration configuration, IImageService _imageService, ILogger<AIService> logger)
+        public AIService(
+            IOptions<AzureOpenAIOptions> options,
+            IImageService imageService,
+            ILogger<AIService> logger)
         {
             _logger = logger;
             this._imageService = _imageService;
@@ -33,7 +37,7 @@ namespace IngredientServer.Core.Services
             var openAIClient = new OpenAIClient(apiKey);
             _chatClient = openAIClient.GetChatClient(_model);
 
-            _semaphore = new SemaphoreSlim(10, 10);
+            _semaphore = new SemaphoreSlim(_options.MaxConcurrentRequests, _options.MaxConcurrentRequests);
 
             _jsonOptions = new JsonSerializerOptions
             {
@@ -152,6 +156,10 @@ namespace IngredientServer.Core.Services
                 }
 
                 var imageUrl = await _imageService.SaveImageAsync(request.Image);
+                if (string.IsNullOrEmpty(imageUrl))
+                {
+                    throw new InvalidOperationException("Failed to save image");
+                }
 
                 var systemPrompt = CreateFoodAnalysisSystemPrompt();
                 var userPrompt = CreateFoodAnalysisUserPrompt(imageUrl);
@@ -195,6 +203,10 @@ namespace IngredientServer.Core.Services
                 }
 
                 var imageUrl = await _imageService.SaveImageAsync(request.Image);
+                if (string.IsNullOrEmpty(imageUrl))
+                {
+                    throw new InvalidOperationException("Failed to save image");
+                }
 
                 var systemPrompt = CreateIngredientAnalysisSystemPrompt();
                 var userPrompt = CreateIngredientAnalysisUserPrompt(imageUrl);
@@ -531,7 +543,7 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
 
             if (userInfo.DateOfBirth.HasValue)
             {
-                var age = DateTime.Now.Year - userInfo.DateOfBirth.Value.Year;
+                var age = DateTimeHelper.CalculateAge(userInfo.DateOfBirth) ?? 0;
                 prompt += $"• Tuổi: {age}\n";
             }
 
@@ -691,7 +703,7 @@ LƯU Ý QUAN TRỌNG:
 
             if (userInfo.DateOfBirth.HasValue)
             {
-                var age = DateTime.Now.Year - userInfo.DateOfBirth.Value.Year;
+                var age = DateTimeHelper.CalculateAge(userInfo.DateOfBirth) ?? 0;
                 prompt += $"• Tuổi: {age}\n";
             }
 
@@ -920,8 +932,9 @@ LƯU Ý QUAN TRỌNG:
 
                         if (recipe.MealDate == default(DateTime))
                         {
-                            recipe.MealDate = DateTime.UtcNow;
+                            recipe.MealDate = DateTimeHelper.UtcNow;
                         }
+                        recipe.MealDate = DateTimeHelper.NormalizeToUtc(recipe.MealDate);
 
                         return recipe;
                     }
@@ -941,6 +954,7 @@ LƯU Ý QUAN TRỌNG:
             if (!_disposed)
             {
                 _semaphore?.Dispose();
+                _httpClient?.Dispose();
                 _disposed = true;
             }
         }

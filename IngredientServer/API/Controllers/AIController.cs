@@ -14,7 +14,7 @@ namespace IngredientServer.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class AIController(IAIService _aiService, IUserContextService userContextService, ILogger<AIController> logger) : ControllerBase
+    public class AIController(IAIService _aiService) : ControllerBase
     {
 
         /// <summary>

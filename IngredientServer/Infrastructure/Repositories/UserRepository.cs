@@ -1,4 +1,5 @@
 ﻿using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Core.Services;
@@ -22,8 +23,6 @@ public class UserRepository(ApplicationDbContext context, IUserContextService us
         {
             return null; // Invalid user ID
         }
-        // Fetch the user by ID to validate the token
-        Console.WriteLine($"ValidateTokenAsync - UserId: {userId}");
         return await Context.Users
             .FirstOrDefaultAsync(u => u.Id == userId);
     }
@@ -43,8 +42,8 @@ public class UserRepository(ApplicationDbContext context, IUserContextService us
     
     public async Task<User> AddForRegistrationAsync(User user)
     {
-        user.CreatedAt = DateTime.UtcNow;
-        user.UpdatedAt = DateTime.UtcNow;
+        user.CreatedAt = DateTimeHelper.UtcNow;
+        user.UpdatedAt = DateTimeHelper.UtcNow;
         user.IsActive = true;
         
         Context.Users.Add(user);
@@ -54,17 +53,15 @@ public class UserRepository(ApplicationDbContext context, IUserContextService us
     
     public async Task UpdateForLoginAsync(User user)
     {
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = DateTimeHelper.UtcNow;
         Context.Users.Update(user);
         await Context.SaveChangesAsync();
     }
     
-    public async Task<User?> GetByIdAsync(int id)
+    public new async Task<User?> GetByIdAsync(int id)
     {
         id = userContextService.GetAuthenticatedUserId();
-        var user = await Context.Users
+        return await Context.Users
             .FirstOrDefaultAsync(u => u.Id == id);
-        Console.WriteLine($"GetByIdAsync - UserId: {id}, User: {(user == null ? "null" : user.Id)}");
-        return user;
     }
 }

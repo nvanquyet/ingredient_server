@@ -1,9 +1,11 @@
 ﻿using System.Net.Http;
 using System.Net.Http.Json;
 using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs.Entity;
+using IngredientServer.Utils.Mappers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -16,7 +18,6 @@ public class FoodService(
     IMealFoodRepository mealFoodRepository,
     IIngredientRepository ingredientRepository,
     IFoodIngredientRepository foodIngredientRepository,
-    HttpClient httpClient,
     IAIService aiService,
     IUserContextService userContextService,
     IImageService imageService,
@@ -26,7 +27,7 @@ public class FoodService(
     public async Task<FoodDataResponseDto> CreateFoodAsync(CreateFoodRequestDto dataDto)
     {
         var userId = userContextService.GetAuthenticatedUserId();
-        var operationId = Guid.NewGuid().ToString("N")[..8]; // Tạo ID để track operation
+        var operationId = Guid.NewGuid().ToString("N")[..8];
 
         logger.LogInformation("=== START CREATE FOOD OPERATION ===");
         logger.LogInformation("Operation ID: {OperationId}, User ID: {UserId}", operationId, userId);
@@ -40,12 +41,6 @@ public class FoodService(
         }
 
         dataDto.NormalizeConsumedAt();
-        // Log detailed input data
-        logger.LogInformation("Input Data - Calories: {Calories}, Protein: {Protein}g, Carbs: {Carbs}g, Fat: {Fat}g",
-            dataDto.Calories, dataDto.Protein, dataDto.Carbohydrates, dataDto.Fat);
-        logger.LogInformation("Cooking Time: {CookingTime}min, Prep Time: {PrepTime}min, Difficulty: {Difficulty}",
-            dataDto.CookingTimeMinutes, dataDto.PreparationTimeMinutes, dataDto.DifficultyLevel);
-        logger.LogInformation("Ingredients Count: {IngredientCount}", dataDto.Ingredients?.Count() ?? 0);
 
         string? imageUrl = "";
 
@@ -95,31 +90,32 @@ public class FoodService(
         var savedFood = await foodRepository.AddAsync(food);
         logger.LogInformation("Food saved with ID: {FoodId}", savedFood.Id);
 
+        // FIX: Chuẩn hóa MealDate về Date (bỏ time component)
+        var mealDate = dataDto.MealDate.Date;
+
         // Handle Meal logic
         logger.LogInformation("Checking for existing meal - Date: {MealDate}, Type: {MealType}",
-            dataDto.MealDate, dataDto.MealType);
-        
-        
+            mealDate, dataDto.MealType);
 
-        var existingMeals = await mealRepository.GetByDateAsync(dataDto.MealDate);
+        var existingMeals = await mealRepository.GetByDateAsync(mealDate);
         var meal = existingMeals.FirstOrDefault(m => m.MealType == dataDto.MealType);
-        
+
         if (meal == null)
         {
-            logger.LogInformation("Creating new meal for {MealType} on {MealDate}", dataDto.MealType, dataDto.MealDate);
+            logger.LogInformation("Creating new meal for {MealType} on {MealDate}",
+                dataDto.MealType, mealDate);
             meal = await mealRepository.AddAsync(new Meal
             {
                 MealType = dataDto.MealType,
-                MealDate = dataDto.MealDate,
+                MealDate = mealDate, // FIX: Chỉ lưu Date
                 UserId = userId
             });
             logger.LogInformation("New meal created with ID: {MealId}", meal.Id);
         }
         else
         {
-            logger.LogInformation("Before adding MealFood - Meal {MealId} has {Count} foods", 
+            logger.LogInformation("Using existing meal with ID: {MealId}, Current food count: {Count}",
                 meal.Id, meal.MealFoods?.Count ?? 0);
-            logger.LogInformation("Using existing meal with ID: {MealId}", meal.Id);
         }
 
         // Link Food with Meal
@@ -224,7 +220,7 @@ public class FoodService(
             Tips = savedFood.Tips,
             DifficultyLevel = savedFood.DifficultyLevel,
             MealType = dataDto.MealType,
-            MealDate = dataDto.MealDate,
+            MealDate = mealDate, // FIX: Trả về Date đã chuẩn hóa
             ConsumedAt = dataDto.ConsumedAt,
             Ingredients = dataDto.Ingredients?.Select(i => new FoodIngredientDto
             {
@@ -236,10 +232,9 @@ public class FoodService(
         };
 
         logger.LogInformation("=== FOOD CREATION COMPLETED SUCCESSFULLY ===");
-        logger.LogInformation("Operation ID: {OperationId}, Food ID: {FoodId}, Total time: {ElapsedTime}ms",
-            operationId, savedFood.Id, DateTime.UtcNow.Subtract(DateTime.UtcNow).TotalMilliseconds);
+        logger.LogInformation("Operation ID: {OperationId}, Food ID: {FoodId}",
+            operationId, savedFood.Id);
 
-        // Log potential warnings for client
         if (insufficientIngredients.Count > 0)
         {
             logger.LogInformation("⚠️  Warning: Some ingredients had insufficient stock");
@@ -252,7 +247,7 @@ public class FoodService(
     {
         var operationId = Guid.NewGuid().ToString("N")[..8];
         logger.LogInformation("=== START UPDATE FOOD OPERATION ===");
-        logger.LogInformation($"dto = {dto.ToString()}");
+        logger.LogInformation("Operation ID: {OperationId}, Food ID: {FoodId}", operationId, dto.Id);
 
         dto.NormalizeConsumedAt();
 
@@ -291,60 +286,57 @@ public class FoodService(
         food.DifficultyLevel = dto.DifficultyLevel;
         food.ConsumedAt = dto.ConsumedAt;
         food.UserId = userContextService.GetAuthenticatedUserId();
-        //MealType and MealDate will be handled later
+
         await foodRepository.UpdateAsync(food);
         logger.LogInformation("Food with ID {FoodId} updated successfully.", food.Id);
 
+        // FIX: Chuẩn hóa MealDate về Date (bỏ time component)
+        var mealDate = dto.MealDate.Date;
+
         // Update meal info
-        logger.LogInformation("Checking meal for date {MealDate} and type {MealType}", dto.MealDate, dto.MealType);
-        var meal = (await mealRepository.GetByDateAsync(dto.MealDate))
-            .FirstOrDefault(m => m.MealType == dto.MealType) ?? await mealRepository.AddAsync(new Meal
+        logger.LogInformation("Checking meal for date {MealDate} and type {MealType}", mealDate, dto.MealType);
+
+        var existingMeals = await mealRepository.GetByDateAsync(mealDate);
+        var meal = existingMeals.FirstOrDefault(m => m.MealType == dto.MealType);
+
+        if (meal == null)
+        {
+            logger.LogInformation("Creating new meal for {MealType} on {MealDate}", dto.MealType, mealDate);
+            meal = await mealRepository.AddAsync(new Meal
             {
                 MealType = dto.MealType,
-                MealDate = dto.MealDate,
+                MealDate = mealDate, // FIX: Chỉ lưu Date
                 UserId = userContextService.GetAuthenticatedUserId()
             });
+            logger.LogInformation("New meal created with ID: {MealId}", meal.Id);
+        }
+        else
+        {
+            logger.LogInformation("Using existing meal with ID: {MealId}", meal.Id);
+        }
 
-        logger.LogInformation("Meal ID: {MealId} selected/created for update.", meal.Id);
-
+        // Delete old meal-food links and create new one
         await mealFoodRepository.DeleteAsync(mf => mf.FoodId == food.Id);
         logger.LogInformation("Old meal-food links deleted for Food ID: {FoodId}", food.Id);
-        logger.LogInformation("Tạo liên kết MealFood với MealId: {MealId}, FoodId: {FoodId}", meal.Id, food.Id);
+
         await mealFoodRepository.AddAsync(new MealFood
         {
             MealId = meal.Id,
             FoodId = food.Id,
             UserId = userContextService.GetAuthenticatedUserId()
         });
-        logger.LogInformation("New meal-food link created successfully for Food ID: {FoodId} meal Id {MealID}", food.Id, meal.Id);
+        logger.LogInformation("New meal-food link created: MealId={MealId}, FoodId={FoodId}", meal.Id, food.Id);
+
         logger.LogInformation("=== FOOD UPDATE COMPLETED SUCCESSFULLY ===");
-        return new FoodDataResponseDto
+
+        // Reload food with relationships to get updated data
+        var updatedFood = await foodRepository.GetByIdAsync(food.Id);
+        if (updatedFood == null)
         {
-            Id = food.Id,
-            Name = food.Name,
-            Description = food.Description,
-            ImageUrl = food.ImageUrl,
-            PreparationTimeMinutes = food.PreparationTimeMinutes,
-            CookingTimeMinutes = food.CookingTimeMinutes,
-            Calories = food.Calories,
-            Protein = food.Protein,
-            Carbohydrates = food.Carbohydrates,
-            Fat = food.Fat,
-            Fiber = food.Fiber,
-            Instructions = food.Instructions,
-            Tips = food.Tips,
-            DifficultyLevel = food.DifficultyLevel,
-            ConsumedAt = food.ConsumedAt,
-            MealType = dto.MealType,
-            MealDate = dto.MealDate,
-            Ingredients = dto.Ingredients.Select(i => new FoodIngredientDto
-            {
-                IngredientId = i.IngredientId,
-                Quantity = i.Quantity,
-                Unit = i.Unit,
-                IngredientName = i.IngredientName
-            }).ToList()
-        };
+            throw new UnauthorizedAccessException("Food not found after update");
+        }
+
+        return updatedFood.ToDto();
     }
 
     public async Task<bool> DeleteFoodAsync(int foodId)
@@ -366,6 +358,12 @@ public class FoodService(
             logger.LogWarning("Food with ID {FoodId} not found for deletion.", foodId);
             throw new UnauthorizedAccessException("Food not found or access denied.");
         }
+
+        // LƯU LẠI MealIds TRƯỚC KHI XÓA (để check empty meals sau)
+        var affectedMealIds = food.MealFoods?.Select(mf => mf.MealId).Distinct().ToList()
+                              ?? new List<int>();
+        logger.LogInformation("Food {FoodId} belongs to {Count} meal(s): [{MealIds}]",
+            foodId, affectedMealIds.Count, string.Join(", ", affectedMealIds));
 
         logger.LogInformation("Restoring ingredients from food {FoodId}...", foodId);
 
@@ -434,7 +432,7 @@ public class FoodService(
 
         logger.LogInformation("Deleting meal-food and food-ingredient links for Food ID: {FoodId}", foodId);
 
-        // Delete related entities - using DeleteSafeAsync to avoid exceptions when no entities found
+        // Delete related entities
         try
         {
             await mealFoodRepository.DeleteSafeAsync(mf => mf.FoodId == foodId);
@@ -465,7 +463,46 @@ public class FoodService(
         logger.LogInformation("Deleting food record with ID: {FoodId}", foodId);
         var result = await foodRepository.DeleteAsync(foodId);
 
+        // THÊM: Cleanup empty meals
+        logger.LogInformation("Checking for empty meals after food deletion...");
+        var emptyMealsDeleted = 0;
+
+        foreach (var mealId in affectedMealIds)
+        {
+            try
+            {
+                // Đếm số Food còn lại trong Meal
+                var remainingFoods = await mealFoodRepository.GetByMealIdAsync(mealId);
+
+                if (remainingFoods == null || !remainingFoods.Any())
+                {
+                    logger.LogInformation("Meal {MealId} is now empty, deleting...", mealId);
+                    await mealRepository.DeleteAsync(mealId);
+                    emptyMealsDeleted++;
+                    logger.LogInformation("Empty meal {MealId} deleted successfully", mealId);
+                }
+                else
+                {
+                    logger.LogInformation("Meal {MealId} still has {Count} food(s), keeping it",
+                        mealId, remainingFoods.Count());
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to check/delete empty meal {MealId}, continuing", mealId);
+                // Don't throw - meal cleanup failure shouldn't stop the operation
+            }
+        }
+
+        if (emptyMealsDeleted > 0)
+        {
+            logger.LogInformation("Cleaned up {Count} empty meal(s)", emptyMealsDeleted);
+        }
+
         logger.LogInformation("=== FOOD DELETE COMPLETED SUCCESSFULLY ===");
+        logger.LogInformation("Operation ID: {OperationId}, Food ID: {FoodId}, Empty meals deleted: {EmptyMealsCount}",
+            operationId, foodId, emptyMealsDeleted);
+
         return result;
     }
 
@@ -508,34 +545,6 @@ public class FoodService(
             throw new UnauthorizedAccessException("Food not found or access denied.");
         }
 
-        var mealFood = food.MealFoods.FirstOrDefault();
-
-        return new FoodDataResponseDto
-        {
-            Id = food.Id,
-            Name = food.Name,
-            Description = food.Description,
-            ImageUrl = food.ImageUrl,
-            PreparationTimeMinutes = food.PreparationTimeMinutes,
-            CookingTimeMinutes = food.CookingTimeMinutes,
-            Calories = food.Calories,
-            Protein = food.Protein,
-            Carbohydrates = food.Carbohydrates,
-            Fat = food.Fat,
-            Fiber = food.Fiber,
-            Instructions = food.Instructions,
-            Tips = food.Tips,
-            DifficultyLevel = food.DifficultyLevel,
-            ConsumedAt = food.ConsumedAt,
-            MealType = mealFood?.Meal.MealType ?? MealType.Breakfast,
-            MealDate = mealFood?.Meal.MealDate ?? DateTime.UtcNow,
-            Ingredients = food.FoodIngredients.Select(fi => new FoodIngredientDto
-            {
-                IngredientId = fi.IngredientId,
-                Quantity = fi.Quantity,
-                Unit = fi.Unit,
-                IngredientName = fi.Ingredient.Name
-            }).ToList()
-        };
+        return food.ToDto();
     }
 }

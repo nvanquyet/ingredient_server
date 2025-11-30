@@ -17,6 +17,8 @@ public class MealRepository(ApplicationDbContext context, IUserContextService us
         }
 
         return await Context.Set<Meal>()
+            .Include(m => m.MealFoods)
+            .ThenInclude(mf => mf.Food)
             .Where(m => m.UserId == AuthenticatedUserId && m.MealDate.Date == parsedDate.Date)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -26,6 +28,8 @@ public class MealRepository(ApplicationDbContext context, IUserContextService us
     public async Task<IEnumerable<Meal>> GetByDateAsync(DateTime date)
     {
         return await Context.Set<Meal>()
+            .Include(m => m.MealFoods)           // ← THÊM DÒNG NÀY
+            .ThenInclude(mf => mf.Food)      // ← THÊM DÒNG NÀY
             .Where(m => m.UserId == AuthenticatedUserId && m.MealDate.Date == date)
             .ToListAsync();
     }
@@ -33,8 +37,8 @@ public class MealRepository(ApplicationDbContext context, IUserContextService us
     public async Task<Meal> GetByIdWithFoodsAsync(int mealId)
     {
         var meal = await Context.Set<Meal>()
-            .Include(m => m.MealFoods)
-            .ThenInclude(mf => mf.Food)
+            .Include(m => m.MealFoods)           // ← CHỈ 1 LẦN
+            .ThenInclude(mf => mf.Food)      // ← CHỈ 1 LẦN
             .Where(m => m.Id == mealId && m.UserId == AuthenticatedUserId)
             .FirstOrDefaultAsync();
 

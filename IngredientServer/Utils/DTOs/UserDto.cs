@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 
 namespace IngredientServer.Utils.DTOs;
 
@@ -35,9 +36,9 @@ public class UserInformationDto
 
 public class UserNutritionRequestDto
 {
-    public DateTime CurrentDate { get; set; } = DateTime.UtcNow;
-    public DateTime StartDate{ get; set; } = DateTime.UtcNow.AddDays(-7);
-    public DateTime EndDate { get; set; } = DateTime.UtcNow.AddDays(7);
+    public DateTime CurrentDate { get; set; } = DateTimeHelper.UtcNow;
+    public DateTime StartDate{ get; set; } = DateTimeHelper.UtcNow.AddDays(-7);
+    public DateTime EndDate { get; set; } = DateTimeHelper.UtcNow.AddDays(7);
     public UserInformationDto UserInformationDto { get; set; } = new UserInformationDto();
 }
 
@@ -124,7 +125,7 @@ public class UserProfileDto
             Email = user.Email,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            Gender = user.gender,
+            Gender = user.Gender,
             DateOfBirth = user.DateOfBirth,
             Height = user.Height,
             Weight = user.Weight,

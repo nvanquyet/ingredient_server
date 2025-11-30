@@ -1,4 +1,5 @@
 ﻿using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
@@ -20,15 +21,19 @@ public class NutritionService(
     {
         //Log current date
         logger.LogInformation("Getting daily nutrition summary for date: {Date}", userNutritionRequestDto.CurrentDate);
+        
+        // Normalize and adjust date if needed
+        var normalizedDate = DateTimeHelper.NormalizeToUtc(userNutritionRequestDto.CurrentDate);
         if (usingAIAssistant)
         {
-            var targetDate = userNutritionRequestDto.CurrentDate.Date.AddDays(1);
-            userNutritionRequestDto.CurrentDate = targetDate;
+            normalizedDate = normalizedDate.Date.AddDays(1);
+            userNutritionRequestDto.CurrentDate = normalizedDate;
         }
+        
         var mealBreakdown = new List<NutritionDto>();
         var result = new DailyNutritionSummaryDto()
         {
-            Date = userNutritionRequestDto.CurrentDate,
+            Date = normalizedDate,
             TotalCalories = 0,
             TotalProtein = 0,
             TotalCarbs = 0,
@@ -40,9 +45,8 @@ public class NutritionService(
         var requiredMealTypes = new List<MealType>
             { MealType.Breakfast, MealType.Lunch, MealType.Dinner, MealType.Snack, MealType.Other };
 
-        // Lấy meals theo ngày
-        var existingMeals =
-            await mealRepository.GetByDateAsync(userNutritionRequestDto.CurrentDate.ToString("yyyy-MM-dd"));
+        // Lấy meals theo ngày đã normalize
+        var existingMeals = await mealRepository.GetByDateAsync(normalizedDate);
         var mealList = existingMeals?.ToList() ?? new List<Meal>();
 
         // Group meals theo MealType và chỉ lấy meal mới nhất cho mỗi loại
@@ -66,7 +70,7 @@ public class NutritionService(
                 finalMeals.Add(new Meal
                 {
                     MealType = mealType,
-                    MealDate = userNutritionRequestDto.CurrentDate,
+                    MealDate = normalizedDate,
                     TotalCalories = 0,
                     TotalProtein = 0,
                     TotalCarbs = 0,

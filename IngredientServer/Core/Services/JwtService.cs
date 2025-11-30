@@ -2,8 +2,10 @@
 using System.Security.Claims;
 using System.Text;
 using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Services;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace IngredientServer.Core.Services;
@@ -12,10 +14,12 @@ public class JwtService : IJwtService
 {
     private readonly IConfiguration configuration;
     private readonly TokenValidationParameters tokenValidationParameters;
+    private readonly ILogger<JwtService>? logger;
 
-    public JwtService(IConfiguration configuration)
+    public JwtService(IConfiguration configuration, ILogger<JwtService>? logger = null)
     {
         this.configuration = configuration;
+        this.logger = logger;
 
         // Setup token validation parameters
         this.tokenValidationParameters = new TokenValidationParameters
@@ -41,7 +45,7 @@ public class JwtService : IJwtService
             if (validatedToken is not JwtSecurityToken jwtToken ||
                 !jwtToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
             {
-                Console.WriteLine("Token algorithm is invalid");
+                logger?.LogWarning("Token algorithm is invalid");
                 return null;
             }
 
@@ -49,17 +53,17 @@ public class JwtService : IJwtService
         }
         catch (SecurityTokenExpiredException ex)
         {
-            Console.WriteLine($"Token expired: {ex.Message}");
+            logger?.LogWarning(ex, "Token expired");
             return null;
         }
         catch (SecurityTokenInvalidSignatureException ex)
         {
-            Console.WriteLine($"Invalid signature: {ex.Message}");
+            logger?.LogWarning(ex, "Invalid signature");
             return null;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Token validation failed: {ex.Message}");
+            logger?.LogError(ex, "Token validation failed");
             return null;
         }
     }
@@ -77,7 +81,7 @@ public class JwtService : IJwtService
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.Email, user.Email)
             }),
-            Expires = DateTime.UtcNow.AddHours(24),
+            Expires = DateTimeHelper.UtcNow.AddHours(24),
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
 

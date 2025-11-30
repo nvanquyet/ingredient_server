@@ -1,4 +1,5 @@
-﻿using IngredientServer.Core.Interfaces.Services;
+﻿using IngredientServer.Core.Helpers;
+using IngredientServer.Core.Interfaces.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -44,10 +45,10 @@ public class ImageService(
 
             logger.LogInformation("Saving image to: {FilePath}", filePath);
 
-            var startTime = DateTime.UtcNow;
+            var startTime = DateTimeHelper.UtcNow;
             await using var fileStream = new FileStream(filePath, FileMode.Create);
             await image.CopyToAsync(fileStream);
-            var saveTime = DateTime.UtcNow.Subtract(startTime).TotalMilliseconds;
+            var saveTime = DateTimeHelper.UtcNow.Subtract(startTime).TotalMilliseconds;
 
             logger.LogInformation("Image saved successfully in {SaveTime}ms", saveTime);
 

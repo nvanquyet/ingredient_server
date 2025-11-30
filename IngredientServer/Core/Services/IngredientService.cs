@@ -1,7 +1,9 @@
 ﻿using IngredientServer.Core.Entities;
+using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs.Entity;
+using IngredientServer.Utils.Mappers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -46,7 +48,7 @@ public class IngredientService(IIngredientRepository ingredientRepository,
             Description = dto.Description,
             Category = dto.Category,
             Quantity = dto.Quantity,
-            ExpiryDate = dto.ExpiryDate,
+            ExpiryDate = DateTimeHelper.NormalizeToUtc(dto.ExpiryDate),
             Unit = dto.Unit,
             UserId = userContextService.GetAuthenticatedUserId(),
             ImageUrl = imageUrl
@@ -58,21 +60,8 @@ public class IngredientService(IIngredientRepository ingredientRepository,
         {
             throw new UnauthorizedAccessException("Failed to create ingredient or access denied.");
         }
-        // Map the saved ingredient to DTO
-        var response = new IngredientDataResponseDto
-        {
-            Id = savedIngredient.Id,
-            Name = savedIngredient.Name,
-            Description = savedIngredient.Description,
-            Unit = savedIngredient.Unit,
-            Category = savedIngredient.Category,
-            Quantity = savedIngredient.Quantity,
-            ExpiryDate = savedIngredient.ExpiryDate,
-            ImageUrl = savedIngredient.ImageUrl
-        };
-        response.NormalizeExpiryDate();
         
-        return response;
+        return savedIngredient.ToDto();
     }
 
     public async Task<IngredientDataResponseDto> UpdateIngredientAsync(UpdateIngredientRequestDto dto)
@@ -94,7 +83,7 @@ public class IngredientService(IIngredientRepository ingredientRepository,
         ingredient.Unit = dto.Unit;
         ingredient.Category = dto.Category;
         ingredient.Quantity = dto.Quantity;
-        ingredient.ExpiryDate = dto.ExpiryDate;
+        ingredient.ExpiryDate = DateTimeHelper.NormalizeToUtc(dto.ExpiryDate);
         
         if (dto.Image is { Length: > 0 })
         {
@@ -109,20 +98,7 @@ public class IngredientService(IIngredientRepository ingredientRepository,
         }
 
         var updatedIngredient = await ingredientRepository.UpdateAsync(ingredient);
-        var response = new IngredientDataResponseDto
-        {
-            Id = updatedIngredient.Id,
-            Name = updatedIngredient.Name,
-            Description = updatedIngredient.Description,
-            Unit = updatedIngredient.Unit,
-            Category = updatedIngredient.Category,
-            Quantity = updatedIngredient.Quantity,
-            ExpiryDate = updatedIngredient.ExpiryDate,
-            ImageUrl = updatedIngredient.ImageUrl
-        };
-        response.NormalizeExpiryDate();
-        
-        return response;
+        return updatedIngredient.ToDto();
     }
 
     public async Task<bool> DeleteIngredientAsync(int ingredientId)
@@ -158,16 +134,6 @@ public class IngredientService(IIngredientRepository ingredientRepository,
         {
             throw new UnauthorizedAccessException("Ingredient not found or access denied.");
         }
-        return new IngredientDataResponseDto
-        {
-            Id = ingredient.Id,
-            Name = ingredient.Name,
-            Description = ingredient.Description,
-            Unit = ingredient.Unit,
-            Category = ingredient.Category,
-            Quantity = ingredient.Quantity,
-            ExpiryDate = ingredient.ExpiryDate,
-            ImageUrl = ingredient.ImageUrl
-        };
+        return ingredient.ToDto();
     }
 }
