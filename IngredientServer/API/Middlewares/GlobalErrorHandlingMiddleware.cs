@@ -1,11 +1,11 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using IngredientServer.Core.Helpers;
-
-namespace IngredientServer.API.Middlewares;
+using IngredientServer.Utils.DTOs.Common;
 using System.Net;
 using System.Text.Json;
 
+namespace IngredientServer.API.Middlewares;
 
 public class GlobalErrorHandlingMiddleware
 {
@@ -35,7 +35,7 @@ public class GlobalErrorHandlingMiddleware
     {
         context.Response.ContentType = "application/json";
         
-        var response = new ErrorResponse();
+        var response = new ErrorResponseDto();
 
         switch (exception)
         {
@@ -88,13 +88,4 @@ public class GlobalErrorHandlingMiddleware
 
         await context.Response.WriteAsync(jsonResponse);
     }
-}
-
-public class ErrorResponse
-{
-    public int StatusCode { get; set; }
-    public string Message { get; set; } = string.Empty;
-    public string Details { get; set; } = string.Empty;
-    public DateTime Timestamp { get; set; }
-    public string Path { get; set; } = string.Empty;
 }

@@ -126,7 +126,7 @@ public class UserProfileDto
             FirstName = user.FirstName,
             LastName = user.LastName,
             Gender = user.Gender,
-            DateOfBirth = user.DateOfBirth,
+            DateOfBirth = DateTimeHelper.NormalizeToUtc(user.DateOfBirth),
             Height = user.Height,
             Weight = user.Weight,
             TargetWeight = user.TargetWeight,

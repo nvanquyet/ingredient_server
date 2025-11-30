@@ -1,19 +1,22 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+using Azure;
+using Azure.AI.Inference;
+using Azure.Core.Pipeline;
+using IngredientServer.Core.Configuration;
 using IngredientServer.Core.Entities;
 using IngredientServer.Core.Helpers;
 using IngredientServer.Core.Interfaces.Services;
 using IngredientServer.Utils.DTOs;
 using IngredientServer.Utils.DTOs.Entity;
 using Microsoft.Extensions.Logging;
-using OpenAI;
-using OpenAI.Chat;
+using Microsoft.Extensions.Options;
 
 namespace IngredientServer.Core.Services
 {
     public class AIService : IAIService, IDisposable
     {
-        private readonly ChatClient _chatClient;
+        private readonly ChatCompletionsClient _chatClient;
         private readonly ILogger<AIService> _logger;
         private readonly IImageService _imageService;
         private readonly AzureOpenAIOptions _options;
@@ -28,14 +31,34 @@ namespace IngredientServer.Core.Services
             ILogger<AIService> logger)
         {
             _logger = logger;
-            this._imageService = _imageService;
+            _imageService = imageService;
+            _options = options.Value;
 
-            var apiKey = configuration["OpenAI:ApiKey"];
-            _model = configuration["OpenAI:Model"];
+            // Validate configuration
+            if (string.IsNullOrWhiteSpace(_options.Endpoint))
+                throw new InvalidOperationException("AzureOpenAI:Endpoint is not configured");
+            if (string.IsNullOrWhiteSpace(_options.ApiKey))
+                throw new InvalidOperationException("AzureOpenAI:ApiKey is not configured");
+            if (string.IsNullOrWhiteSpace(_options.Model))
+                throw new InvalidOperationException("AzureOpenAI:Model is not configured");
 
-            // Khởi tạo OpenAI client
-            var openAIClient = new OpenAIClient(apiKey);
-            _chatClient = openAIClient.GetChatClient(_model);
+            var endpoint = new Uri(_options.Endpoint);
+            var credential = new AzureKeyCredential(_options.ApiKey);
+
+            // Create HttpClient with proper timeout
+            _httpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromMinutes(_options.TimeoutMinutes)
+            };
+
+            _chatClient = new ChatCompletionsClient(
+                endpoint,
+                credential,
+                new AzureAIInferenceClientOptions()
+                {
+                    Transport = new HttpClientTransport(_httpClient)
+                }
+            );
 
             _semaphore = new SemaphoreSlim(_options.MaxConcurrentRequests, _options.MaxConcurrentRequests);
 
@@ -155,6 +178,7 @@ namespace IngredientServer.Core.Services
                     throw new ArgumentException("Hình ảnh không được rỗng", nameof(request.Image));
                 }
 
+
                 var imageUrl = await _imageService.SaveImageAsync(request.Image);
                 if (string.IsNullOrEmpty(imageUrl))
                 {
@@ -202,6 +226,7 @@ namespace IngredientServer.Core.Services
                     throw new ArgumentException("Hình ảnh không được rỗng", nameof(request.Image));
                 }
 
+
                 var imageUrl = await _imageService.SaveImageAsync(request.Image);
                 if (string.IsNullOrEmpty(imageUrl))
                 {
@@ -235,31 +260,50 @@ namespace IngredientServer.Core.Services
         private async Task<string> CallOpenAIWithImageAsync(string systemPrompt, string userPrompt, string imageUrl,
             CancellationToken cancellationToken)
         {
-            var messages = new List<ChatMessage>
+            if (string.IsNullOrWhiteSpace(imageUrl))
             {
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage(
-                    ChatMessageContentPart.CreateTextPart(userPrompt),
-                    ChatMessageContentPart.CreateImagePart(new Uri(imageUrl), ChatImageDetailLevel.High)
-                )
-            };
-
-            var options = new ChatCompletionOptions
-            {
-                MaxOutputTokenCount = 2000,
-                Temperature = 0.3f,
-                FrequencyPenalty = 0.1f,
-                PresencePenalty = 0.1f
-            };
-
-            var response = await _chatClient.CompleteChatAsync(messages, options, cancellationToken);
-
-            if (response?.Value?.Content == null || response.Value.Content.Count == 0)
-            {
-                throw new InvalidOperationException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác");
+                throw new ArgumentException("Image URL cannot be null or empty", nameof(imageUrl));
             }
 
-            return response.Value.Content[0].Text;
+            var options = new ChatCompletionsOptions
+            {
+                Model = _options.Model,
+                Messages =
+                {
+                    new ChatRequestSystemMessage(systemPrompt),
+                    new ChatRequestUserMessage(new ChatMessageTextContentItem(userPrompt)),
+                    new ChatRequestUserMessage(new ChatMessageImageContentItem(new Uri(imageUrl),
+                        ChatMessageImageDetailLevel.High))
+                },
+                MaxTokens = _options.MaxTokens,
+                Temperature = _options.ImageAnalysisTemperature,
+                FrequencyPenalty = _options.FrequencyPenalty,
+                PresencePenalty = _options.PresencePenalty
+            };
+
+            try
+            {
+                var response = await _chatClient.CompleteAsync(options, cancellationToken);
+
+                if (response?.Value?.Content == null)
+                {
+                    _logger.LogWarning("Received empty response from Azure OpenAI for image analysis");
+                    throw new InvalidOperationException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác");
+                }
+
+                return response.Value.Content;
+            }
+            catch (RequestFailedException ex)
+            {
+                _logger.LogError(ex, "Azure OpenAI image analysis request failed. Status: {Status}, Error: {Error}", 
+                    ex.Status, ex.Message);
+                throw new HttpRequestException("Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác", ex);
+            }
+            catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+            {
+                _logger.LogError(ex, "Azure OpenAI image analysis request timed out after {Timeout} minutes", _options.TimeoutMinutes);
+                throw new TimeoutException($"Phân tích hình ảnh quá thời gian chờ ({_options.TimeoutMinutes} phút)", ex);
+            }
         }
 
         private string CreateFoodAnalysisSystemPrompt()
@@ -295,9 +339,11 @@ YÊU CẦU PHÂN TÍCH:
 10. Nếu hình ảnh **không rõ**, **không có món ăn**, hoặc **không nhận diện được**, trả về JSON:
 ```json
 { ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"" }
-```
 TRẢ VỀ DUY NHẤT 1 OBJECT JSON:
-```json
+
+json
+Copy
+Edit
 {
   ""name"": ""Tên món ăn"",
   ""description"": ""Mô tả món ăn"",
@@ -308,21 +354,20 @@ TRẢ VỀ DUY NHẤT 1 OBJECT JSON:
   ""carbohydrates"": 45.0,
   ""fat"": 12.0,
   ""fiber"": 5.0,
-  ""instructions"": [""Bước 1..."", ""Bước 2..."", ""...""],
-  ""tips"": [""Mẹo 1..."", ""Mẹo 2...""],
+  ""instructions"": [""Bước 1..."", ""Bước 2..."", ""...""] ,
+  ""tips"": [""Mẹo 1..."", ""Mẹo 2...""] ,
   ""difficultyLevel"": 2,
   ""mealType"": 1,
   ""ingredients"": [
     {
-      ""ingredientId"": 0,
-      ""ingredientName"": ""Tên nguyên liệu"",
+      ""ingredientId"": 0, // Mặc định là 0, không có giá trị khác
+      ""ingredientName"": ""Tên nguyên liệu"", // Giá trị này không được null
       ""quantity"": 100.0,
       ""unit"": 4,
       ""category"": 2
     }
   ]
 }
-```
 KHÔNG được trả thêm mô tả hoặc giải thích ngoài JSON.";
         }
 
@@ -344,9 +389,11 @@ YÊU CẦU PHÂN TÍCH:
 Nếu hình ảnh **không rõ**, **không chứa nguyên liệu**, hoặc **quá mờ**, trả về JSON:
 ```json
 { ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"" }
-```
 TRẢ VỀ DUY NHẤT 1 OBJECT JSON:
-```json
+
+json
+Copy
+Edit
 {
   ""name"": ""Tên nguyên liệu"",
   ""description"": ""Chi tiết mô tả"",
@@ -355,7 +402,6 @@ TRẢ VỀ DUY NHẤT 1 OBJECT JSON:
   ""category"": 2,
   ""expiryDate"": ""2025-01-01T00:00:00Z""
 }
-```
 KHÔNG được kèm theo mô tả hoặc văn bản ngoài JSON.";
         }
 
@@ -375,7 +421,6 @@ YÊU CẦU:
 - Nếu hình ảnh không hợp lệ, trả về:
 ```json
 {{ ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"" }}
-```
 Chỉ trả về JSON object, không kèm mô tả thêm.";
         }
 
@@ -395,7 +440,6 @@ YÊU CẦU:
 Nếu ảnh không rõ hoặc không có nguyên liệu, trả về:
 ```json
 {{ ""error"": ""Không thể phân tích hình ảnh, vui lòng chụp hoặc upload ảnh khác"" }}
-```
 Chỉ trả về JSON object, không kèm giải thích.";
         }
 
@@ -615,28 +659,43 @@ CHỈ TRẢ VỀ JSON ARRAY, KHÔNG KÈM TEXT GIẢI THÍCH.";
         private async Task<string> CallOpenAIAsync(string systemPrompt, string userPrompt,
             CancellationToken cancellationToken)
         {
-            var messages = new List<ChatMessage>
+            var options = new ChatCompletionsOptions
             {
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage(userPrompt)
+                Model = _options.Model,
+                Messages =
+                {
+                    new ChatRequestSystemMessage(systemPrompt),
+                    new ChatRequestUserMessage(userPrompt)
+                },
+                MaxTokens = _options.MaxTokens,
+                Temperature = _options.Temperature,
+                FrequencyPenalty = _options.FrequencyPenalty,
+                PresencePenalty = _options.PresencePenalty
             };
 
-            var options = new ChatCompletionOptions
+            try
             {
-                MaxOutputTokenCount = 2000,
-                Temperature = 0.7f,
-                FrequencyPenalty = 0.1f,
-                PresencePenalty = 0.1f
-            };
+                var response = await _chatClient.CompleteAsync(options, cancellationToken);
 
-            var response = await _chatClient.CompleteChatAsync(messages, options, cancellationToken);
+                if (response?.Value?.Content == null)
+                {
+                    _logger.LogWarning("Received empty response from Azure OpenAI");
+                    throw new InvalidOperationException("Received empty response from Azure OpenAI");
+                }
 
-            if (response?.Value?.Content == null || response.Value.Content.Count == 0)
-            {
-                throw new InvalidOperationException("Received empty response from OpenAI");
+                return response.Value.Content;
             }
-
-            return response.Value.Content[0].Text;
+            catch (RequestFailedException ex)
+            {
+                _logger.LogError(ex, "Azure OpenAI API request failed. Status: {Status}, Error: {Error}", 
+                    ex.Status, ex.Message);
+                throw new HttpRequestException($"Azure OpenAI API request failed: {ex.Message}", ex);
+            }
+            catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+            {
+                _logger.LogError(ex, "Azure OpenAI API request timed out after {Timeout} minutes", _options.TimeoutMinutes);
+                throw new TimeoutException($"Azure OpenAI API request timed out after {_options.TimeoutMinutes} minutes", ex);
+            }
         }
 
         private string CreateFoodSuggestionSystemPrompt()

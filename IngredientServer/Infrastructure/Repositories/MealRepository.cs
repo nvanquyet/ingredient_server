@@ -2,6 +2,7 @@
 using IngredientServer.Core.Interfaces.Repositories;
 using IngredientServer.Infrastructure.Data;
 using IngredientServer.Core.Interfaces.Services;
+using IngredientServer.Core.Helpers;
 using Microsoft.EntityFrameworkCore;
 
 namespace IngredientServer.Infrastructure.Repositories;
@@ -16,10 +17,13 @@ public class MealRepository(ApplicationDbContext context, IUserContextService us
             throw new ArgumentException("Invalid date format.");
         }
 
+        // Normalize to UTC before comparison
+        var normalizedDate = DateTimeHelper.NormalizeToUtc(parsedDate).Date;
+
         return await Context.Set<Meal>()
             .Include(m => m.MealFoods)
             .ThenInclude(mf => mf.Food)
-            .Where(m => m.UserId == AuthenticatedUserId && m.MealDate.Date == parsedDate.Date)
+            .Where(m => m.UserId == AuthenticatedUserId && m.MealDate.Date == normalizedDate)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -27,10 +31,13 @@ public class MealRepository(ApplicationDbContext context, IUserContextService us
 
     public async Task<IEnumerable<Meal>> GetByDateAsync(DateTime date)
     {
+        // Normalize to UTC before comparison
+        var normalizedDate = DateTimeHelper.NormalizeToUtc(date).Date;
+
         return await Context.Set<Meal>()
             .Include(m => m.MealFoods)           // ← THÊM DÒNG NÀY
             .ThenInclude(mf => mf.Food)      // ← THÊM DÒNG NÀY
-            .Where(m => m.UserId == AuthenticatedUserId && m.MealDate.Date == date)
+            .Where(m => m.UserId == AuthenticatedUserId && m.MealDate.Date == normalizedDate)
             .ToListAsync();
     }
 

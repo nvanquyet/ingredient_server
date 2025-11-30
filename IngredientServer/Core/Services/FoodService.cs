@@ -90,8 +90,8 @@ public class FoodService(
         var savedFood = await foodRepository.AddAsync(food);
         logger.LogInformation("Food saved with ID: {FoodId}", savedFood.Id);
 
-        // FIX: Chuẩn hóa MealDate về Date (bỏ time component)
-        var mealDate = dataDto.MealDate.Date;
+        // Normalize to UTC and get date only (bỏ time component)
+        var mealDate = DateTimeHelper.NormalizeToUtc(dataDto.MealDate).Date;
 
         // Handle Meal logic
         logger.LogInformation("Checking for existing meal - Date: {MealDate}, Type: {MealType}",
@@ -290,8 +290,8 @@ public class FoodService(
         await foodRepository.UpdateAsync(food);
         logger.LogInformation("Food with ID {FoodId} updated successfully.", food.Id);
 
-        // FIX: Chuẩn hóa MealDate về Date (bỏ time component)
-        var mealDate = dto.MealDate.Date;
+        // Normalize to UTC and get date only (bỏ time component)
+        var mealDate = DateTimeHelper.NormalizeToUtc(dto.MealDate).Date;
 
         // Update meal info
         logger.LogInformation("Checking meal for date {MealDate} and type {MealType}", mealDate, dto.MealType);

@@ -237,8 +237,11 @@ public class NutritionService(
         var mealArray = meals as Meal[] ?? meals.ToArray();
         var sortedMeals = mealArray.OrderBy(m => m.MealDate).ToArray();
 
-        //Laays danh sach ngay ton tai
-        var existingDays = sortedMeals.Select(m => m.MealDate.Date).Distinct().ToList();
+        // Lấy danh sách ngày tồn tại (normalize to UTC trước khi lấy Date)
+        var existingDays = sortedMeals
+            .Select(m => DateTimeHelper.NormalizeToUtc(m.MealDate).Date)
+            .Distinct()
+            .ToList();
         var userRequest = new UserNutritionRequestDto
         {
             UserInformationDto = userInformation
